@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MaTri DoseRight — Argentina</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5ee; }
+
+  .admin-bar { background: #0b4358; color: #fff; padding: 0.5rem 1.5rem; display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .admin-bar span { opacity: 0.7; }
+  .admin-toggle { background: none; border: 0.5px solid rgba(255,255,255,0.4); border-radius: 6px; color: #fff; padding: 4px 12px; font-size: 11px; cursor: pointer; }
+  .admin-toggle:hover { background: rgba(255,255,255,0.1); }
+  .admin-panel { background: #0d3f54; padding: 1rem 1.5rem; display: none; border-bottom: 2px solid #b5cc2e; }
+  .admin-panel.open { display: block; }
+  .admin-panel-title { font-size: 11px; font-weight: 700; color: #b5cc2e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.75rem; }
+  .admin-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .admin-field { flex: 1; min-width: 160px; }
+  .admin-label { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+  .admin-input { width: 100%; background: rgba(255,255,255,0.1); border: 0.5px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 7px 10px; color: #fff; font-size: 14px; font-weight: 600; }
+  .admin-input:focus { outline: none; border-color: #b5cc2e; }
+  .admin-save { background: #b5cc2e; color: #0b4358; border: none; border-radius: 7px; padding: 7px 16px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .admin-save:hover { background: #c8de38; }
+  .admin-note { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 0.5rem; }
+
+  .matri-header { background: #fff; border-bottom: 0.5px solid #e0e0d8; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .matri-logo-text { font-size: 28px; font-weight: 700; color: #0b4358; letter-spacing: -1px; }
+  .matri-logo-dot { color: #b5cc2e; }
+  .matri-logo-sub { font-size: 12px; color: #0b4358; font-weight: 400; margin-top: 1px; }
+
+  .hero { background: #b5cc2e; padding: 2rem 2rem 1.6rem; text-align: center; }
+  .hero h1 { font-size: 30px; font-weight: 800; color: #0b4358; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .hero p { font-size: 14px; color: #2a5c2a; }
+
+  .main { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .section-title { font-size: 17px; font-weight: 700; color: #0b4358; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 0.5px solid #d0d0c8; }
+
+  .product-tabs { display: flex; margin-bottom: 1.5rem; border-radius: 10px; overflow: hidden; border: 0.5px solid #ddddd5; }
+  .tab-btn { flex: 1; padding: 0.85rem; border: none; background: #fff; color: #0b4358; font-size: 14px; font-weight: 600; cursor: pointer; border-right: 0.5px solid #ddddd5; transition: background 0.15s; }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn.active { background: #0b4358; color: #fff; }
+  .tab-btn:not(.active):hover { background: #f5f5ee; }
+
+  .card { background: #fff; border-radius: 12px; border: 0.5px solid #ddddd5; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .card-title { font-size: 15px; font-weight: 700; color: #0b4358; margin-bottom: 1rem; }
+
+  .form-group { margin-bottom: 1.1rem; }
+  .form-label { display: block; font-size: 13px; font-weight: 500; color: #0b4358; margin-bottom: 5px; }
+  .form-label span { color: #888; font-weight: 400; }
+  input[type="number"], input[type="text"] { width: 100%; padding: 10px 12px; border-radius: 8px; border: 0.5px solid #ccc; font-size: 14px; color: #0b4358; background: #fafaf8; font-family: inherit; }
+  input:focus { outline: none; border-color: #0b4358; box-shadow: 0 0 0 2px rgba(11,67,88,0.1); }
+  .hint { font-size: 11px; color: #888; margin-top: 4px; }
+
+  .dose-row { display: flex; gap: 10px; align-items: flex-end; }
+  .dose-row .form-group { flex: 1; margin-bottom: 0; }
+  .reset-dose { background: none; border: 0.5px solid #b5cc2e; color: #3b6d11; border-radius: 8px; padding: 10px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .reset-dose:hover { background: #f0f7e0; }
+
+  .calc-btn { background: #e8736a; color: #fff; border: none; border-radius: 10px; padding: 0.85rem 2rem; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 0.5rem; font-family: inherit; letter-spacing: 0.3px; }
+  .calc-btn:hover { background: #d4605a; }
+
+  .result-card { background: #fff; border-radius: 12px; border: 2px solid #b5cc2e; padding: 1.5rem; margin-bottom: 1.25rem; display: none; }
+  .result-card.visible { display: block; }
+  .result-title { font-size: 13px; font-weight: 700; color: #0b4358; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
+
+  .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1rem; }
+  .metric-box { background: #f5f5ee; border-radius: 8px; padding: 0.75rem; text-align: center; }
+  .metric-label { font-size: 11px; color: #666; margin-bottom: 3px; }
+  .metric-value { font-size: 20px; font-weight: 700; color: #0b4358; }
+  .metric-unit { font-size: 11px; color: #888; }
+
+  .cost-banner { background: #0b4358; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; }
+  .cost-item { flex: 1; text-align: center; border-right: 0.5px solid rgba(255,255,255,0.15); padding: 0 0.75rem; }
+  .cost-item:last-child { border-right: none; }
+  .cost-item-label { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .cost-item-value { font-size: 22px; font-weight: 700; color: #b5cc2e; }
+  .cost-item-unit { font-size: 11px; color: rgba(255,255,255,0.5); }
+
+  .divider { border: none; border-top: 0.5px solid #e0e0d8; margin: 1rem 0; }
+  .pouches-title { font-size: 13px; font-weight: 600; color: #0b4358; margin-bottom: 7px; }
+  .pouch-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f5f5ee; border-radius: 8px; margin-bottom: 6px; }
+  .pouch-badge { background: #0b4358; color: #fff; border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 700; min-width: 48px; text-align: center; }
+  .pouch-label { font-size: 13px; color: #333; flex: 1; }
+  .pouch-qty { font-size: 14px; font-weight: 700; color: #e8736a; }
+  .note { font-size: 12px; color: #888; margin-top: 0.75rem; font-style: italic; }
+
+  .dose-choice { margin-top: 1rem; }
+  .dose-choice-title { font-size: 13px; font-weight: 700; color: #c0392b; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .dose-options { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dose-option { flex: 1; min-width: 200px; border-radius: 10px; border: 1.5px solid #ddddd5; padding: 1rem; cursor: pointer; background: #fff; transition: border-color 0.15s, background 0.15s; }
+  .dose-option:hover { border-color: #0b4358; background: #f5f5ee; }
+  .dose-option.selected { border-color: #0b4358; background: #e8f4fc; }
+  .dose-option.selected-lower { border-color: #b5cc2e; background: #f4fbea; }
+  .opt-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .opt-label.exact { color: #e8736a; }
+  .opt-label.adjusted { color: #3b6d11; }
+  .opt-ppb { font-size: 20px; font-weight: 700; color: #0b4358; }
+  .opt-ppb span { font-size: 12px; font-weight: 400; color: #888; }
+  .opt-cost { font-size: 13px; font-weight: 600; color: #0b4358; margin-top: 5px; }
+  .opt-excess { font-size: 12px; margin-top: 3px; }
+  .opt-excess.high { color: #c0392b; }
+  .opt-excess.low { color: #3b6d11; }
+  .opt-pouches { font-size: 12px; color: #555; margin-top: 5px; }
+  .choose-btn { color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; font-family: inherit; }
+
+  .confirmed-banner { background: #eaf7ee; border: 1px solid #a3d9b0; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 1rem; font-size: 13px; color: #1a6b30; font-weight: 500; display: none; }
+  .confirmed-banner.visible { display: block; }
+
+  .tablets-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 0.5rem; }
+  .tablet-box { flex: 1; min-width: 120px; background: #f5f5ee; border-radius: 10px; padding: 1rem; text-align: center; }
+  .tablet-size { font-size: 11px; color: #666; margin-bottom: 4px; }
+  .tablet-qty { font-size: 26px; font-weight: 700; color: #0b4358; }
+  .tablet-unit { font-size: 11px; color: #888; }
+  .error-msg { font-size: 12px; color: #c0392b; margin-top: 5px; display: none; }
+
+  footer { text-align: center; font-size: 11px; color: #aaa; padding: 2rem 1rem; }
+
+  @media (max-width: 500px) {
+    .result-grid { grid-template-columns: 1fr 1fr; }
+    .cost-banner { flex-direction: column; gap: 0.75rem; }
+    .cost-item { border-right: none; border-bottom: 0.5px solid rgba(255,255,255,0.15); padding-bottom: 0.75rem; }
+    .cost-item:last-child { border-bottom: none; }
+    .hero h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ADMIN BAR -->
+<div class="admin-bar">
+  <span><i class="ti ti-settings"></i> Panel de administración — FreshInset</span>
+  <button class="admin-toggle" onclick="toggleAdmin()">Configurar precio</button>
+</div>
+<div class="admin-panel" id="admin-panel">
+  <div class="admin-panel-title"><i class="ti ti-currency-dollar"></i> Parámetros de precio</div>
+  <div class="admin-row">
+    <div class="admin-field">
+      <div class="admin-label">Precio base a 1.000 ppb ($/m³)</div>
+      <input class="admin-input" type="number" id="admin-price" value="0.85" min="0.01" step="0.01" />
+    </div>
+    <div class="admin-field">
+      <div class="admin-label">Cliente / referencia</div>
+      <input class="admin-input" type="text" id="admin-client" placeholder="Ej: Frigorífico San Martín" style="font-weight:400;" />
+    </div>
+    <button class="admin-save" onclick="saveAdmin()"><i class="ti ti-check"></i> Guardar</button>
+  </div>
+  <div class="admin-note" id="admin-status">Precio activo: $0,85/m³ a 1.000 ppb</div>
+</div>
+
+<!-- HEADER -->
+<div class="matri-header">
+  <div style="display:flex; align-items:center; gap:10px;">
+    <div class="matri-logo-text">m<span class="matri-logo-dot">a</span>tri</div>
+    <div class="matri-logo-sub">Soluciones 1-MCP</div>
+  </div>
+  <div style="font-size:13px; color:#0b4358; font-weight:600;" id="client-label">Argentina</div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Calculadora DoseRight</h1>
+  <p>Calculá la dosis exacta de MaTri para cada cámara de frío</p>
+</div>
+
+<div class="main">
+  <div class="section-title">Seleccioná el producto</div>
+
+  <div class="product-tabs">
+    <button class="tab-btn active" onclick="switchProduct('powder')" id="tab-powder">
+      <i class="ti ti-flask"></i> Matri Powder
+    </button>
+    <button class="tab-btn" onclick="switchProduct('tablets')" id="tab-tablets">
+      <i class="ti ti-pill"></i> Matri Tablets
+    </button>
+  </div>
+
+  <!-- ===== POWDER ===== -->
+  <div id="section-powder">
+    <div class="card">
+      <div class="card-title">Datos de la cámara</div>
+      <div class="form-group">
+        <label class="form-label">Nombre de la cámara <span>(opcional)</span></label>
+        <input type="text" id="room-name" placeholder="Ej: Cámara 1 — Peras" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Volumen de la cámara <span>(m³)</span></label>
+        <input type="number" id="volume" placeholder="Ej: 1500" min="1" step="1" />
+        <div class="error-msg" id="vol-error">Ingresá un volumen válido mayor a 0.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dosis objetivo <span>(ppb)</span></label>
+        <div class="dose-row">
+          <div class="form-group">
+            <input type="number" id="dose-ppb" value="1000" min="100" max="5000" step="50" />
+          </div>
+          <button class="reset-dose" onclick="resetDose()"><i class="ti ti-refresh"></i> Estándar (1.000 ppb)</button>
+        </div>
+        <div class="hint">Dosis estándar: 1.000 ppb = 0,067 g de Matri Powder 3,3% por m³</div>
+      </div>
+      <button class="calc-btn" onclick="calcPowder()"><i class="ti ti-calculator"></i> Calcular dosis y costo</button>
+    </div>
+
+    <div class="result-card" id="result-powder">
+      <div class="result-title"><i class="ti ti-check"></i> Resultado — Matri Powder</div>
+
+      <div class="result-grid">
+        <div class="metric-box">
+          <div class="metric-label">Volumen</div>
+          <div class="metric-value" id="res-vol">—</div>
+          <div class="metric-unit">m³</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Dosis objetivo</div>
+          <div class="metric-value" id="res-ppb">—</div>
+          <div class="metric-unit">ppb</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Gramos necesarios</div>
+          <div class="metric-value" id="res-grams">—</div>
+          <div class="metric-unit">g</div>
+        </div>
+      </div>
+
+      <div class="cost-banner" id="cost-banner" style="display:none;">
+        <div class="cost-item">
+          <div class="cost-item-label">Costo total cámara</div>
+          <div class="cost-item-value" id="cost-total">—</div>
+          <div class="cost-item-unit">USD</div>
+        </div>
+        <div class="cost-item">
+          <div class="cost-item-label">Costo por m³</div>
+          <div class="cost-item-value" id="cost-per-m3">—</div>
+          <div class="cost-item-unit">USD/m³</div>
+        </div>
+        <div class="cost-item">
+          <div class="cost-item-label">Dosis real</div>
+          <div class="cost-item-value" id="cost-ppb-real">—</div>
+          <div class="cost-item-unit">ppb</div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="dose-choice" id="dose-choice-section" style="display:none;">
+        <div class="dose-choice-title"><i class="ti ti-alert-triangle"></i> El redondeo requiere un sobre adicional. Elegí una opción:</div>
+        <div class="dose-options">
+          <div class="dose-option" id="opt-exact" onclick="selectOption('exact')">
+            <div class="opt-label exact">Opción A — Dosis exacta</div>
+            <div class="opt-ppb" id="opt-exact-ppb">— <span>ppb</span></div>
+            <div class="opt-pouches" id="opt-exact-pouches"></div>
+            <div class="opt-cost" id="opt-exact-cost"></div>
+            <div class="opt-excess high" id="opt-exact-excess"></div>
+            <button class="choose-btn" style="background:#e8736a;" onclick="selectOption('exact'); event.stopPropagation()">Usar esta dosis</button>
+          </div>
+          <div class="dose-option" id="opt-adjusted" onclick="selectOption('adjusted')">
+            <div class="opt-label adjusted">Opción B — Dosis ajustada (sin sobre extra)</div>
+            <div class="opt-ppb" id="opt-adj-ppb">— <span>ppb</span></div>
+            <div class="opt-pouches" id="opt-adj-pouches"></div>
+            <div class="opt-cost" id="opt-adj-cost"></div>
+            <div class="opt-excess low" id="opt-adj-excess"></div>
+            <button class="choose-btn" style="background:#3b6d11;" onclick="selectOption('adjusted'); event.stopPropagation()">Usar esta dosis</button>
+          </div>
+        </div>
+        <div class="confirmed-banner" id="confirmed-banner"></div>
+      </div>
+
+      <div id="pouches-direct-section">
+        <div class="pouches-title"><i class="ti ti-package"></i> Combinación de sobres</div>
+        <div id="pouches-list"></div>
+        <div class="note" id="powder-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TABLETS ===== -->
+  <div id="section-tablets" style="display:none;">
+    <div class="card">
+      <div class="card-title">Datos de la cámara</div>
+      <div class="form-group">
+        <label class="form-label">Nombre de la cámara <span>(opcional)</span></label>
+        <input type="text" id="room-name-t" placeholder="Ej: Cámara 2 — Manzanas" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Volumen de la cámara <span>(m³)</span></label>
+        <input type="number" id="volume-t" placeholder="Ej: 300" min="1" step="1" />
+        <div class="error-msg" id="vol-error-t">Ingresá un volumen válido mayor a 0.</div>
+      </div>
+      <div class="hint" style="margin-bottom:1rem;">Dosis estándar: 1.000 ppb · Tableta chica = 2,5 m³ · Tableta grande = 5 m³</div>
+      <button class="calc-btn" onclick="calcTablets()"><i class="ti ti-calculator"></i> Calcular tabletas y costo</button>
+    </div>
+
+    <div class="result-card" id="result-tablets">
+      <div class="result-title"><i class="ti ti-check"></i> Resultado — Matri Tablets</div>
+      <div class="result-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="metric-box">
+          <div class="metric-label">Volumen</div>
+          <div class="metric-value" id="res-vol-t">—</div>
+          <div class="metric-unit">m³</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Total tabletas</div>
+          <div class="metric-value" id="res-total-t">—</div>
+          <div class="metric-unit">unidades</div>
+        </div>
+      </div>
+
+      <div class="cost-banner" id="cost-banner-t">
+        <div class="cost-item">
+          <div class="cost-item-label">Costo total cámara</div>
+          <div class="cost-item-value" id="cost-total-t">—</div>
+          <div class="cost-item-unit">USD</div>
+        </div>
+        <div class="cost-item">
+          <div class="cost-item-label">Costo por m³</div>
+          <div class="cost-item-value" id="cost-per-m3-t">—</div>
+          <div class="cost-item-unit">USD/m³</div>
+        </div>
+        <div class="cost-item">
+          <div class="cost-item-label">Cobertura</div>
+          <div class="cost-item-value" id="cost-coverage-t">—</div>
+          <div class="cost-item-unit">m³</div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+      <div class="pouches-title"><i class="ti ti-adjustments"></i> Combinación óptima</div>
+      <div class="tablets-row">
+        <div class="tablet-box">
+          <div class="tablet-size">Tableta grande (5 m³)</div>
+          <div class="tablet-qty" id="res-large-t">—</div>
+          <div class="tablet-unit">unidades</div>
+        </div>
+        <div class="tablet-box">
+          <div class="tablet-size">Tableta chica (2,5 m³)</div>
+          <div class="tablet-qty" id="res-small-t">—</div>
+          <div class="tablet-unit">unidades</div>
+        </div>
+      </div>
+      <div class="note" id="tablets-note"></div>
+    </div>
+  </div>
+</div>
+
+<footer>MaTri DoseRight Calculator · Argentina · FreshInset &copy; 2026</footer>
+
+<script>
+const POUCHES = [100, 50, 20, 10];
+const DOSE_BASE = 0.067;
+let pricePerM3At1000 = 0.85;
+let lastVol = 0, lastPpb = 0, lastGrams = 0;
+let exactCombo = [], adjCombo = [];
+
+function fmtUSD(v) { return '$' + v.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtNum(v, d=1) { return v.toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function calcCost(vol, ppb) { return vol * pricePerM3At1000 * (ppb / 1000); }
+
+function toggleAdmin() { document.getElementById('admin-panel').classList.toggle('open'); }
+function saveAdmin() {
+  const price = parseFloat(document.getElementById('admin-price').value);
+  const client = document.getElementById('admin-client').value.trim();
+  if (!price || price <= 0) return;
+  pricePerM3At1000 = price;
+  document.getElementById('admin-status').textContent =
+    'Precio activo: $' + fmtNum(price,2) + '/m³ a 1.000 ppb' + (client ? ' · Cliente: ' + client : '');
+  if (client) document.getElementById('client-label').textContent = client;
+  document.getElementById('admin-panel').classList.remove('open');
+}
+
+function switchProduct(p) {
+  document.getElementById('section-powder').style.display = p === 'powder' ? 'block' : 'none';
+  document.getElementById('section-tablets').style.display = p === 'tablets' ? 'block' : 'none';
+  document.getElementById('tab-powder').classList.toggle('active', p === 'powder');
+  document.getElementById('tab-tablets').classList.toggle('active', p === 'tablets');
+}
+
+function resetDose() { document.getElementById('dose-ppb').value = 1000; }
+
+function greedyCeiling(g) {
+  let rem = g, r = [];
+  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s,qty:q}); rem -= q*s; }
+  if (rem > 0.001) r[r.length-1].qty += 1;
+  return r;
+}
+function greedyFloor(g) {
+  let rem = g, r = [];
+  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s,qty:q}); rem -= q*s; }
+  return r;
+}
+function comboGrams(c) { return c.reduce((s,p) => s + p.size*p.qty, 0); }
+function comboLabel(c) { return c.filter(p=>p.qty>0).map(p=>p.qty+' × '+p.size+'g').join(' + ') || '—'; }
+function actualPpb(totalG, vol) { return (totalG / (vol * DOSE_BASE)) * 1000; }
+
+function showCostBanner(totalG, vol, ppbReal) {
+  const totalCost = calcCost(vol, ppbReal);
+  const perM3 = totalCost / vol;
+  document.getElementById('cost-total').textContent = fmtUSD(totalCost);
+  document.getElementById('cost-per-m3').textContent = fmtUSD(perM3);
+  document.getElementById('cost-ppb-real').textContent = Math.round(ppbReal).toLocaleString('es-AR');
+  document.getElementById('cost-banner').style.display = 'flex';
+}
+
+function calcPowder() {
+  const vol = parseFloat(document.getElementById('volume').value);
+  const ppb = parseFloat(document.getElementById('dose-ppb').value);
+  const errEl = document.getElementById('vol-error');
+  if (!vol || vol <= 0) { errEl.style.display='block'; document.getElementById('result-powder').classList.remove('visible'); return; }
+  errEl.style.display = 'none';
+  lastVol = vol; lastPpb = ppb;
+  lastGrams = vol * DOSE_BASE * (ppb / 1000);
+  exactCombo = greedyCeiling(lastGrams);
+  adjCombo = greedyFloor(lastGrams);
+  const exactG = comboGrams(exactCombo);
+  const adjG = comboGrams(adjCombo);
+  const exactExcess = (exactG - lastGrams) / lastGrams * 100;
+
+  document.getElementById('res-vol').textContent = vol.toLocaleString('es-AR');
+  document.getElementById('res-ppb').textContent = ppb.toLocaleString('es-AR');
+  document.getElementById('res-grams').textContent = fmtNum(lastGrams, 1);
+  document.getElementById('result-powder').classList.add('visible');
+  document.getElementById('confirmed-banner').classList.remove('visible');
+  document.getElementById('opt-exact').classList.remove('selected');
+  document.getElementById('opt-adjusted').classList.remove('selected','selected-lower');
+  document.getElementById('cost-banner').style.display = 'none';
+
+  const needsChoice = exactExcess > 1.0 && adjG > 0 && adjG !== exactG;
+
+  if (needsChoice) {
+    document.getElementById('dose-choice-section').style.display = 'block';
+    document.getElementById('pouches-direct-section').style.display = 'none';
+    const exactPpbVal = actualPpb(exactG, vol);
+    const adjPpbVal = actualPpb(adjG, vol);
+    const exactCost = calcCost(vol, exactPpbVal);
+    const adjCost = calcCost(vol, adjPpbVal);
+    document.getElementById('opt-exact-ppb').innerHTML = Math.round(exactPpbVal).toLocaleString('es-AR') + ' <span>ppb</span>';
+    document.getElementById('opt-exact-pouches').textContent = comboLabel(exactCombo);
+    document.getElementById('opt-exact-cost').textContent = 'Costo: ' + fmtUSD(exactCost) + ' · ' + fmtUSD(exactCost/vol) + '/m³';
+    document.getElementById('opt-exact-excess').textContent = '+' + fmtNum(exactExcess,1) + '% sobre dosis objetivo (' + fmtNum(exactG,0) + ' g)';
+    const adjDiff = (adjG - lastGrams) / lastGrams * 100;
+    document.getElementById('opt-adj-ppb').innerHTML = Math.round(adjPpbVal).toLocaleString('es-AR') + ' <span>ppb</span>';
+    document.getElementById('opt-adj-pouches').textContent = comboLabel(adjCombo);
+    document.getElementById('opt-adj-cost').textContent = 'Costo: ' + fmtUSD(adjCost) + ' · ' + fmtUSD(adjCost/vol) + '/m³';
+    document.getElementById('opt-adj-excess').textContent = adjDiff >= 0
+      ? '+' + fmtNum(adjDiff,1) + '% sobre dosis objetivo (' + fmtNum(adjG,0) + ' g)'
+      : fmtNum(adjDiff,1) + '% bajo dosis objetivo (' + fmtNum(adjG,0) + ' g)';
+  } else {
+    document.getElementById('dose-choice-section').style.display = 'none';
+    document.getElementById('pouches-direct-section').style.display = 'block';
+    renderDirectPouches(exactCombo, exactG);
+    showCostBanner(exactG, vol, actualPpb(exactG, vol));
+  }
+}
+
+function renderDirectPouches(combo, totalG) {
+  const list = document.getElementById('pouches-list');
+  list.innerHTML = '';
+  combo.forEach(p => {
+    if (!p.qty) return;
+    const row = document.createElement('div');
+    row.className = 'pouch-row';
+    row.innerHTML = '<div class="pouch-badge">'+p.size+'g</div><div class="pouch-label">Sobre de '+p.size+' g</div><div class="pouch-qty">× '+p.qty+'</div>';
+    list.appendChild(row);
+  });
+  const excess = (comboGrams(combo) - lastGrams) / lastGrams * 100;
+  document.getElementById('powder-note').textContent =
+    'Total: ' + fmtNum(totalG,0) + ' g · Dosis real: ' + Math.round(actualPpb(totalG,lastVol)).toLocaleString('es-AR') + ' ppb · Excedente: ' + fmtNum(excess,1) + '%';
+}
+
+function selectOption(which) {
+  document.getElementById('opt-exact').classList.remove('selected');
+  document.getElementById('opt-adjusted').classList.remove('selected','selected-lower');
+  const combo = which === 'exact' ? exactCombo : adjCombo;
+  const totalG = comboGrams(combo);
+  const ppbReal = actualPpb(totalG, lastVol);
+  const totalCost = calcCost(lastVol, ppbReal);
+  const perM3 = totalCost / lastVol;
+  const label = comboLabel(combo);
+  if (which === 'exact') { document.getElementById('opt-exact').classList.add('selected'); }
+  else { document.getElementById('opt-adjusted').classList.add('selected-lower'); }
+  showCostBanner(totalG, lastVol, ppbReal);
+  document.getElementById('confirmed-banner').textContent =
+    '✓ Dosis confirmada: ' + Math.round(ppbReal).toLocaleString('es-AR') + ' ppb · ' + fmtNum(totalG,0) + ' g · ' + label + ' · Costo: ' + fmtUSD(totalCost) + ' (' + fmtUSD(perM3) + '/m³)';
+  document.getElementById('confirmed-banner').classList.add('visible');
+}
+
+function calcTablets() {
+  const vol = parseFloat(document.getElementById('volume-t').value);
+  const errEl = document.getElementById('vol-error-t');
+  if (!vol || vol <= 0) { errEl.style.display='block'; document.getElementById('result-tablets').classList.remove('visible'); return; }
+  errEl.style.display = 'none';
+  const large = Math.floor(vol / 5);
+  const rem = vol - large * 5;
+  const small = Math.ceil(rem / 2.5);
+  const covered = large * 5 + small * 2.5;
+  const totalCost = calcCost(covered, 1000);
+  const perM3 = totalCost / vol;
+  document.getElementById('res-vol-t').textContent = vol.toLocaleString('es-AR');
+  document.getElementById('res-total-t').textContent = large + small;
+  document.getElementById('res-large-t').textContent = large;
+  document.getElementById('res-small-t').textContent = small;
+  document.getElementById('cost-total-t').textContent = fmtUSD(totalCost);
+  document.getElementById('cost-per-m3-t').textContent = fmtUSD(perM3);
+  document.getElementById('cost-coverage-t').textContent = fmtNum(covered, 1);
+  document.getElementById('tablets-note').textContent =
+    'Cobertura total: ' + fmtNum(covered,1) + ' m³ · Excedente: ' + fmtNum(covered-vol,1) + ' m³ · Costo calculado sobre cobertura real';
+  document.getElementById('result-tablets').classList.add('visible');
+}
+</script>
+</body>
+</html>
