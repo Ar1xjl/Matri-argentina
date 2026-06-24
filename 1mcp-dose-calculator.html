@@ -711,7 +711,7 @@ const CROPS = {
       if(iecAdj>0) adjs.push({label:`IEC ${p.iec.toFixed(1)} µL/L`,delta:iecAdj,reason:"Higher endogenous ethylene competes with 1-MCP for receptor binding sites"});
       let firmAdj=Math.round((16-p.firm)*25); adj+=firmAdj;
       if(Math.abs(firmAdj)>10) adjs.push({label:`Firmness ${p.firm.toFixed(1)} lbf`,delta:firmAdj,reason:"Lower firmness indicates advancing ripening — cell wall degradation progressing"});
-      let destAdj=[−100,0,100,50][dest]??0; adj+=destAdj;
+      let destAdj=[-100,0,100,50][dest]??0; adj+=destAdj;
       adjs.push({label:["Short RA","Medium CA","Long CA","Export"][dest]??"-",delta:destAdj,reason:"Storage duration determines required depth of ethylene inhibition"});
       if(delay>36){let d=Math.round((delay-36)*4);adj+=d;adjs.push({label:`+${delay}h delay`,delta:d,reason:"Ethylene receptors become progressively occupied during harvest delay"});}
       if(atm==="ca"){adj-=100;adjs.push({label:"CA storage",delta:-100,reason:"CA synergy allows ~100–200 ppb dose reduction"});}
