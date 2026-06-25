@@ -1,61 +1,31 @@
-cat > ~/Documents/Matri-Argentina/src/App.jsx << 'EOF'
-import { useState } from 'react'
-import './index.css'
-
-export default function App() {
-  const [view, setView] = useState('landing')
-
-  return (
-    <div>
-      {view === 'landing' && (
-        <div style={{textAlign:'center', marginTop:'100px'}}>
-          <h1 style={{color:'#0b4358', fontSize:'32px', fontWeight:900}}>
-            Matri System Argentina
-          </h1>
-          <p style={{color:'#6b7280', marginTop:'12px'}}>
-            Portal Argentina — React funcionando
-          </p>
-          <button
-            onClick={() => setView('portal')}
-            style={{marginTop:'24px', background:'#e05a4e', color:'white',
-              border:'none', padding:'12px 28px', borderRadius:'8px',
-              fontSize:'15px', fontWeight:700, cursor:'pointer'}}
-          >
-            Ingresar al portal
-          </button>
-        </div>
-      )}
-
-      {view === 'portal' && (
-        <div style={{textAlign:'center', marginTop:'100px'}}>
-          <h1 style={{color:'#0b4358', fontSize:'28px', fontWeight:900}}>
-            Portal cargado
-          </h1>
-          <button
-            onClick={() => setView('landing')}
-            style={{marginTop:'24px', background:'#0b4358', color:'white',
-              border:'none', padding:'12px 28px', borderRadius:'8px',
-              fontSize:'15px', fontWeight:700, cursor:'pointer'}}
-          >
-            Volver al inicio
-          </button>
-        </div>
-      )}
-    </div>
-  )
+/* MaTri Argentina — Design tokens */
+:root {
+  --navy:       #0b4358;
+  --navy-dark:  #072e3d;
+  --lime:       #a8c832;
+  --lime-band:  #c8d84a;
+  --lime-pale:  #eef4c0;
+  --coral:      #e05a4e;
+  --cream:      #f5f2eb;
+  --cream-dark: #ece8df;
+  --white:      #ffffff;
+  --gray:       #6b7280;
+  --gray-lt:    #f9f9f7;
+  --border:     #dde0d5;
+  --teal:       #0d7a5f;
+  --teal-lt:    #e1f5ee;
+  --amber:      #b06a00;
+  --amber-lt:   #fff3cd;
+  --shadow:     0 2px 12px rgba(11,67,88,.10);
+  --shadow-lg:  0 8px 32px rgba(11,67,88,.15);
+  --radius:     10px;
 }
-EOF
-
-touch ~/Documents/Matri-Argentina/src/components/Shared/Navbar.jsx
-touch ~/Documents/Matri-Argentina/src/components/Shared/Sidebar.jsx
-touch ~/Documents/Matri-Argentina/src/components/Auth/AuthModal.jsx
-touch ~/Documents/Matri-Argentina/src/components/Landing/Landing.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Portal.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Dashboard.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Rooms.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Orders.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Calculator.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Generators.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Documents.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/AppLog.jsx
-touch ~/Documents/Matri-Argentina/src/components/Portal/Profile.jsx
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--navy);
+}
+button { cursor: pointer; font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+input, select { font-family: inherit; }
