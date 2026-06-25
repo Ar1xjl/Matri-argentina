@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const POUCHES   = [100, 50, 20, 10]
 const DOSE_BASE = 0.067
@@ -40,7 +40,7 @@ export default function Calculator() {
   const [orderSent,  setOrderSent]  = useState(false)
 
   // Listen for dose coming back from DoseRight module
-  useState(() => {
+  useEffect(() => {
     const handler = (e) => {
       if (e.data && e.data.type === 'MATRI_DOSE') {
         setPpb(String(e.data.ppb))
@@ -159,9 +159,9 @@ export default function Calculator() {
                 <div style={{fontSize:'12px',fontWeight:700,color:'#3b6d11',marginBottom:'2px'}}>No sabes que dosis usar?</div>
                 <div style={{fontSize:'11px',color:'#555'}}>Consulta la calculadora cientifica DoseRight basada en parametros de cosecha.</div>
               </div>
-              <a href="https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html" target="_blank" rel="noreferrer" style={{background:'#0b4358',color:'#fff',borderRadius:'8px',padding:'9px 14px',fontSize:'12px',fontWeight:700,whiteSpace:'nowrap',marginLeft:'12px',textDecoration:'none'}}>
+              <button onClick={() => window.open("https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html", "doseright", "width=900,height=700,scrollbars=yes")} style={{background:'#0b4358',color:'#fff',border:'none',borderRadius:'8px',padding:'9px 14px',fontSize:'12px',fontWeight:700,whiteSpace:'nowrap',marginLeft:'12px',cursor:'pointer',fontFamily:'inherit'}}>
                 Abrir DoseRight
-              </a>
+              </button>
             </div>
 
             <button style={calcBtn} onClick={calcPowder}>Calcular dosis y costo</button>
