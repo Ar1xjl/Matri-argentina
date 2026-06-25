@@ -1,0 +1,61 @@
+cat > ~/Documents/Matri-Argentina/src/App.jsx << 'EOF'
+import { useState } from 'react'
+import './index.css'
+
+export default function App() {
+  const [view, setView] = useState('landing')
+
+  return (
+    <div>
+      {view === 'landing' && (
+        <div style={{textAlign:'center', marginTop:'100px'}}>
+          <h1 style={{color:'#0b4358', fontSize:'32px', fontWeight:900}}>
+            Matri System Argentina
+          </h1>
+          <p style={{color:'#6b7280', marginTop:'12px'}}>
+            Portal Argentina — React funcionando
+          </p>
+          <button
+            onClick={() => setView('portal')}
+            style={{marginTop:'24px', background:'#e05a4e', color:'white',
+              border:'none', padding:'12px 28px', borderRadius:'8px',
+              fontSize:'15px', fontWeight:700, cursor:'pointer'}}
+          >
+            Ingresar al portal
+          </button>
+        </div>
+      )}
+
+      {view === 'portal' && (
+        <div style={{textAlign:'center', marginTop:'100px'}}>
+          <h1 style={{color:'#0b4358', fontSize:'28px', fontWeight:900}}>
+            Portal cargado
+          </h1>
+          <button
+            onClick={() => setView('landing')}
+            style={{marginTop:'24px', background:'#0b4358', color:'white',
+              border:'none', padding:'12px 28px', borderRadius:'8px',
+              fontSize:'15px', fontWeight:700, cursor:'pointer'}}
+          >
+            Volver al inicio
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+EOF
+
+touch ~/Documents/Matri-Argentina/src/components/Shared/Navbar.jsx
+touch ~/Documents/Matri-Argentina/src/components/Shared/Sidebar.jsx
+touch ~/Documents/Matri-Argentina/src/components/Auth/AuthModal.jsx
+touch ~/Documents/Matri-Argentina/src/components/Landing/Landing.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Portal.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Dashboard.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Rooms.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Orders.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Calculator.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Generators.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Documents.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/AppLog.jsx
+touch ~/Documents/Matri-Argentina/src/components/Portal/Profile.jsx
