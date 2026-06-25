@@ -664,7 +664,12 @@
           </div>
         </div>
 
-        <div class="note-box" id="calcNotes"></div>
+        <div style="margin-top:16px;">
+  <button id="confirmDoseBtn" onclick="confirmDose()" style="display:none;width:100%;background:#0b4358;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+    Usar esta dosis en la calculadora
+  </button>
+</div>
+<div class="note-box" id="calcNotes"></div>
         <div class="warning-box" id="warningBox"></div>
 
       </div>
@@ -1076,10 +1081,21 @@ function recalc() {
   buildCurves(c);
 }
 
+function confirmDose() {
+  const v = parseInt(document.getElementById('manualSlider').value);
+  if (window.opener) {
+    window.opener.postMessage({ type: 'MATRI_DOSE', ppb: v }, '*');
+    window.close();
+  } else {
+    window.postMessage({ type: 'MATRI_DOSE', ppb: v }, '*');
+    history.back();
+  }
+}
 function onSlider() {
   const v = parseInt(document.getElementById("manualSlider").value);
   document.getElementById("sliderOut").textContent = v;
   document.getElementById("finalVal").textContent  = v;
+  document.getElementById("confirmDoseBtn").style.display = "block";
 }
 
 function buildCurves(c) {
