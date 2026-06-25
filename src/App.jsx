@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import Landing from './components/Landing/Landing'
+import Portal from './components/Portal/Portal'
 import AuthModal from './components/Auth/AuthModal'
 import './index.css'
 
 export default function App() {
-  const [view, setView]       = useState('landing')
+  const [view, setView]           = useState('landing')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTab, setModalTab]   = useState('login')
 
@@ -20,25 +21,8 @@ export default function App() {
 
   return (
     <>
-      {view === 'landing' && (
-        <Landing onOpenModal={openModal} />
-      )}
-
-      {view === 'portal' && (
-        <div style={{textAlign:'center', marginTop:'100px'}}>
-          <h1 style={{color:'#0b4358', fontSize:'28px', fontWeight:900}}>
-            Portal — próximo paso ✅
-          </h1>
-          <button
-            onClick={() => setView('landing')}
-            style={{marginTop:'24px', background:'#0b4358', color:'white',
-              border:'none', padding:'12px 28px', borderRadius:'8px',
-              fontSize:'15px', fontWeight:700, cursor:'pointer'}}
-          >
-            Volver al inicio
-          </button>
-        </div>
-      )}
+      {view === 'landing' && <Landing onOpenModal={openModal} />}
+      {view === 'portal'  && <Portal onSignOut={() => setView('landing')} />}
 
       {modalOpen && (
         <AuthModal
