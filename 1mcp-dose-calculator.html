@@ -278,8 +278,8 @@
   /* ── LOGISTICS ── */
   .logistics-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
   .slider-row {
     display: flex;
@@ -489,7 +489,7 @@
   /* ── RESPONSIVE ── */
   @media (max-width: 820px) {
     .page { grid-template-columns: 1fr; padding: 16px; }
-    .logistics-grid { grid-template-columns: 1fr; }
+    .logistics-grid { grid-template-columns: 1fr; gap: 20px; }
     .result-grid { grid-template-columns: 1fr 1fr; }
     .header-inner { padding: 20px 16px; }
     .dose-number { font-size: 40px; }
@@ -566,11 +566,24 @@
         <div class="logistics-grid">
           <div class="field-group">
             <label class="field-label" for="destSel">Storage destination</label>
-            <select id="destSel" onchange="recalc()"></select>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;">Select the cold storage type for this room</div>
+            <select id="destSel" onchange="recalc()" style="font-size:14px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--gray-200);background:white;color:var(--gray-900);cursor:pointer;"></select>
           </div>
           <div class="field-group">
             <label class="field-label" for="atmSel">Atmosphere</label>
-            <select id="atmSel" onchange="recalc()">
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;">Select the atmosphere type used in this room</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+              <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--gray-200);background:white;cursor:pointer;font-size:13px;font-weight:500;color:var(--gray-900);text-transform:none;letter-spacing:0;">
+                <input type="radio" name="atm" value="air" onchange="document.getElementById('atmSel').value='air';recalc()" checked style="accent-color:var(--green-700);width:16px;height:16px;"/> Regular air (RA)
+              </label>
+              <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--gray-200);background:white;cursor:pointer;font-size:13px;font-weight:500;color:var(--gray-900);text-transform:none;letter-spacing:0;">
+                <input type="radio" name="atm" value="ca" onchange="document.getElementById('atmSel').value='ca';recalc()" style="accent-color:var(--green-700);width:16px;height:16px;"/> Controlled atmosphere (CA)
+              </label>
+              <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--gray-200);background:white;cursor:pointer;font-size:13px;font-weight:500;color:var(--gray-900);text-transform:none;letter-spacing:0;">
+                <input type="radio" name="atm" value="ma" onchange="document.getElementById('atmSel').value='ma';recalc()" style="accent-color:var(--green-700);width:16px;height:16px;"/> Modified atmosphere (MAP)
+              </label>
+            </div>
+            <select id="atmSel" onchange="recalc()" style="display:none;">
               <option value="air">Regular air (RA)</option>
               <option value="ca">Controlled atmosphere (CA)</option>
               <option value="ma">Modified atmosphere (MAP)</option>
