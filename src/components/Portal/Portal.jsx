@@ -8,6 +8,7 @@ import Generators from './Generators'
 import Documents from './Documents'
 import AppLog from './AppLog'
 import Profile from './Profile'
+import Wassington from './Wassington'
 
 const PANEL_TITLES = {
   dashboard:  'Dashboard',
@@ -17,18 +18,19 @@ const PANEL_TITLES = {
   generators: 'Generadores',
   documents:  'Documentos',
   applog:     'Registro de aplicaciones',
+  wassington: 'Panel Wassington',
   profile:    'Mi perfil',
 }
 
 export default function Portal({ onSignOut }) {
   const [activePanel, setActivePanel] = useState('dashboard')
-  const [seconds, setSeconds] = useState(600)
+  const [seconds,     setSeconds]     = useState(600)
   const [showWarning, setShowWarning] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSeconds(s => {
-        if (s <= 1) { clearInterval(timer); onSignOut(); return 0 }
+        if (s <= 1)   { clearInterval(timer); onSignOut(); return 0 }
         if (s === 121) setShowWarning(true)
         return s - 1
       })
@@ -36,56 +38,54 @@ export default function Portal({ onSignOut }) {
     return () => clearInterval(timer)
   }, [])
 
-  const resetSession = () => {
-    setSeconds(600)
-    setShowWarning(false)
-  }
-
-  const navigate = (panel) => {
-    setActivePanel(panel)
-    resetSession()
-  }
+  const resetSession = () => { setSeconds(600); setShowWarning(false) }
+  const navigate     = (panel) => { setActivePanel(panel); resetSession() }
 
   const m = Math.floor(seconds / 60)
   const s = String(seconds % 60).padStart(2, '0')
 
   const panels = {
-    dashboard:  <Dashboard onNavigate={navigate} />,
+    dashboard:  <Dashboard  onNavigate={navigate} />,
     rooms:      <Rooms />,
-    orders:     <Orders onNavigate={navigate} />,
+    orders:     <Orders     onNavigate={navigate} />,
     calculator: <Calculator />,
     generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog />,
+    wassington: <Wassington />,
     profile:    <Profile />,
   }
 
   return (
-    <div style={{display:'flex', minHeight:'100vh', background:'var(--cream)'}}>
+    <div style={{display:'flex', minHeight:'100vh', background:'#f5f5ee'}}>
       <Sidebar
         activePanel={activePanel}
         onNavigate={navigate}
         onSignOut={onSignOut}
       />
 
-      <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column'}}>
+      <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
         {/* Top bar */}
         <div style={{
-          background:'white', borderBottom:'1px solid var(--border)',
+          background:'white', borderBottom:'0.5px solid #ddddd5',
           padding:'12px 28px', display:'flex', alignItems:'center',
-          justifyContent:'space-between', position:'sticky', top:0, zIndex:40
+          justifyContent:'space-between', position:'sticky', top:0, zIndex:40,
+          boxShadow:'0 1px 3px rgba(0,0,0,.06)'
         }}>
-          <h1 style={{fontSize:'18px', fontWeight:800, color:'var(--navy)'}}>
+          <h1 style={{fontSize:'17px', fontWeight:700, color:'#0b4358'}}>
             {PANEL_TITLES[activePanel]}
           </h1>
           <div style={{display:'flex', alignItems:'center', gap:'14px'}}>
             <div style={{
-              background:'var(--lime-pale)', color:'var(--navy)',
+              background:'#f0f7e0', color:'#3b6d11',
               fontSize:'11px', fontWeight:700, padding:'4px 12px',
               borderRadius:'100px', letterSpacing:'.04em'
             }}>Temporada 2026</div>
-            <div style={{fontSize:'11px', color:'var(--gray)', display:'flex', alignItems:'center', gap:'5px'}}>
-              <div style={{width:'7px', height:'7px', background:'var(--teal)', borderRadius:'50%'}}/>
+            <div style={{
+              fontSize:'11px', color:'#6b6b6b',
+              display:'flex', alignItems:'center', gap:'5px'
+            }}>
+              <div style={{width:'7px', height:'7px', background:'#b5cc2e', borderRadius:'50%'}}/>
               {m}:{s}
             </div>
             <button
@@ -105,29 +105,27 @@ export default function Portal({ onSignOut }) {
       {showWarning && (
         <div style={{
           position:'fixed', bottom:'20px', right:'20px',
-          background:'var(--navy)', color:'white',
-          padding:'16px 20px', borderRadius:'10px',
-          boxShadow:'var(--shadow-lg)', fontSize:'13px',
-          zIndex:999, maxWidth:'300px',
-          borderLeft:'4px solid var(--coral)'
+          background:'#0b4358', color:'white',
+          padding:'16px 20px', borderRadius:'12px',
+          boxShadow:'0 4px 16px rgba(0,0,0,.15)',
+          fontSize:'13px', zIndex:999, maxWidth:'300px',
+          borderLeft:'4px solid #e8736a'
         }}>
-          <div style={{fontWeight:700, color:'var(--coral)', marginBottom:'6px'}}>
+          <div style={{fontWeight:700, color:'#e8736a', marginBottom:'6px'}}>
             ⚠️ Sesión por expirar
           </div>
           Tu sesión se cerrará en <strong>2 minutos</strong> por inactividad.
           <div style={{display:'flex', gap:'8px', marginTop:'10px'}}>
-            <button
-              onClick={resetSession}
-              style={{background:'var(--lime)', color:'var(--navy)', border:'none',
-                padding:'7px 14px', borderRadius:'6px', fontSize:'12px',
-                fontWeight:700, cursor:'pointer'}}
-            >Seguir conectado</button>
-            <button
-              onClick={onSignOut}
-              style={{background:'transparent', color:'#90b8c8',
-                border:'1px solid #607080', padding:'7px 14px',
-                borderRadius:'6px', fontSize:'12px', cursor:'pointer'}}
-            >Cerrar sesión</button>
+            <button onClick={resetSession} style={{
+              background:'#b5cc2e', color:'#0b4358', border:'none',
+              padding:'7px 14px', borderRadius:'6px',
+              fontSize:'12px', fontWeight:700, cursor:'pointer'
+            }}>Seguir conectado</button>
+            <button onClick={onSignOut} style={{
+              background:'transparent', color:'#90b8c8',
+              border:'1px solid #607080', padding:'7px 14px',
+              borderRadius:'6px', fontSize:'12px', cursor:'pointer'
+            }}>Cerrar sesión</button>
           </div>
         </div>
       )}
