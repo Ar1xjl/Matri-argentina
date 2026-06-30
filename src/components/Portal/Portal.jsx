@@ -22,10 +22,21 @@ const PANEL_TITLES = {
   profile:    'Mi perfil',
 }
 
+// ── Initial shared order data — this simulates the database for now ──
+const INITIAL_ORDERS = [
+  { id:'ARG-0041', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Norte 1', product:'MatriPowder',  sachets:'5×50g',       price:'215.00', model:'Servicio', status:'approved',  date:'20 jun 2026' },
+  { id:'ARG-0040', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Sur 3',   product:'MatriPowder',  sachets:'3×50g+1×25g', price:'178.00', model:'Propio',   status:'pending',   date:'18 jun 2026' },
+  { id:'ARG-0039', customer:'Kleppe S.A.', tier:'T1', room:'Frigorífico A',  product:'MatriTablets', sachets:'2×50g+1×25g', price:'143.50', model:'Propio',   status:'approved',  date:'15 jun 2026' },
+  { id:'ARG-0038', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Norte 2', product:'MatriPowder',  sachets:'6×50g+1×10g', price:'262.00', model:'Servicio', status:'confirmed', date:'12 jun 2026' },
+]
+
+let orderCounter = 42
+
 export default function Portal({ onSignOut }) {
   const [activePanel, setActivePanel] = useState('dashboard')
   const [seconds,     setSeconds]     = useState(600)
   const [showWarning, setShowWarning] = useState(false)
+  const [orders,      setOrders]      = useState(INITIAL_ORDERS)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -44,15 +55,30 @@ export default function Portal({ onSignOut }) {
   const m = Math.floor(seconds / 60)
   const s = String(seconds % 60).padStart(2, '0')
 
+  // ── Order actions — shared across Calculator, Orders, Wassington ──
+  const addOrder = (newOrder) => {
+    const id = `ARG-00${orderCounter++}`
+    setOrders(prev => [{ ...newOrder, id, status:'pending', customer:'Kleppe S.A.', tier:'T1' }, ...prev])
+    return id
+  }
+
+  const approveOrder = (id, finalPrice) => {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status:'approved', price: finalPrice ?? o.price } : o))
+  }
+
+  const rejectOrder = (id, reason) => {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status:'rejected', rejectReason: reason } : o))
+  }
+
   const panels = {
-    dashboard:  <Dashboard  onNavigate={navigate} />,
+    dashboard:  <Dashboard  onNavigate={navigate} orders={orders} />,
     rooms:      <Rooms />,
-    orders:     <Orders     onNavigate={navigate} />,
-    calculator: <Calculator />,
+    orders:     <Orders     onNavigate={navigate} orders={orders} />,
+    calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} />,
     generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog />,
-    wassington: <Wassington />,
+    wassington: <Wassington orders={orders} onApprove={approveOrder} onReject={rejectOrder} />,
     profile:    <Profile />,
   }
 
@@ -65,7 +91,6 @@ export default function Portal({ onSignOut }) {
       />
 
       <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
-        {/* Top bar */}
         <div style={{
           background:'white', borderBottom:'0.5px solid #ddddd5',
           padding:'12px 28px', display:'flex', alignItems:'center',
@@ -88,20 +113,17 @@ export default function Portal({ onSignOut }) {
               <div style={{width:'7px', height:'7px', background:'#b5cc2e', borderRadius:'50%'}}/>
               {m}:{s}
             </div>
-            <button
-              className="btn-primary btn-sm"
-              onClick={() => navigate('calculator')}
-            >+ Nuevo pedido</button>
+            <button className="btn-primary btn-sm" onClick={() => navigate('calculator')}>
+              + Nuevo pedido
+            </button>
           </div>
         </div>
 
-        {/* Panel content */}
         <div style={{padding:'24px', flex:1}}>
           {panels[activePanel]}
         </div>
       </main>
 
-      {/* Session warning */}
       {showWarning && (
         <div style={{
           position:'fixed', bottom:'20px', right:'20px',

@@ -1,9 +1,4 @@
-const PENDING_ORDERS = [
-  { id:'ARG-0042', customer:'Kleppe S.A.',        tier:'T1', room:'Cámara Norte 3', product:'MatriPowder',  sachets:'4×50g',       price:'$172.00', model:'Servicio', date:'29 jun 2026' },
-  { id:'ARG-0043', customer:'Tres Ases S.A.',      tier:'T1', room:'Frigorífico B',  product:'MatriPowder',  sachets:'6×50g+1×20g', price:'$238.00', model:'Propio',   date:'29 jun 2026' },
-  { id:'ARG-0044', customer:'Frutícola Río Negro', tier:'T2', room:'Cámara 2',       product:'MatriTablets', sachets:'3×50g',        price:'$115.00', model:'Servicio', date:'28 jun 2026' },
-  { id:'ARG-0045', customer:'Kiwi Sur S.R.L.',     tier:'T3', room:'Sala Kiwi A',    product:'MatriTablets', sachets:'2×50g+1×25g',  price:'$98.50',  model:'Propio',   date:'28 jun 2026' },
-]
+import { useState } from 'react'
 
 const CUSTOMERS = [
   { name:'Kleppe S.A.',        cuit:'30-12345678-9', tier:'T1', retailer:'Wassington',  region:'Río Negro',  status:'approved',  orders:12 },
@@ -13,16 +8,39 @@ const CUSTOMERS = [
   { name:'Frutales del Sur',   cuit:'30-99887766-3', tier:'T2', retailer:'Podlesh',     region:'Río Negro',  status:'pending',   orders:0  },
 ]
 
-const STATS = [
-  { icon:'⏳', label:'Pedidos pendientes',  value:'4',      unit:'requieren aprobación',  color:'#b06a00', bg:'#fff3cd' },
-  { icon:'✅', label:'Pedidos aprobados',   value:'28',     unit:'esta temporada',         color:'#1a6b30', bg:'#eaf7ee' },
-  { icon:'👥', label:'Clientes activos',    value:'5',      unit:'en el portal',           color:'#0b4358', bg:'#e8f4fc' },
-  { icon:'💰', label:'Facturación USD',     value:'$4.820', unit:'esta temporada',         color:'#0b4358', bg:'#f0f7e0' },
-]
-
 const tierColor = (t) => t === 'T1' ? {bg:'#e8f4fc',color:'#0c447c'} : t === 'T2' ? {bg:'#f0f7e0',color:'#3b6d11'} : {bg:'#fff3cd',color:'#b06a00'}
 
-export default function Wassington() {
+export default function Wassington({ orders = [], onApprove, onReject }) {
+  const [modal,     setModal]     = useState(null) // { order, action: 'approve'|'reject' }
+  const [editPrice, setEditPrice] = useState('')
+  const [reason,    setReason]    = useState('')
+
+  const pending   = orders.filter(o => o.status === 'pending')
+  const processed = orders.filter(o => o.status === 'approved' || o.status === 'rejected')
+
+  const openApprove = (order) => { setEditPrice(order.price); setModal({ order, action: 'approve' }) }
+  const openReject  = (order) => { setReason(''); setModal({ order, action: 'reject' }) }
+  const closeModal  = () => setModal(null)
+
+  const confirmApprove = () => {
+    onApprove(modal.order.id, editPrice)
+    closeModal()
+  }
+  const confirmReject = () => {
+    onReject(modal.order.id, reason)
+    closeModal()
+  }
+
+  const totalUSD = orders.filter(o => o.status==='approved'||o.status==='confirmed')
+    .reduce((s,o) => s + parseFloat(o.price || 0), 0)
+
+  const STATS = [
+    { icon:'⏳', label:'Pedidos pendientes',  value:String(pending.length),  unit:'requieren aprobación',  bg:'#fff3cd' },
+    { icon:'✅', label:'Pedidos aprobados',   value:String(orders.filter(o=>o.status==='approved'||o.status==='confirmed').length), unit:'esta temporada', bg:'#eaf7ee' },
+    { icon:'👥', label:'Clientes activos',    value:'5',      unit:'en el portal',           bg:'#e8f4fc' },
+    { icon:'💰', label:'Facturación USD',     value:`$${totalUSD.toFixed(2)}`, unit:'esta temporada',  bg:'#f0f7e0' },
+  ]
+
   return (
     <div>
       {/* Stats */}
@@ -42,48 +60,87 @@ export default function Wassington() {
       <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
         <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Pedidos pendientes de aprobación</span>
-          <span style={{background:'#fff3cd', color:'#b06a00', fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'}}>4 pendientes</span>
+          <span style={{background:'#fff3cd', color:'#b06a00', fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'}}>{pending.length} pendientes</span>
         </div>
-        <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
-          <thead>
-            <tr>
-              {['N° pedido','Cliente','Tier','Cámara','Producto','Sachets','Precio','Modelo','Fecha',''].map(h => (
-                <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PENDING_ORDERS.map((o,i) => {
-              const tc = tierColor(o.tier)
-              return (
-                <tr key={i} style={{borderBottom:'0.5px solid #ddddd5'}}>
+
+        {pending.length === 0 ? (
+          <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+            ✓ No hay pedidos pendientes — todos procesados.
+          </div>
+        ) : (
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+            <thead>
+              <tr>
+                {['N° pedido','Cliente','Tier','Cámara','Producto','Sachets','Precio','Modelo','Fecha',''].map(h => (
+                  <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((o,i) => {
+                const tc = tierColor(o.tier)
+                return (
+                  <tr key={i} style={{borderBottom:'0.5px solid #ddddd5'}}>
+                    <td style={{padding:'12px 16px', fontWeight:700}}># {o.id}</td>
+                    <td style={{padding:'12px 16px'}}>{o.customer}</td>
+                    <td style={{padding:'12px 16px'}}>
+                      <span style={{background:tc.bg, color:tc.color, fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{o.tier}</span>
+                    </td>
+                    <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{o.room}</td>
+                    <td style={{padding:'12px 16px'}}>
+                      <span style={{background:o.product==='MatriPowder'?'#f0f7e0':'#eaf7ee', color:o.product==='MatriPowder'?'#3b6d11':'#1a6b30', fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{o.product}</span>
+                    </td>
+                    <td style={{padding:'12px 16px', fontFamily:'monospace', fontSize:'12px'}}>{o.sachets}</td>
+                    <td style={{padding:'12px 16px', fontWeight:700}}>${o.price}</td>
+                    <td style={{padding:'12px 16px'}}>
+                      <span style={{background:'#f5f5ee', color:'#6b6b6b', fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'100px'}}>{o.model}</span>
+                    </td>
+                    <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{o.date}</td>
+                    <td style={{padding:'12px 16px'}}>
+                      <div style={{display:'flex', gap:'6px'}}>
+                        <button onClick={() => openApprove(o)} style={{background:'#eaf7ee', color:'#1a6b30', border:'0.5px solid #a3d9b0', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>✓ Aprobar</button>
+                        <button onClick={() => openReject(o)} style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f5c1c1', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>✗ Rechazar</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Recently processed */}
+      {processed.length > 0 && (
+        <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+          <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5'}}>
+            <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Procesados recientemente</span>
+          </div>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+            <thead>
+              <tr>
+                {['N° pedido','Cliente','Cámara','Precio final','Estado','Motivo'].map(h => (
+                  <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {processed.map((o,i) => (
+                <tr key={i} style={{borderBottom: i < processed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
                   <td style={{padding:'12px 16px', fontWeight:700}}># {o.id}</td>
                   <td style={{padding:'12px 16px'}}>{o.customer}</td>
-                  <td style={{padding:'12px 16px'}}>
-                    <span style={{background:tc.bg, color:tc.color, fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{o.tier}</span>
-                  </td>
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{o.room}</td>
+                  <td style={{padding:'12px 16px', fontWeight:700}}>${o.price}</td>
                   <td style={{padding:'12px 16px'}}>
-                    <span style={{background:o.product==='MatriPowder'?'#f0f7e0':'#eaf7ee', color:o.product==='MatriPowder'?'#3b6d11':'#1a6b30', fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{o.product}</span>
+                    <span className={`status ${o.status}`}>{o.status === 'approved' ? '✓ Aprobado' : '✗ Rechazado'}</span>
                   </td>
-                  <td style={{padding:'12px 16px', fontFamily:'monospace', fontSize:'12px'}}>{o.sachets}</td>
-                  <td style={{padding:'12px 16px', fontWeight:700}}>{o.price}</td>
-                  <td style={{padding:'12px 16px'}}>
-                    <span style={{background:'#f5f5ee', color:'#6b6b6b', fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'100px'}}>{o.model}</span>
-                  </td>
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{o.date}</td>
-                  <td style={{padding:'12px 16px'}}>
-                    <div style={{display:'flex', gap:'6px'}}>
-                      <button style={{background:'#eaf7ee', color:'#1a6b30', border:'0.5px solid #a3d9b0', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>✓ Aprobar</button>
-                      <button style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f5c1c1', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>✗ Rechazar</button>
-                    </div>
-                  </td>
+                  <td style={{padding:'12px 16px', color:'#888', fontSize:'12px'}}>{o.rejectReason || '—'}</td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Customer CRM */}
       <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
@@ -128,6 +185,74 @@ export default function Wassington() {
           </tbody>
         </table>
       </div>
+
+      {/* Approve/Reject Modal */}
+      {modal && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && closeModal()}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'420px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+
+            {modal.action === 'approve' ? (
+              <>
+                <div style={{fontSize:'18px', fontWeight:800, color:'#0b4358', marginBottom:'4px'}}>Aprobar pedido</div>
+                <div style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>
+                  #{modal.order.id} · {modal.order.customer} · {modal.order.room}
+                </div>
+                <div style={{marginBottom:'18px'}}>
+                  <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
+                    Precio final (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={editPrice}
+                    onChange={e => setEditPrice(e.target.value)}
+                    style={{width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8'}}
+                  />
+                  <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+                    Precio indicativo del cliente: ${modal.order.price}. Podés confirmarlo o ajustarlo.
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:'10px'}}>
+                  <button onClick={confirmApprove} className="btn-primary" style={{flex:1, background:'#1a6b30'}}>
+                    ✓ Confirmar aprobación
+                  </button>
+                  <button onClick={closeModal} className="btn-secondary">Cancelar</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{fontSize:'18px', fontWeight:800, color:'#0b4358', marginBottom:'4px'}}>Rechazar pedido</div>
+                <div style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>
+                  #{modal.order.id} · {modal.order.customer} · {modal.order.room}
+                </div>
+                <div style={{marginBottom:'18px'}}>
+                  <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
+                    Motivo del rechazo
+                  </label>
+                  <textarea
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: Stock insuficiente de MatriPowder 50g esta semana"
+                    style={{width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit', resize:'vertical'}}
+                  />
+                  <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+                    El cliente verá este motivo en su sección de Pedidos.
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:'10px'}}>
+                  <button onClick={confirmReject} className="btn-primary" style={{flex:1, background:'#8b2020'}}>
+                    ✗ Confirmar rechazo
+                  </button>
+                  <button onClick={closeModal} className="btn-secondary">Cancelar</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

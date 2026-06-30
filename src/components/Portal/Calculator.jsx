@@ -27,7 +27,7 @@ const calcBtn = {background:'#e8736a',color:'#fff',border:'none',borderRadius:'1
 const metricBox = {background:'#f5f5ee',borderRadius:'8px',padding:'12px',textAlign:'center'}
 const pouchRow  = {display:'flex',alignItems:'center',gap:'10px',padding:'8px 12px',background:'#f5f5ee',borderRadius:'8px',marginBottom:'6px'}
 
-export default function Calculator() {
+export default function Calculator({ onOrderConfirmed }) {
   const [product,    setProduct]    = useState('powder')
   const [adminOpen,  setAdminOpen]  = useState(false)
   const [pricePerM3, setPricePerM3] = useState(0.85)
@@ -38,6 +38,7 @@ export default function Calculator() {
   const [result,     setResult]     = useState(null)
   const [selected,   setSelected]   = useState(null)
   const [orderSent,  setOrderSent]  = useState(false)
+  const [model,      setModel]      = useState('service')
 
   // Listen for dose coming back from DoseRight module
   useEffect(() => {
@@ -250,7 +251,20 @@ export default function Calculator() {
               )}
 
               {(selected || !result.needsChoice) && !orderSent && (
-                <button onClick={() => setOrderSent(true)} style={{...calcBtn,marginTop:'16px',background:'#0b4358'}}>
+                <button onClick={() => {
+                  setOrderSent(true)
+                  if (onOrderConfirmed) {
+                    onOrderConfirmed({
+                      room: roomName || ROOMS[room].name,
+                      product: product === 'powder' ? 'MatriPowder' : 'MatriTablets',
+                      sachets: comboLabel(activeCombo),
+                      price: activeCost.toFixed(2),
+                      model: model === 'service' ? 'Servicio' : 'Propio',
+                      date: new Date().toLocaleDateString('es-AR'),
+                      ppb: activePpb,
+                    })
+                  }
+                }} style={{...calcBtn,marginTop:'16px',background:'#0b4358'}}>
                   Confirmar y agregar al pedido
                 </button>
               )}
