@@ -37,6 +37,7 @@ export default function Portal({ onSignOut }) {
   const [seconds,     setSeconds]     = useState(600)
   const [showWarning, setShowWarning] = useState(false)
   const [orders,      setOrders]      = useState(INITIAL_ORDERS)
+  const currentUser = { name:'Kleppe S.A.', tier:'T1', customer:'Kleppe S.A.' }
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -74,8 +75,7 @@ export default function Portal({ onSignOut }) {
     dashboard:  <Dashboard  onNavigate={navigate} orders={orders} />,
     rooms:      <Rooms />,
     orders:     <Orders     onNavigate={navigate} orders={orders} />,
-    calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} />,
-    generators: <Generators />,
+calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} userTier={currentUser.tier} />,    generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog />,
     wassington: <Wassington orders={orders} onApprove={approveOrder} onReject={rejectOrder} />,

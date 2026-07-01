@@ -1,42 +1,56 @@
 import { useState, useEffect } from 'react'
+import { getPrice, getBracket, PRODUCT_PRICES, SERVICE_FEES } from '../../data/pricing'
 
+// ── Pouch optimizer ───────────────────────────────────────────────────────
 const POUCHES   = [100, 50, 20, 10]
 const DOSE_BASE = 0.067
 
 function greedyCeiling(g) {
   let rem = g, r = []
-  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s,qty:q}); rem -= q*s }
+  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s, qty:q}); rem -= q*s }
   if (rem > 0.001) r[r.length-1].qty += 1
   return r
 }
 function greedyFloor(g) {
   let rem = g, r = []
-  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s,qty:q}); rem -= q*s }
+  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s, qty:q}); rem -= q*s }
   return r
 }
-function comboGrams(c) { return c.reduce((s,p) => s + p.size*p.qty, 0) }
-function comboLabel(c) { return c.filter(p=>p.qty>0).map(p=>p.qty+' x '+p.size+'g').join(' + ') || '-' }
-function actualPpb(g, vol) { return (g/(vol*DOSE_BASE))*1000 }
-function fmtUSD(v) { return '$'+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
-function fmtNum(v,d=1) { return v.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}) }
+function comboGrams(c)  { return c.reduce((s,p) => s + p.size*p.qty, 0) }
+function comboLabel(c)  { return c.filter(p=>p.qty>0).map(p=>`${p.qty}×${p.size}g`).join(' + ') || '—' }
+function actualPpb(g, vol) { return (g / (vol * DOSE_BASE)) * 1000 }
+function fmtUSD(v) { return '$' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
+function fmtNum(v, d=1) { return Number(v).toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}) }
 
-const card  = {background:'#fff',borderRadius:'12px',border:'0.5px solid #ddddd5',padding:'24px',marginBottom:'16px'}
-const label = {display:'block',fontSize:'13px',fontWeight:500,color:'#0b4358',marginBottom:'5px'}
-const inp   = {width:'100%',padding:'10px 12px',borderRadius:'8px',border:'0.5px solid #ccc',fontSize:'14px',color:'#0b4358',background:'#fafaf8',fontFamily:'inherit'}
-const calcBtn = {background:'#e8736a',color:'#fff',border:'none',borderRadius:'10px',padding:'13px 20px',fontSize:'15px',fontWeight:700,cursor:'pointer',width:'100%',marginTop:'8px',fontFamily:'inherit'}
-const metricBox = {background:'#f5f5ee',borderRadius:'8px',padding:'12px',textAlign:'center'}
-const pouchRow  = {display:'flex',alignItems:'center',gap:'10px',padding:'8px 12px',background:'#f5f5ee',borderRadius:'8px',marginBottom:'6px'}
+// ── Tablets calculator ────────────────────────────────────────────────────
+function calcTabletCombo(vol) {
+  const large = Math.floor(vol / 5)
+  const rem   = vol - large * 5
+  const small = Math.ceil(rem / 2.5)
+  return { large, small, covered: large*5 + small*2.5 }
+}
 
-export default function Calculator({ onOrderConfirmed }) {
-  const [product,    setProduct]    = useState('powder')
-  const [adminOpen,  setAdminOpen]  = useState(false)
-  const [pricePerM3, setPricePerM3] = useState(0.85)
-  const [adminPrice, setAdminPrice] = useState('0.85')
+// ── Styles ────────────────────────────────────────────────────────────────
+const card    = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'24px', marginBottom:'16px'}
+const lbl     = {display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}
+const inp     = {width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit'}
+const calcBtn = {background:'#e8736a', color:'#fff', border:'none', borderRadius:'10px', padding:'13px 20px', fontSize:'15px', fontWeight:700, cursor:'pointer', width:'100%', marginTop:'8px', fontFamily:'inherit'}
+const pouchRow = {display:'flex', alignItems:'center', gap:'10px', padding:'8px 12px', background:'#f5f5ee', borderRadius:'8px', marginBottom:'6px'}
+
+const ROOMS = [
+  { name:'Cámara Norte 1', vol:500 },
+  { name:'Cámara Norte 2', vol:620 },
+  { name:'Cámara Sur 3',   vol:360 },
+  { name:'Frigorífico A',  vol:240 },
+]
+
+export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T1' }) {
+  const [roomIdx,    setRoomIdx]    = useState(0)
   const [roomName,   setRoomName]   = useState('')
-  const [volume,     setVolume]     = useState('')
   const [ppb,        setPpb]        = useState('1000')
-  const [result,     setResult]     = useState(null)
-  const [selected,   setSelected]   = useState(null)
+  const [results,    setResults]    = useState(null)   // { exact, adjusted, tablets }
+  const [selected,   setSelected]   = useState(null)   // 'exact' | 'adjusted' | 'tablets'
+  const [serviceModel, setServiceModel] = useState('self') // 'service' | 'self'
   const [orderSent,  setOrderSent]  = useState(false)
   const [model,      setModel]      = useState('service')
 
@@ -45,300 +59,358 @@ export default function Calculator({ onOrderConfirmed }) {
     const handler = (e) => {
       if (e.data && e.data.type === 'MATRI_DOSE') {
         setPpb(String(e.data.ppb))
-        setProduct('powder')
-        window.scrollTo(0, 0)
+        setResults(null)
+        setSelected(null)
+        setOrderSent(false)
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
-  const [roomNameT,  setRoomNameT]  = useState('')
-  const [volumeT,    setVolumeT]    = useState('')
-  const [resultT,    setResultT]    = useState(null)
 
-  const calcCost = (vol, ppbVal) => vol * pricePerM3 * (ppbVal/1000)
+  const vol    = ROOMS[roomIdx].vol
+  const ppbVal = parseFloat(ppb) || 1000
 
-  const calcPowder = () => {
-    const vol  = parseFloat(volume)
-    const ppbV = parseFloat(ppb)
-    if (!vol || vol <= 0) return
-    const grams     = vol * DOSE_BASE * (ppbV/1000)
-    const exactC    = greedyCeiling(grams)
-    const adjC      = greedyFloor(grams)
-    const exactG    = comboGrams(exactC)
-    const adjG      = comboGrams(adjC)
-    const exactExcess = (exactG - grams)/grams*100
-    const needsChoice = exactExcess > 1.0 && adjG > 0 && adjG !== exactG
-    setResult({vol, ppbV, grams, exactC, adjC, exactG, adjG, exactExcess, needsChoice})
+  const calculate = () => {
+    const grams = vol * DOSE_BASE * (ppbVal / 1000)
+
+    // Powder exact
+    const exactC  = greedyCeiling(grams)
+    const exactG  = comboGrams(exactC)
+    const exactPpb = actualPpb(exactG, vol)
+    const powderPrice = getPrice(PRODUCT_PRICES.MatriPowder.prices, userTier, vol)
+    const exactProductCost = exactG * powderPrice / 1000 * vol / exactG * exactG
+    // cost = vol * pricePerM3 * (actualPpb/1000)
+    const exactCost = vol * powderPrice * (exactPpb / 1000)
+
+    // Powder adjusted (floor)
+    const adjC   = greedyFloor(grams)
+    const adjG   = comboGrams(adjC)
+    const adjPpb = adjG > 0 ? actualPpb(adjG, vol) : 0
+    const adjCost = vol * powderPrice * (adjPpb / 1000)
+
+    // Service fee
+    const serviceFee = getPrice(SERVICE_FEES.prices, userTier, vol)
+
+    // Tablets
+    const tabCombo  = calcTabletCombo(vol)
+    const tabPrice  = getPrice(PRODUCT_PRICES.MatriTablets.prices, userTier, vol)
+    const tabCost   = tabCombo.covered * tabPrice
+
+    setResults({
+      exact:    { combo:exactC, grams:exactG, ppb:exactPpb, productCost:exactCost, serviceFee },
+      adjusted: { combo:adjC,  grams:adjG,  ppb:adjPpb,  productCost:adjCost,  serviceFee, skip: adjG === exactG || adjG === 0 },
+      tablets:  { ...tabCombo, productCost:tabCost },
+      powderPrice, tabPrice, serviceFee,
+    })
     setSelected(null)
     setOrderSent(false)
   }
 
-  const calcTablets = () => {
-    const vol = parseFloat(volumeT)
-    if (!vol || vol <= 0) return
-    const large   = Math.floor(vol/5)
-    const rem     = vol - large*5
-    const small   = Math.ceil(rem/2.5)
-    const covered = large*5 + small*2.5
-    const cost    = calcCost(covered, 1000)
-    setResultT({vol, large, small, covered, cost})
+  const activeResult = results && selected
+    ? (selected === 'tablets' ? results.tablets : results[selected])
+    : null
+
+  const totalCost = (r, withService) => {
+    if (!r) return 0
+    if (selected === 'tablets') return r.productCost
+    return r.productCost + (withService ? r.serviceFee : 0)
   }
 
-  const activeCombo = result && selected ? (selected==='exact' ? result.exactC : result.adjC) : result?.exactC
-  const activeG     = activeCombo ? comboGrams(activeCombo) : 0
-  const activePpb   = result ? actualPpb(activeG, result.vol) : 0
-  const activeCost  = result ? calcCost(result.vol, activePpb) : 0
+  const sendOrder = () => {
+    if (!selected || !results) return
+    const r = selected === 'tablets' ? results.tablets : results[selected]
+    const product = selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'
+    const sachets = selected === 'tablets'
+      ? `${r.large} tabletas grandes + ${r.small} chicas`
+      : comboLabel(selected === 'exact' ? results.exact.combo : results.adjusted.combo)
+    const cost = selected === 'tablets'
+      ? r.productCost
+      : r.productCost + (serviceModel === 'service' ? r.serviceFee : 0)
+
+    setOrderSent(true)
+    if (onOrderConfirmed) {
+      onOrderConfirmed({
+        room: roomName || ROOMS[roomIdx].name,
+        product,
+        sachets,
+        price: cost.toFixed(2),
+        model: serviceModel === 'service' ? 'Servicio' : 'Propio',
+        date: new Date().toLocaleDateString('es-AR'),
+        ppb: selected === 'tablets' ? 1000 : (selected === 'exact' ? results.exact.ppb : results.adjusted.ppb),
+      })
+    }
+  }
+
+  // ── Option card component ─────────────────────────────────────────────
+  const OptionCard = ({ id, title, badge, children, cost, ppbVal: optPpb, tag }) => {
+    const isSelected = selected === id
+    return (
+      <div
+        onClick={() => { setSelected(id); setServiceModel('self'); setOrderSent(false) }}
+        style={{
+          borderRadius:'12px', border: isSelected ? '2px solid #0b4358' : '1.5px solid #ddddd5',
+          padding:'18px', cursor:'pointer', background: isSelected ? '#f0f7ff' : '#fff',
+          transition:'border-color .15s, background .15s', flex:1, minWidth:'200px'
+        }}
+      >
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'10px'}}>
+          <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358'}}>{title}</div>
+          {badge && <span style={{background:badge.bg, color:badge.color, fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{badge.label}</span>}
+        </div>
+        {children}
+        {cost !== undefined && (
+          <div style={{borderTop:'0.5px solid #e0e0d8', marginTop:'12px', paddingTop:'12px'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+              <span style={{fontSize:'11px', color:'#888'}}>Costo producto</span>
+              <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{fmtUSD(cost)}</span>
+            </div>
+            {optPpb && (
+              <div style={{fontSize:'11px', color:'#888', marginTop:'2px', textAlign:'right'}}>
+                {fmtNum(optPpb, 0)} ppb · {fmtUSD(cost/vol)}/m³
+              </div>
+            )}
+          </div>
+        )}
+        {isSelected && (
+          <div style={{marginTop:'10px', background:'#e8f4fc', borderRadius:'8px', padding:'8px 10px', fontSize:'11px', color:'#0c447c', fontWeight:600}}>
+            ✓ Seleccionado
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <div style={{maxWidth:'720px',margin:'0 auto'}}>
+    <div style={{maxWidth:'800px', margin:'0 auto'}}>
 
-      <div style={{background:'#0b4358',color:'#fff',padding:'8px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'12px',borderRadius:'8px 8px 0 0'}}>
-        <span>Panel de administracion - Wassington</span>
-        <button onClick={() => setAdminOpen(!adminOpen)} style={{background:'none',border:'0.5px solid rgba(255,255,255,.4)',borderRadius:'6px',color:'#fff',padding:'4px 12px',fontSize:'11px',cursor:'pointer'}}>
-          Configurar precio
-        </button>
-      </div>
+      {/* Admin bar */}
+      <div style={{background:'#0b4358', color:'#fff', padding:'8px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', borderRadius:'8px 8px 0 0'}}>
+        <span>Tier activo: <strong>{userTier}</strong> · Precios según tabla de Wassington</span>
+        </div>
 
-      {adminOpen && (
-        <div style={{background:'#0d3f54',padding:'16px 20px',borderBottom:'2px solid #b5cc2e',marginBottom:'16px'}}>
-          <div style={{fontSize:'11px',fontWeight:700,color:'#b5cc2e',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:'12px'}}>Parametros de precio</div>
-          <div style={{display:'flex',gap:'12px',alignItems:'flex-end',flexWrap:'wrap'}}>
-            <div style={{flex:1,minWidth:'160px'}}>
-              <div style={{fontSize:'11px',color:'rgba(255,255,255,.6)',marginBottom:'4px'}}>Precio base a 1.000 ppb ($/m3)</div>
-              <input style={{...inp,background:'rgba(255,255,255,.1)',border:'0.5px solid rgba(255,255,255,.3)',color:'#fff',fontWeight:600}} type="number" value={adminPrice} min="0.01" step="0.01" onChange={e => setAdminPrice(e.target.value)}/>
-            </div>
-            <button onClick={() => { const p=parseFloat(adminPrice); if(p>0){setPricePerM3(p);setAdminOpen(false)} }} style={{background:'#b5cc2e',color:'#0b4358',border:'none',borderRadius:'7px',padding:'10px 16px',fontSize:'12px',fontWeight:700,cursor:'pointer'}}>
-              Guardar
+      {/* Inputs */}
+      <div style={card}>
+        <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'16px'}}>Datos de la cámara</div>
+
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
+          <div>
+            <label style={lbl}>Cámara</label>
+            <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
+              {ROOMS.map((r,i) => <option key={i} value={i}>{r.name} ({r.vol} m³)</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Nombre personalizado (opcional)</label>
+            <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="Ej: Sector B — Peras"/>
+          </div>
+        </div>
+
+        <div style={{marginBottom:'14px'}}>
+          <label style={lbl}>Dosis objetivo (ppb)</label>
+          <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+            <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setResults(null) }} min="100" max="5000" step="50"/>
+            <button onClick={() => setPpb('1000')} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
+              Estándar (1.000 ppb)
             </button>
           </div>
-          <div style={{fontSize:'11px',color:'rgba(255,255,255,.45)',marginTop:'8px'}}>Precio activo: {fmtUSD(pricePerM3)}/m3 a 1.000 ppb</div>
+          <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+            Dosis estándar: 1.000 ppb = 0.067 g MatriPowder 3.3% por m³
+          </div>
         </div>
-      )}
 
-      <div style={{fontSize:'17px',fontWeight:700,color:'#0b4358',marginBottom:'16px',paddingBottom:'8px',borderBottom:'0.5px solid #d0d0c8'}}>
-        Selecciona el producto
+        <div style={{background:'#f0f7e0', border:'1px solid #b5cc2e', borderRadius:'8px', padding:'12px 14px', marginBottom:'14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:'12px', fontWeight:700, color:'#3b6d11', marginBottom:'2px'}}>No sabés qué dosis usar?</div>
+            <div style={{fontSize:'11px', color:'#555'}}>Consultá la calculadora científica DoseRight basada en parámetros de cosecha.</div>
+          </div>
+          <button
+            onClick={() => window.open('https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html', 'doseright', 'width=900,height=700,scrollbars=yes')}
+            style={{background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:'12px', fontFamily:'inherit'}}
+          >
+            Abrir DoseRight
+          </button>
+        </div>
+
+        <button style={calcBtn} onClick={calculate}>
+          Calcular y comparar alternativas
+        </button>
       </div>
 
-      <div style={{display:'flex',marginBottom:'24px',borderRadius:'10px',overflow:'hidden',border:'0.5px solid #ddddd5'}}>
-        <button style={{flex:1,padding:'13px',border:'none',background:product==='powder'?'#0b4358':'#fff',color:product==='powder'?'#fff':'#0b4358',fontSize:'14px',fontWeight:600,cursor:'pointer'}} onClick={() => setProduct('powder')}>
-          MatriPowder
-        </button>
-        <button style={{flex:1,padding:'13px',border:'none',borderLeft:'0.5px solid #ddddd5',background:product==='tablets'?'#0b4358':'#fff',color:product==='tablets'?'#fff':'#0b4358',fontSize:'14px',fontWeight:600,cursor:'pointer'}} onClick={() => setProduct('tablets')}>
-          MatriTablets
-        </button>
-      </div>
-
-      {product === 'powder' && (
+      {/* Results — 3 alternatives */}
+      {results && (
         <div>
-          <div style={card}>
-            <div style={{fontSize:'15px',fontWeight:700,color:'#0b4358',marginBottom:'16px'}}>Datos de la camara</div>
+          <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>
+            Compará las alternativas para {roomName || ROOMS[roomIdx].name} ({vol} m³)
+          </div>
+          <div style={{fontSize:'12px', color:'#888', marginBottom:'16px'}}>
+            Tier {userTier} · Dosis objetivo: {fmtNum(ppbVal, 0)} ppb · Hacé click en una alternativa para seleccionarla
+          </div>
 
-            <div style={{marginBottom:'16px'}}>
-              <label style={label}>Nombre de la camara</label>
-              <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="Ej: Camara 1 - Peras"/>
-            </div>
+          <div style={{display:'flex', gap:'14px', flexWrap:'wrap', marginBottom:'20px'}}>
 
-            <div style={{marginBottom:'16px'}}>
-              <label style={label}>Volumen de la camara (m3)</label>
-              <input style={inp} type="number" value={volume} onChange={e => setVolume(e.target.value)} placeholder="Ej: 1500" min="1"/>
-            </div>
-
-            <div style={{marginBottom:'16px'}}>
-              <label style={label}>Dosis objetivo (ppb)</label>
-              <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
-                <input style={{...inp,flex:1}} type="number" value={ppb} onChange={e => setPpb(e.target.value)} min="100" max="5000" step="50"/>
-                <button onClick={() => setPpb('1000')} style={{background:'none',border:'0.5px solid #b5cc2e',color:'#3b6d11',borderRadius:'8px',padding:'10px 12px',fontSize:'12px',cursor:'pointer',whiteSpace:'nowrap'}}>
-                  Estandar (1.000 ppb)
-                </button>
+            {/* Option 1 — Powder exact */}
+            <OptionCard
+              id="exact"
+              title="MatriPowder — Dosis exacta"
+              badge={{label:'Dosis exacta', bg:'#e8f4fc', color:'#0c447c'}}
+              cost={results.exact.productCost}
+              ppbVal={results.exact.ppb}
+            >
+              <div style={{marginBottom:'8px'}}>
+                {results.exact.combo.filter(p=>p.qty>0).map(p => (
+                  <div key={p.size} style={pouchRow}>
+                    <div style={{background:'#0b4358', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', fontWeight:700}}>{p.size}g</div>
+                    <div style={{fontSize:'12px', color:'#333', flex:1}}>Sachet {p.size}g</div>
+                    <div style={{fontSize:'13px', fontWeight:700, color:'#e8736a'}}>×{p.qty}</div>
+                  </div>
+                ))}
               </div>
-              <div style={{fontSize:'11px',color:'#888',marginTop:'4px'}}>Dosis estandar: 1.000 ppb = 0,067 g de MatriPowder 3,3% por m3</div>
-            </div>
+              <div style={{fontSize:'11px', color:'#888'}}>{fmtNum(results.exact.grams, 1)} g totales</div>
+            </OptionCard>
 
-            <div style={{background:'#f0f7e0',border:'1px solid #b5cc2e',borderRadius:'8px',padding:'12px 14px',marginBottom:'16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div>
-                <div style={{fontSize:'12px',fontWeight:700,color:'#3b6d11',marginBottom:'2px'}}>No sabes que dosis usar?</div>
-                <div style={{fontSize:'11px',color:'#555'}}>Consulta la calculadora cientifica DoseRight basada en parametros de cosecha.</div>
+            {/* Option 2 — Powder adjusted */}
+            {!results.adjusted.skip && (
+              <OptionCard
+                id="adjusted"
+                title="MatriPowder — Dosis ajustada"
+                badge={{label:'Sin sachet extra', bg:'#eaf7ee', color:'#1a6b30'}}
+                cost={results.adjusted.productCost}
+                ppbVal={results.adjusted.ppb}
+              >
+                <div style={{marginBottom:'8px'}}>
+                  {results.adjusted.combo.filter(p=>p.qty>0).map(p => (
+                    <div key={p.size} style={pouchRow}>
+                      <div style={{background:'#0b4358', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', fontWeight:700}}>{p.size}g</div>
+                      <div style={{fontSize:'12px', color:'#333', flex:1}}>Sachet {p.size}g</div>
+                      <div style={{fontSize:'13px', fontWeight:700, color:'#e8736a'}}>×{p.qty}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontSize:'11px', color:'#888'}}>{fmtNum(results.adjusted.grams, 1)} g totales</div>
+              </OptionCard>
+            )}
+
+            {/* Option 3 — Tablets */}
+            <OptionCard
+              id="tablets"
+              title="MatriTablets"
+              badge={{label:'Autoaplicación', bg:'#fff3cd', color:'#b06a00'}}
+              cost={results.tablets.productCost}
+            >
+              <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
+                <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
+                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta grande (5m³)</div>
+                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.large}</div>
+                </div>
+                <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
+                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta chica (2.5m³)</div>
+                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.small}</div>
+                </div>
               </div>
-              <button onClick={() => window.open("https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html", "doseright", "width=900,height=700,scrollbars=yes")} style={{background:'#0b4358',color:'#fff',border:'none',borderRadius:'8px',padding:'9px 14px',fontSize:'12px',fontWeight:700,whiteSpace:'nowrap',marginLeft:'12px',cursor:'pointer',fontFamily:'inherit'}}>
-                Abrir DoseRight
+              <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(results.tablets.covered, 1)} m³ · No requiere generador</div>
+              <div style={{fontSize:'11px', color:'#888', marginTop:'2px'}}>{fmtUSD(results.tablets.productCost/vol)}/m³</div>
+            </OptionCard>
+          </div>
+
+          {/* Service model selector — only for Powder options */}
+          {selected && selected !== 'tablets' && (
+            <div style={card}>
+              <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>
+                Modelo de aplicación para MatriPowder
+              </div>
+              <div style={{display:'flex', gap:'12px'}}>
+                <div
+                  onClick={() => setServiceModel('service')}
+                  style={{flex:1, borderRadius:'10px', border: serviceModel==='service' ? '2px solid #0b4358' : '1.5px solid #ddddd5', padding:'14px', cursor:'pointer', background: serviceModel==='service' ? '#f0f7ff' : '#fff'}}
+                >
+                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>Servicio gestionado</div>
+                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>Wassington realiza la aplicación</div>
+                  <div style={{fontSize:'16px', fontWeight:700, color:'#e8736a'}}>+{fmtUSD(results[selected].serviceFee)}</div>
+                  <div style={{fontSize:'11px', color:'#888'}}>cargo fijo por cámara</div>
+                </div>
+                <div
+                  onClick={() => setServiceModel('self')}
+                  style={{flex:1, borderRadius:'10px', border: serviceModel==='self' ? '2px solid #0b4358' : '1.5px solid #ddddd5', padding:'14px', cursor:'pointer', background: serviceModel==='self' ? '#f0f7ff' : '#fff'}}
+                >
+                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>Autoaplicación</div>
+                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>El cliente realiza el tratamiento</div>
+                  <div style={{fontSize:'16px', fontWeight:700, color:'#1a6b30'}}>Sin cargo adicional</div>
+                  <div style={{fontSize:'11px', color:'#888'}}>requiere generador MaTri</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cost summary */}
+          {selected && (
+            <div style={{background:'#0b4358', borderRadius:'12px', padding:'20px 24px', marginBottom:'16px'}}>
+              <div style={{fontSize:'12px', fontWeight:700, color:'#b5cc2e', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'14px'}}>
+                Resumen del pedido seleccionado
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'14px'}}>
+                {[
+                  ['Producto', selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'],
+                  ['Cámara', `${vol} m³`],
+                  ['Dosis', selected === 'tablets' ? '1.000 ppb' : `${fmtNum(results[selected]?.ppb || 0, 0)} ppb`],
+                ].map(([l,v]) => (
+                  <div key={l} style={{background:'rgba(255,255,255,.08)', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
+                    <div style={{fontSize:'10px', color:'rgba(255,255,255,.5)', marginBottom:'3px', textTransform:'uppercase'}}>{l}</div>
+                    <div style={{fontSize:'14px', fontWeight:700, color:'#fff'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', borderTop:'0.5px solid rgba(255,255,255,.15)', paddingTop:'14px'}}>
+                <div>
+                  <div style={{fontSize:'13px', color:'rgba(255,255,255,.6)'}}>Costo producto</div>
+                  <div style={{fontSize:'13px', color:'rgba(255,255,255,.6)', marginTop:'2px'}}>
+                    {selected !== 'tablets' && serviceModel === 'service' && `Servicio de aplicación`}
+                  </div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:'13px', color:'#fff'}}>{fmtUSD(selected === 'tablets' ? results.tablets.productCost : results[selected]?.productCost || 0)}</div>
+                  <div style={{fontSize:'13px', color:'#fff'}}>
+                    {selected !== 'tablets' && serviceModel === 'service' && fmtUSD(results[selected]?.serviceFee || 0)}
+                  </div>
+                </div>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', borderTop:'0.5px solid rgba(181,204,46,.3)', paddingTop:'12px', marginTop:'8px'}}>
+                <span style={{fontSize:'15px', fontWeight:700, color:'#b5cc2e'}}>Total estimado</span>
+                <span style={{fontSize:'24px', fontWeight:800, color:'#fff'}}>
+                  {fmtUSD(
+                    selected === 'tablets'
+                      ? results.tablets.productCost
+                      : (results[selected]?.productCost || 0) + (serviceModel === 'service' ? (results[selected]?.serviceFee || 0) : 0)
+                  )}
+                </span>
+              </div>
+              <div style={{fontSize:'11px', color:'rgba(255,255,255,.4)', marginTop:'4px', textAlign:'right'}}>
+                Precio indicativo · Wassington confirmará al aprobar
+              </div>
+            </div>
+          )}
+
+          {/* Confirm button */}
+          {selected && !orderSent && (
+            <button onClick={sendOrder} style={{...calcBtn, background:'#0b4358', marginTop:'0'}}>
+              Confirmar y enviar pedido
+            </button>
+          )}
+
+          {orderSent && (
+            <div style={{background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'10px', padding:'16px', textAlign:'center', fontSize:'13px', color:'#1a6b30', fontWeight:500}}>
+              Pedido enviado a Wassington para aprobación
+              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Revisá el estado en la sección Pedidos</div>
+              <button onClick={() => onNavigate && onNavigate('orders')} style={{marginTop:'10px', background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 16px', fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit'}}>
+                Ver mis pedidos
               </button>
             </div>
-
-            <button style={calcBtn} onClick={calcPowder}>Calcular dosis y costo</button>
-          </div>
-
-          {result && (
-            <div style={{...card,border:'2px solid #b5cc2e'}}>
-              <div style={{fontSize:'13px',fontWeight:700,color:'#0b4358',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'16px'}}>Resultado - MatriPowder</div>
-
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'16px'}}>
-                {[['Volumen',fmtNum(result.vol,0),'m3'],['Dosis objetivo',fmtNum(result.ppbV,0),'ppb'],['Gramos necesarios',fmtNum(result.grams,1),'g']].map(([l,v,u]) => (
-                  <div key={l} style={metricBox}>
-                    <div style={{fontSize:'11px',color:'#666',marginBottom:'3px'}}>{l}</div>
-                    <div style={{fontSize:'20px',fontWeight:700,color:'#0b4358'}}>{v}</div>
-                    <div style={{fontSize:'11px',color:'#888'}}>{u}</div>
-                  </div>
-                ))}
-              </div>
-
-              {(!result.needsChoice || selected) && (
-                <div style={{background:'#0b4358',borderRadius:'10px',padding:'16px 20px',marginBottom:'16px',display:'flex'}}>
-                  {[['Costo total',fmtUSD(activeCost),'USD'],['Costo por m3',fmtUSD(activeCost/result.vol),'USD/m3'],['Dosis real',Math.round(activePpb).toLocaleString('es-AR'),'ppb']].map(([l,v,u]) => (
-                    <div key={l} style={{flex:1,textAlign:'center',borderRight:'0.5px solid rgba(255,255,255,.15)',padding:'0 12px'}}>
-                      <div style={{fontSize:'11px',color:'rgba(255,255,255,.6)',marginBottom:'4px',textTransform:'uppercase'}}>{l}</div>
-                      <div style={{fontSize:'22px',fontWeight:700,color:'#b5cc2e'}}>{v}</div>
-                      <div style={{fontSize:'11px',color:'rgba(255,255,255,.5)'}}>{u}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <hr style={{border:'none',borderTop:'0.5px solid #e0e0d8',margin:'16px 0'}}/>
-
-              {result.needsChoice && !selected && (
-                <div>
-                  <div style={{fontSize:'13px',fontWeight:700,color:'#c0392b',marginBottom:'10px'}}>El redondeo requiere un sobre adicional. Elegi una opcion:</div>
-                  <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
-                    {[
-                      {key:'exact', combo:result.exactC, g:result.exactG, label:'Opcion A - Dosis exacta', color:'#e8736a', excess:result.exactExcess},
-                      {key:'adjusted', combo:result.adjC, g:result.adjG, label:'Opcion B - Dosis ajustada', color:'#3b6d11', excess:(result.adjG-result.grams)/result.grams*100},
-                    ].map(opt => {
-                      const optPpb  = actualPpb(opt.g, result.vol)
-                      const optCost = calcCost(result.vol, optPpb)
-                      return (
-                        <div key={opt.key} onClick={() => setSelected(opt.key)} style={{flex:1,minWidth:'200px',borderRadius:'10px',border:selected===opt.key?'1.5px solid #0b4358':'1.5px solid #ddddd5',padding:'16px',cursor:'pointer',background:selected===opt.key?'#e8f4fc':'#fff'}}>
-                          <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:opt.color,marginBottom:'4px'}}>{opt.label}</div>
-                          <div style={{fontSize:'20px',fontWeight:700,color:'#0b4358'}}>{Math.round(optPpb).toLocaleString('es-AR')} ppb</div>
-                          <div style={{fontSize:'12px',color:'#555',marginTop:'4px'}}>{comboLabel(opt.combo)}</div>
-                          <div style={{fontSize:'13px',fontWeight:600,color:'#0b4358',marginTop:'4px'}}>Costo: {fmtUSD(optCost)}</div>
-                          <button onClick={e => {e.stopPropagation(); setSelected(opt.key)}} style={{background:opt.color,color:'#fff',border:'none',borderRadius:'8px',padding:'7px 14px',fontSize:'12px',fontWeight:600,cursor:'pointer',marginTop:'10px',fontFamily:'inherit'}}>
-                            Usar esta dosis
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {!result.needsChoice && (
-                <div>
-                  <div style={{fontSize:'13px',fontWeight:600,color:'#0b4358',marginBottom:'8px'}}>Combinacion de sobres</div>
-                  {result.exactC.filter(p=>p.qty>0).map(p => (
-                    <div key={p.size} style={pouchRow}>
-                      <div style={{background:'#0b4358',color:'#fff',borderRadius:'6px',padding:'3px 10px',fontSize:'12px',fontWeight:700,minWidth:'48px',textAlign:'center'}}>{p.size}g</div>
-                      <div style={{fontSize:'13px',color:'#333',flex:1}}>Sobre de {p.size} g</div>
-                      <div style={{fontSize:'14px',fontWeight:700,color:'#e8736a'}}>x {p.qty}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selected && (
-                <div style={{marginTop:'16px'}}>
-                  <div style={{background:'#eaf7ee',border:'1px solid #a3d9b0',borderRadius:'10px',padding:'12px 16px',fontSize:'13px',color:'#1a6b30',fontWeight:500,marginBottom:'16px'}}>
-                    Dosis confirmada: {Math.round(activePpb).toLocaleString('es-AR')} ppb - {fmtNum(activeG,0)} g - {comboLabel(activeCombo)} - Costo: {fmtUSD(activeCost)}
-                  </div>
-                  {activeCombo.filter(p=>p.qty>0).map(p => (
-                    <div key={p.size} style={pouchRow}>
-                      <div style={{background:'#0b4358',color:'#fff',borderRadius:'6px',padding:'3px 10px',fontSize:'12px',fontWeight:700,minWidth:'48px',textAlign:'center'}}>{p.size}g</div>
-                      <div style={{fontSize:'13px',color:'#333',flex:1}}>Sobre de {p.size} g</div>
-                      <div style={{fontSize:'14px',fontWeight:700,color:'#e8736a'}}>x {p.qty}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {(selected || !result.needsChoice) && !orderSent && (
-                <button onClick={() => {
-                  setOrderSent(true)
-                  if (onOrderConfirmed) {
-                    onOrderConfirmed({
-                      room: roomName || ROOMS[room].name,
-                      product: product === 'powder' ? 'MatriPowder' : 'MatriTablets',
-                      sachets: comboLabel(activeCombo),
-                      price: activeCost.toFixed(2),
-                      model: model === 'service' ? 'Servicio' : 'Propio',
-                      date: new Date().toLocaleDateString('es-AR'),
-                      ppb: activePpb,
-                    })
-                  }
-                }} style={{...calcBtn,marginTop:'16px',background:'#0b4358'}}>
-                  Confirmar y agregar al pedido
-                </button>
-              )}
-
-              {orderSent && (
-                <div style={{background:'#0b4358',color:'#fff',borderRadius:'10px',padding:'14px 16px',marginTop:'16px',fontSize:'13px',fontWeight:500,textAlign:'center'}}>
-                  Pedido iniciado - {roomName || 'Camara'} - {fmtNum(activeG,0)} g MatriPowder - {fmtUSD(activeCost)} USD
-                  <div style={{fontSize:'11px',color:'rgba(255,255,255,.6)',marginTop:'4px'}}>Revisa el resumen en la seccion Pedidos</div>
-                </div>
-              )}
-            </div>
           )}
         </div>
       )}
 
-      {product === 'tablets' && (
-        <div>
-          <div style={card}>
-            <div style={{fontSize:'15px',fontWeight:700,color:'#0b4358',marginBottom:'16px'}}>Datos de la camara</div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={label}>Nombre de la camara</label>
-              <input style={inp} type="text" value={roomNameT} onChange={e => setRoomNameT(e.target.value)} placeholder="Ej: Camara 2 - Manzanas"/>
-            </div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={label}>Volumen de la camara (m3)</label>
-              <input style={inp} type="number" value={volumeT} onChange={e => setVolumeT(e.target.value)} placeholder="Ej: 300" min="1"/>
-            </div>
-            <div style={{fontSize:'11px',color:'#888',marginBottom:'16px'}}>Dosis estandar: 1.000 ppb - Tableta chica = 2,5 m3 - Tableta grande = 5 m3</div>
-            <button style={calcBtn} onClick={calcTablets}>Calcular tabletas y costo</button>
-          </div>
-
-          {resultT && (
-            <div style={{...card,border:'2px solid #b5cc2e'}}>
-              <div style={{fontSize:'13px',fontWeight:700,color:'#0b4358',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'16px'}}>Resultado - MatriTablets</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'16px'}}>
-                {[['Volumen',fmtNum(resultT.vol,0),'m3'],['Total tabletas',resultT.large+resultT.small,'unidades']].map(([l,v,u]) => (
-                  <div key={l} style={metricBox}>
-                    <div style={{fontSize:'11px',color:'#666',marginBottom:'3px'}}>{l}</div>
-                    <div style={{fontSize:'20px',fontWeight:700,color:'#0b4358'}}>{v}</div>
-                    <div style={{fontSize:'11px',color:'#888'}}>{u}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{background:'#0b4358',borderRadius:'10px',padding:'16px 20px',marginBottom:'16px',display:'flex'}}>
-                {[['Costo total',fmtUSD(resultT.cost),'USD'],['Costo por m3',fmtUSD(resultT.cost/resultT.vol),'USD/m3'],['Cobertura',fmtNum(resultT.covered,1),'m3']].map(([l,v,u]) => (
-                  <div key={l} style={{flex:1,textAlign:'center',borderRight:'0.5px solid rgba(255,255,255,.15)',padding:'0 12px'}}>
-                    <div style={{fontSize:'11px',color:'rgba(255,255,255,.6)',marginBottom:'4px',textTransform:'uppercase'}}>{l}</div>
-                    <div style={{fontSize:'22px',fontWeight:700,color:'#b5cc2e'}}>{v}</div>
-                    <div style={{fontSize:'11px',color:'rgba(255,255,255,.5)'}}>{u}</div>
-                  </div>
-                ))}
-              </div>
-              <hr style={{border:'none',borderTop:'0.5px solid #e0e0d8',margin:'16px 0'}}/>
-              <div style={{fontSize:'13px',fontWeight:600,color:'#0b4358',marginBottom:'10px'}}>Combinacion optima</div>
-              <div style={{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'12px'}}>
-                {[['Tableta grande (5 m3)',resultT.large],['Tableta chica (2,5 m3)',resultT.small]].map(([l,q]) => (
-                  <div key={l} style={{flex:1,minWidth:'120px',background:'#f5f5ee',borderRadius:'10px',padding:'16px',textAlign:'center'}}>
-                    <div style={{fontSize:'11px',color:'#666',marginBottom:'4px'}}>{l}</div>
-                    <div style={{fontSize:'26px',fontWeight:700,color:'#0b4358'}}>{q}</div>
-                    <div style={{fontSize:'11px',color:'#888'}}>unidades</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{fontSize:'12px',color:'#888',fontStyle:'italic',marginBottom:'16px'}}>
-                Cobertura total: {fmtNum(resultT.covered,1)} m3 - Excedente: {fmtNum(resultT.covered-resultT.vol,1)} m3
-              </div>
-              <button style={{...calcBtn,background:'#0b4358'}}>Confirmar y agregar al pedido</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{textAlign:'center',fontSize:'11px',color:'#aaa',padding:'16px 0'}}>
-        MaTri DoseRight Calculator - Argentina - FreshInset 2026
+      <div style={{textAlign:'center', fontSize:'11px', color:'#aaa', padding:'16px 0'}}>
+        MaTri DoseRight Calculator · Argentina · FreshInset 2026
       </div>
     </div>
   )
