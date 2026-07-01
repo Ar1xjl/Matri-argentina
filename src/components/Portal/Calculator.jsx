@@ -36,6 +36,9 @@ const lbl     = {display:'block', fontSize:'13px', fontWeight:500, color:'#0b435
 const inp     = {width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit'}
 const calcBtn = {background:'#e8736a', color:'#fff', border:'none', borderRadius:'10px', padding:'13px 20px', fontSize:'15px', fontWeight:700, cursor:'pointer', width:'100%', marginTop:'8px', fontFamily:'inherit'}
 const pouchRow = {display:'flex', alignItems:'center', gap:'10px', padding:'8px 12px', background:'#f5f5ee', borderRadius:'8px', marginBottom:'6px'}
+const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', textAlign:'center'}
+const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
+const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
 const ROOMS = [
   { name:'Cámara Norte 1', vol:500 },
@@ -143,7 +146,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
   }
 
   // ── Option card component ─────────────────────────────────────────────
-  const OptionCard = ({ id, title, badge, children, cost, ppbVal: optPpb, tag }) => {
+  const OptionCard = ({ id, title, badge, children, cost, ppbVal: optPpb, productLabel, serviceFee }) => {
     const isSelected = selected === id
     return (
       <div
@@ -161,13 +164,39 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
         {children}
         {cost !== undefined && (
           <div style={{borderTop:'0.5px solid #e0e0d8', marginTop:'12px', paddingTop:'12px'}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
-              <span style={{fontSize:'11px', color:'#888'}}>Costo producto</span>
-              <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{fmtUSD(cost)}</span>
+            {/* Itemized breakdown */}
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#555', marginBottom:'4px'}}>
+              <span>Costo {productLabel}</span>
+              <span>{fmtUSD(cost)}</span>
             </div>
-            {optPpb && (
-              <div style={{fontSize:'11px', color:'#888', marginTop:'2px', textAlign:'right'}}>
-                {fmtNum(optPpb, 0)} ppb · {fmtUSD(cost/vol)}/m³
+            {serviceFee !== undefined && (
+              <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#888', marginBottom:'4px'}}>
+                <span>+ Servicio de aplicación (opcional)</span>
+                <span>{fmtUSD(serviceFee)}</span>
+              </div>
+            )}
+
+            {/* Dosis / $ per m³ / Total — only Total in bold */}
+            <div style={{display:'grid', gridTemplateColumns: optPpb !== undefined ? 'repeat(3,1fr)' : 'repeat(2,1fr)', gap:'8px', marginTop:'10px'}}>
+              {optPpb !== undefined && (
+                <div style={statBox}>
+                  <div style={statLbl}>Dosis</div>
+                  <div style={{...statVal, fontWeight:400}}>{fmtNum(optPpb, 0)} ppb</div>
+                </div>
+              )}
+              <div style={statBox}>
+                <div style={statLbl}>$/m³</div>
+                <div style={{...statVal, fontWeight:400}}>{fmtUSD(cost/vol)}</div>
+              </div>
+              <div style={statBox}>
+                <div style={statLbl}>Total</div>
+                <div style={statVal}>{fmtUSD(cost)}</div>
+              </div>
+            </div>
+
+            {serviceFee !== undefined && (
+              <div style={{fontSize:'10px', color:'#aaa', marginTop:'8px', textAlign:'center'}}>
+                Total sin servicio · Con servicio gestionado: {fmtUSD(cost + serviceFee)}
               </div>
             )}
           </div>
@@ -256,6 +285,8 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
               badge={{label:'Dosis exacta', bg:'#e8f4fc', color:'#0c447c'}}
               cost={results.exact.productCost}
               ppbVal={results.exact.ppb}
+              productLabel="MatriPowder"
+              serviceFee={results.exact.serviceFee}
             >
               <div style={{marginBottom:'8px'}}>
                 {results.exact.combo.filter(p=>p.qty>0).map(p => (
@@ -277,6 +308,8 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
                 badge={{label:'Sin sachet extra', bg:'#eaf7ee', color:'#1a6b30'}}
                 cost={results.adjusted.productCost}
                 ppbVal={results.adjusted.ppb}
+                productLabel="MatriPowder"
+                serviceFee={results.adjusted.serviceFee}
               >
                 <div style={{marginBottom:'8px'}}>
                   {results.adjusted.combo.filter(p=>p.qty>0).map(p => (
@@ -297,6 +330,8 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
               title="MatriTablets"
               badge={{label:'Autoaplicación', bg:'#fff3cd', color:'#b06a00'}}
               cost={results.tablets.productCost}
+              ppbVal={1000}
+              productLabel="MatriTablets"
             >
               <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
                 <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
@@ -309,7 +344,6 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
                 </div>
               </div>
               <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(results.tablets.covered, 1)} m³ · No requiere generador</div>
-              <div style={{fontSize:'11px', color:'#888', marginTop:'2px'}}>{fmtUSD(results.tablets.productCost/vol)}/m³</div>
             </OptionCard>
           </div>
 
