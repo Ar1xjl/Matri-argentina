@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
   { id: 'generators',  icon: '⚡', label: 'Generadores',             section: 'Equipamiento' },
   { id: 'documents',   icon: '📄', label: 'Documentos',              section: 'Información' },
+  { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,
+    href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
   { id: 'applog',      icon: '📋', label: 'Registro de aplicaciones',section: null },
   { id: 'wassington',  icon: '⚙️', label: 'Panel Wassington',        section: 'Administración' },
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
@@ -38,20 +40,38 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut }) {
                 {item.section}
               </div>
             )}
-            <div
-              onClick={() => onNavigate(item.id)}
-              style={{
-                display:'flex', alignItems:'center', gap:'10px',
-                padding:'10px 20px', fontSize:'13px', fontWeight:500,
-                color: activePanel === item.id ? 'white' : '#90b8c8',
-                background: activePanel === item.id ? 'rgba(181,204,46,.15)' : 'transparent',
-                borderLeft: activePanel === item.id ? '3px solid #b5cc2e' : '3px solid transparent',
-                cursor:'pointer', transition:'.15s'
-              }}
-            >
-              <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
-              {item.label}
-            </div>
+            {item.href ? (
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display:'flex', alignItems:'center', gap:'10px',
+                  padding:'10px 20px', fontSize:'13px', fontWeight:500,
+                  color:'#90b8c8', textDecoration:'none',
+                  borderLeft:'3px solid transparent',
+                  cursor:'pointer', transition:'.15s'
+                }}
+              >
+                <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
+                {item.label}
+              </a>
+            ) : (
+              <div
+                onClick={() => onNavigate(item.id)}
+                style={{
+                  display:'flex', alignItems:'center', gap:'10px',
+                  padding:'10px 20px', fontSize:'13px', fontWeight:500,
+                  color: activePanel === item.id ? 'white' : '#90b8c8',
+                  background: activePanel === item.id ? 'rgba(181,204,46,.15)' : 'transparent',
+                  borderLeft: activePanel === item.id ? '3px solid #b5cc2e' : '3px solid transparent',
+                  cursor:'pointer', transition:'.15s'
+                }}
+              >
+                <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
+                {item.label}
+              </div>
+            )}
           </div>
         ))}
       </nav>
