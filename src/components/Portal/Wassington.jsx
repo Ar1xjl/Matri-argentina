@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import PricingPanel from './PricingPanel'
+import MatriSurePhotoModal from './MatriSurePhotoModal'
 import { pouchBreakdownLabel } from '../../lib/dosing'
+
+function matriSureOf(t) {
+  const m = t.matrisure_verifications
+  return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
+}
 
 const CUSTOMERS = [
   { name:'Kleppe S.A.',         cuit:'30-12345678-9', retailer:'Wassington', region:'Río Negro', status:'approved', treatments:12 },
@@ -10,14 +16,15 @@ const CUSTOMERS = [
   { name:'Frutales del Sur',    cuit:'30-99887766-3', retailer:'Podlesh',    region:'Río Negro', status:'pending',  treatments:0  },
 ]
 
-export default function Wassington({ treatments = [], onApprove, onReject }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl }) {
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
   const [reason,    setReason]    = useState('')
+  const [viewingPhoto, setViewingPhoto] = useState(null)
 
   const pending   = treatments.filter(t => t.status === 'submitted')
-  const processed = treatments.filter(t => t.status === 'approved' || t.status === 'rejected')
+  const processed = treatments.filter(t => ['approved','applied','completed','rejected'].includes(t.status))
 
   const openApprove = (t) => { setEditPrice(t.price_local ?? ''); setModal({ treatment: t, action:'approve' }) }
   const openReject  = (t) => { setReason(''); setModal({ treatment: t, action:'reject' }) }
@@ -45,6 +52,10 @@ export default function Wassington({ treatments = [], onApprove, onReject }) {
 
   return (
     <div>
+      {viewingPhoto && (
+        <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+
       {/* Tab selector */}
       <div style={{display:'flex', marginBottom:'24px', borderRadius:'10px', overflow:'hidden', border:'0.5px solid #ddddd5', background:'#fff'}}>
         {TABS.map((t, i) => (
@@ -136,22 +147,33 @@ export default function Wassington({ treatments = [], onApprove, onReject }) {
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
-                    {['N° tratamiento','Cliente','Cámara','Precio final','Estado','Motivo'].map(h => (
+                    {['N° tratamiento','Cliente','Cámara','Precio final','Estado','Motivo',''].map(h => (
                       <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {processed.map((t, i) => (
+                  {processed.map((t, i) => {
+                    const matriSure = matriSureOf(t)
+                    const statusText = {
+                      approved: '✓ Aprobado', applied: '🔧 Aplicado', completed: '📸 MatriSure OK', rejected: '✗ Rechazado',
+                    }[t.status] || t.status
+                    return (
                     <tr key={i} style={{borderBottom: i < processed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
                       <td style={{padding:'12px 16px', fontWeight:700}}># {t.id.slice(0,8)}</td>
                       <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
                       <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
                       <td style={{padding:'12px 16px', fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
-                      <td style={{padding:'12px 16px'}}><span className={`status ${t.status}`}>{t.status === 'approved' ? '✓ Aprobado' : '✗ Rechazado'}</span></td>
+                      <td style={{padding:'12px 16px'}}><span className={`status ${t.status}`}>{statusText}</span></td>
                       <td style={{padding:'12px 16px', color:'#888', fontSize:'12px'}}>{t.rejection_reason || '—'}</td>
+                      <td style={{padding:'12px 16px'}}>
+                        {matriSure?.photo_url && (
+                          <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>📷 Ver foto</button>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

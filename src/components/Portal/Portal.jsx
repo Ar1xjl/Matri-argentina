@@ -35,7 +35,7 @@ export default function Portal({ onSignOut }) {
   const loadTreatments = useCallback(async () => {
     const { data, error } = await supabase
       .from('treatments')
-      .select('*, cold_rooms(name, volume_m3), organizations(name)')
+      .select('*, cold_rooms(name, volume_m3), organizations(name), matrisure_verifications(photo_url, result, reviewed_at, assistance_requested)')
       .order('created_at', { ascending: false })
     if (error) { console.error(error); return }
     setTreatments(data)
@@ -121,6 +121,59 @@ export default function Portal({ onSignOut }) {
     await loadTreatments()
   }
 
+  // Approved → Applied: Operator records execution details
+  const applyTreatment = async (id, { startTime, endTime }) => {
+    // startTime/endTime come from <input type="datetime-local"> as full
+    // "YYYY-MM-DDTHH:MM" values — each carries its own date, since many
+    // treatments start one afternoon and finish the next day.
+    const { error } = await supabase
+      .from('treatments')
+      .update({
+        status: 'applied',
+        operator_id: profile.id,
+        applied_at: new Date().toISOString(),
+        application_start_time: startTime || null,
+        application_end_time: endTime || null,
+      })
+      .eq('id', id)
+    if (error) { console.error(error); return }
+    await loadTreatments()
+  }
+
+  // Applied → Completed: upload MatriSure photo, self-confirm or escalate for assistance
+  const submitMatriSure = async (treatmentId, photoBlob, { result, assistanceRequested }) => {
+    const path = `${profile.org_id}/${treatmentId}/${Date.now()}.jpg`
+    const { error: uploadError } = await supabase.storage
+      .from('matrisure-photos')
+      .upload(path, photoBlob, { contentType: 'image/jpeg' })
+    if (uploadError) { console.error(uploadError); return }
+
+    const isReviewed = result !== 'pending_review'
+    const { error: insertError } = await supabase.from('matrisure_verifications').insert({
+      treatment_id: treatmentId,
+      photo_url: path,
+      result,
+      assistance_requested: assistanceRequested,
+      reviewed_by: isReviewed ? profile.id : null,
+      reviewed_at: isReviewed ? new Date().toISOString() : null,
+    })
+    if (insertError) { console.error(insertError); return }
+
+    if (isReviewed) {
+      await supabase.from('treatments').update({ status: 'completed' }).eq('id', treatmentId)
+    }
+    await loadTreatments()
+  }
+
+  // Bucket is private — every view needs a fresh signed URL, not a stored public link.
+  const getMatriSurePhotoUrl = async (path) => {
+    const { data, error } = await supabase.storage
+      .from('matrisure-photos')
+      .createSignedUrl(path, 60 * 5)
+    if (error) { console.error(error); return null }
+    return data.signedUrl
+  }
+
   if (loading) {
     return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando...</div>
   }
@@ -130,12 +183,12 @@ export default function Portal({ onSignOut }) {
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
     rooms:      <Rooms coldRooms={coldRooms} treatments={treatments} onAddRoom={addColdRoom} />,
-    treatments: <Treatments onNavigate={navigate} treatments={treatments} />,
+    treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} />,
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id} />,
     generators: <Generators />,
     documents:  <Documents />,
-    applog:     <AppLog />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} />,
+    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} />,
     profile:    <Profile />,
   }
 

@@ -1,49 +1,94 @@
 import { useState } from 'react'
-import sureLogo    from '../../assets/logos/MatriSure_Logo.png'
-import sureImg     from '../../assets/images/MatriSure_Kit.png'
+import sureLogo from '../../assets/logos/MatriSure_Logo.png'
+import sureImg  from '../../assets/images/MatriSure_Kit.png'
 import ApplicationForm from './ApplicationForm'
+import MatriSureCapture from './MatriSureCapture'
 import RoomHistory from './RoomHistory'
+import { pouchBreakdownLabel } from '../../lib/dosing'
 
-const LOGS = [
-  { room:'Cámara Norte 1', product:'MatriPowder',  logo:'powder',  dose:'250g', date:'20 jun 2026', operator:'J. Rodríguez', gen:'GEN-012', status:'confirmed', slabel:'📸 Confirmado' },
-  { room:'Cámara Norte 2', product:'MatriPowder',  logo:'powder',  dose:'310g', date:'12 jun 2026', operator:'J. Rodríguez', gen:'GEN-012', status:'confirmed', slabel:'📸 Confirmado' },
-  { room:'Frigorífico A',  product:'MatriTablets', logo:'tablets', dose:'120g', date:'15 jun 2026', operator:'M. García',    gen:'—',       status:'approved',  slabel:'✓ Confirmado' },
-  { room:'Cámara Sur 3',   product:'MatriPowder',  logo:'powder',  dose:'180g', date:'—',           operator:'—',           gen:'—',       status:'pending',   slabel:'⏳ Pendiente' },
-]
+const statusLabel = (status) => ({
+  approved:  { cls:'pending',   label:'⏳ Listo para aplicar' },
+  applied:   { cls:'pending',   label:'🔧 Aplicado — falta MatriSure' },
+  completed: { cls:'confirmed', label:'📸 Confirmado' },
+}[status] || null)
 
-export default function AppLog() {
-  const [view, setView] = useState('list') // 'list' | 'form' | 'history'
-  const [selectedRoom, setSelectedRoom] = useState(null)
+export default function AppLog({ treatments = [], operatorName, onApply, onSubmitMatriSure }) {
+  const [view, setView] = useState('list') // 'list' | 'form' | 'capture' | 'review' | 'history'
+  const [selected, setSelected] = useState(null)
+  const [historyRoom, setHistoryRoom] = useState(null)
+  const [pendingPhoto, setPendingPhoto] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const openForm = (room) => {
-    setSelectedRoom(room)
-    setView('form')
+  const relevant = treatments.filter(t => ['approved','applied','completed'].includes(t.status))
+
+  const openForm = (t) => { setSelected(t); setView('form') }
+  const openHistory = (room) => { setHistoryRoom(room); setView('history') }
+  const openCapture = (t) => { setSelected(t); setView('capture') }
+
+  const handleApplySave = async ({ startTime, endTime }) => {
+    await onApply(selected.id, { startTime, endTime })
+    setView('list')
   }
 
-  const openHistory = (room) => {
-    setSelectedRoom(room)
-    setView('history')
+  const handleCapture = (blob) => {
+    setPendingPhoto(blob)
+    setView('review')
   }
 
-  const handleSave = (data) => {
-    console.log('Application saved:', data)
+  const handleReview = async (result, assistanceRequested = false) => {
+    setSubmitting(true)
+    await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
+    setSubmitting(false)
+    setPendingPhoto(null)
     setView('list')
   }
 
   if (view === 'form') {
     return (
       <ApplicationForm
-        order={{ room: selectedRoom, product: 'MatriPowder', id: 'ARG-0040', ppb: 1000 }}
-        onSave={handleSave}
+        treatment={selected}
+        operatorName={operatorName}
+        onSave={handleApplySave}
         onCancel={() => setView('list')}
       />
+    )
+  }
+
+  if (view === 'capture') {
+    return (
+      <MatriSureCapture
+        onCapture={handleCapture}
+        onCancel={() => setView('list')}
+      />
+    )
+  }
+
+  if (view === 'review') {
+    return (
+      <div style={{maxWidth:'480px'}}>
+        <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
+          <img src={URL.createObjectURL(pendingPhoto)} alt="MatriSure" style={{width:'100%', borderRadius:'8px', marginBottom:'16px'}}/>
+          <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>¿Qué mostró la tira?</div>
+          <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+            <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting} onClick={() => handleReview('confirmed')}>
+              ✓ Dosis alcanzada
+            </button>
+            <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting} onClick={() => handleReview('not_reached')}>
+              ✗ Dosis no alcanzada
+            </button>
+            <button className="btn-secondary" disabled={submitting} onClick={() => handleReview('pending_review', true)}>
+              🙋 No estoy seguro — pedir ayuda a Wassington
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (view === 'history') {
     return (
       <RoomHistory
-        roomName={selectedRoom}
+        roomName={historyRoom}
         onClose={() => setView('list')}
       />
     )
@@ -75,47 +120,59 @@ export default function AppLog() {
           <span style={{fontSize:'12px', color:'var(--gray)'}}>Temporada 2026</span>
         </div>
         <div style={{padding:0}}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Cámara</th><th>Producto</th><th>Dosis</th>
-                <th>Fecha aplicación</th><th>Operario</th>
-                <th>Generador</th><th>MatriSure</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {LOGS.map((l,i) => (
-                <tr key={i}>
-                  <td style={{fontWeight:600}}>{l.room}</td>
-                  <td>
-                    <span style={{
-                      background: l.logo === 'powder' ? '#eef4c0' : '#e1f5ee',
-                      color: l.logo === 'powder' ? '#4a6010' : '#0d7a5f',
-                      fontSize:'11px', fontWeight:700, padding:'3px 10px',
-                      borderRadius:'100px'
-                    }}>{l.product}</span>
-                  </td>
-                  <td>{l.dose}</td>
-                  <td style={{color:'var(--gray)'}}>{l.date}</td>
-                  <td style={{color:'var(--gray)'}}>{l.operator}</td>
-                  <td style={{fontFamily:'monospace', fontSize:'12px'}}>{l.gen}</td>
-                  <td><span className={`status ${l.status}`}>{l.slabel}</span></td>
-                  <td>
-                    <div style={{display:'flex', gap:'6px'}}>
-                      {l.status === 'pending' && (
-                        <button className="btn-lime btn-sm" onClick={() => openForm(l.room)}>
-                          📝 Registrar
-                        </button>
-                      )}
-                      <button className="btn-secondary btn-sm" onClick={() => openHistory(l.room)}>
-                        🕒 Historial
-                      </button>
-                    </div>
-                  </td>
+          {relevant.length === 0 ? (
+            <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+              No hay tratamientos aprobados todavía.
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Cámara</th><th>Producto</th><th>Dosis / sachets</th>
+                  <th>Fecha aplicación</th><th>MatriSure</th><th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {relevant.map(t => {
+                  const s = statusLabel(t.status)
+                  return (
+                    <tr key={t.id}>
+                      <td style={{fontWeight:600}}>{t.cold_rooms?.name}</td>
+                      <td>
+                        <span style={{
+                          background: t.product === 'powder' ? '#eef4c0' : '#e1f5ee',
+                          color: t.product === 'powder' ? '#4a6010' : '#0d7a5f',
+                          fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'
+                        }}>{t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'}</span>
+                      </td>
+                      <td style={{fontFamily:'monospace', fontSize:'12px'}}>
+                        {pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3)}
+                      </td>
+                      <td style={{color:'var(--gray)'}}>{t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '—'}</td>
+                      <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>
+                      <td>
+                        <div style={{display:'flex', gap:'6px'}}>
+                          {t.status === 'approved' && (
+                            <button className="btn-lime btn-sm" onClick={() => openForm(t)}>
+                              📝 Registrar
+                            </button>
+                          )}
+                          {t.status === 'applied' && (
+                            <button className="btn-lime btn-sm" onClick={() => openCapture(t)}>
+                              📸 Subir MatriSure
+                            </button>
+                          )}
+                          <button className="btn-secondary btn-sm" onClick={() => openHistory(t.cold_rooms?.name)}>
+                            🕒 Historial
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

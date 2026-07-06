@@ -4,11 +4,11 @@ Portal web/móvil para operadores de cámaras de frío en Argentina, para pedir,
 
 ## Stack y comandos
 
-- React 19 + Vite 8, sin backend todavía (todo el estado vive en React; Supabase planeado a futuro).
-- `npm run dev` — levantar en local
+- React 19 + Vite 8, con Supabase real (Postgres + RLS + Auth) desde 2026-07-08 — ver sección Supabase abajo. Ya no es un mockup en memoria.
+- `npm run dev` — levantar en local (necesita `.env.local` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, copiando `.env.local.example`)
 - `npm run build` — build de producción
 - `npm run lint` — lint (correr antes de dar por terminado un cambio)
-- Deploy: Vercel, auto-deploy desde `main` en GitHub.
+- Deploy: Vercel, auto-deploy desde `main` en GitHub. **Requiere `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` configuradas en Vercel → Settings → Environment Variables** (Production, y Preview si se quiere que las ramas de prueba funcionen igual) — `.env.local` está gitignoreado a propósito y nunca llega a Vercel solo. Si se agrega una variable de entorno nueva a futuro, hay que sumarla ahí también y volver a hacer deploy (agregar la variable sola no alcanza, hace falta un build nuevo).
 
 ## Estructura
 

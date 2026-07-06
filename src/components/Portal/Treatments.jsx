@@ -1,4 +1,13 @@
+import { useState } from 'react'
 import { pouchBreakdownLabel } from '../../lib/dosing'
+import MatriSurePhotoModal from './MatriSurePhotoModal'
+
+// Supabase may embed a to-one relation as an object or a single-item array
+// depending on FK inference — normalize to a plain object or null.
+function matriSureOf(t) {
+  const m = t.matrisure_verifications
+  return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
+}
 
 const productTag = (product) => (
   <span style={{
@@ -18,9 +27,14 @@ const statusLabel = (status) => ({
   cancelled: { cls:'rejected',  label:'– Cancelado' },
 }[status] || { cls:'pending', label:status })
 
-export default function Treatments({ onNavigate, treatments = [] }) {
+export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl }) {
+  const [viewingPhoto, setViewingPhoto] = useState(null) // storage path, or null
+
   return (
     <div>
+      {viewingPhoto && (
+        <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
       <div style={{display:'flex', gap:'10px', marginBottom:'16px'}}>
         <button className="btn-primary" onClick={() => onNavigate('calculator')}>
           + Nuevo tratamiento
@@ -51,6 +65,7 @@ export default function Treatments({ onNavigate, treatments = [] }) {
                 {treatments.map(t => {
                   const s = statusLabel(t.status)
                   const model = t.service_fee_local != null ? 'Servicio' : 'Propio'
+                  const matriSure = matriSureOf(t)
                   return (
                     <tr key={t.id}>
                       <td style={{fontWeight:700, color:'var(--navy)'}}># {t.id.slice(0,8)}</td>
@@ -76,7 +91,14 @@ export default function Treatments({ onNavigate, treatments = [] }) {
                         )}
                       </td>
                       <td>
-                        <button className="btn-secondary btn-sm">↺ Repetir</button>
+                        <div style={{display:'flex', gap:'6px'}}>
+                          {matriSure?.photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>
+                              📷 Ver foto
+                            </button>
+                          )}
+                          <button className="btn-secondary btn-sm">↺ Repetir</button>
+                        </div>
                       </td>
                     </tr>
                   )
