@@ -200,7 +200,7 @@ export default function PricingPanel() {
   return (
     <div>
       <div className="alert info">
-        Los precios configurados aqui se aplican automaticamente en la calculadora y en los pedidos.
+        Los precios configurados aqui se aplican automaticamente en la calculadora y en los tratamientos.
       </div>
 
       <div style={{display:'flex', marginBottom:'20px', borderRadius:'10px', overflow:'hidden', border:'0.5px solid #ddddd5', background:'#fff'}}>
@@ -251,7 +251,7 @@ export default function PricingPanel() {
       )}
 
       <div style={{background:'#f0f7e0', border:'0.5px solid #b5cc2e', borderRadius:'10px', padding:'14px 16px', fontSize:'12px', color:'#3b6d11', marginTop:'8px'}}>
-        <strong>Nota:</strong> Estos son valores de referencia. Wassington puede ajustar el precio final en el proceso de aprobacion de cada pedido.
+        <strong>Nota:</strong> Estos son valores de referencia. Wassington puede ajustar el precio final en el proceso de aprobacion de cada tratamiento.
       </div>
     </div>
   )

@@ -39,7 +39,7 @@ export default function ApplicationForm({ order, onSave, onCancel }) {
 
       {order && (
         <div className="alert info">
-          📋 Registrando aplicación para <strong>{order.room}</strong> · {order.product} · Pedido #{order.id}
+          📋 Registrando aplicación para <strong>{order.room}</strong> · {order.product} · Tratamiento #{order.id}
         </div>
       )}
 

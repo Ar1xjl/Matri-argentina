@@ -16,15 +16,9 @@ const PRODUCTS = [
 ]
 
 const STEPS = [
-  { n:'1', title:'Registrate y solicitá acceso', desc:'Ingresá tu Razón Social, CUIT y datos fiscales. Wassington valida y asigna tu nivel comercial.' },
+  { n:'1', title:'Registrate y solicitá acceso', desc:'Ingresá tu Razón Social, CUIT y datos fiscales. Wassington valida tu cuenta y activa tu acceso.' },
   { n:'2', title:'Calculá y pedí', desc:'Seleccioná la cámara, cultivo y mercado destino. El sistema sugiere la dosis y combinación óptima de sachets.' },
   { n:'3', title:'Aplicá y verificá', desc:'Realizá el tratamiento y subí la foto del Kit MatriSure. Dosis confirmada, registro completo.' },
-]
-
-const TIERS = [
-  { label:'T1', name:'Cuentas grandes',   detail:'Kleppe, Tres Ases y similares. Gestionado directamente por Wassington.' },
-  { label:'T2', name:'Cuentas medianas',  detail:'Región Río Negro. Gestionado por Podlesh.' },
-  { label:'T3+', name:'Kiwi y otras regiones', detail:'Otros distribuidores asignados por región.' },
 ]
 
 export default function Landing({ onOpenModal }) {
@@ -39,7 +33,7 @@ export default function Landing({ onOpenModal }) {
           Matri System
         </h1>
         <p style={{fontSize:'16px', color:'#0b4358', marginTop:'6px', opacity:.8}}>
-          Calculá la dosis exacta para cada cámara. Pedidos en línea. Trazabilidad total.
+          Calculá la dosis exacta para cada cámara. Tratamientos en línea. Trazabilidad total.
         </p>
       </div>
 
@@ -56,7 +50,7 @@ export default function Landing({ onOpenModal }) {
           </h2>
           <p style={{fontSize:'15px', color:'#6b7280', lineHeight:1.6, marginBottom:'24px'}}>
             El sistema MaTri para Argentina: optimizá el tratamiento 1-MCP en cada
-            cámara frigorífica con dosis exactas, gestión de pedidos y verificación MatriSure.
+            cámara frigorífica con dosis exactas, gestión de tratamientos y verificación MatriSure.
           </p>
           <div style={{display:'flex', flexWrap:'wrap', gap:'16px'}}>
             {[['🎯','Dosis Exacta'],['⏱️','Ahorra Tiempo'],['✅','Fácil de Usar'],['🛡️','Trazabilidad']].map(([icon,label]) => (
@@ -110,7 +104,7 @@ export default function Landing({ onOpenModal }) {
         </h2>
         <p style={{fontSize:'15px', color:'#6b7280', maxWidth:'540px', margin:'0 auto'}}>
           Calculadora de dosis por cámara, optimización de presentaciones y gestión
-          completa de pedidos — todo en un solo portal.
+          completa de tratamientos — todo en un solo portal.
         </p>
       </div>
 
@@ -169,40 +163,13 @@ export default function Landing({ onOpenModal }) {
         </div>
       </div>
 
-      {/* Tiers */}
-      <div style={{background:'#0b4358', padding:'56px 40px', textAlign:'center'}}>
-        <div style={{
-          display:'inline-block', border:'1.5px solid #a8c832', color:'#a8c832',
-          fontSize:'11px', fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase',
-          padding:'6px 18px', borderRadius:'100px', marginBottom:'14px'
-        }}>Estructura comercial</div>
-        <h2 style={{fontSize:'clamp(20px,3vw,30px)', fontWeight:900, color:'white', marginBottom:'8px'}}>
-          Niveles de cuenta
-        </h2>
-        <p style={{fontSize:'15px', color:'#90b8c8', maxWidth:'540px', margin:'0 auto 36px'}}>
-          Cada cliente es asignado por Wassington al nivel y distribuidor que corresponde a su operación.
-        </p>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', maxWidth:'800px', margin:'0 auto'}}>
-          {TIERS.map((t, i) => (
-            <div key={i} style={{
-              background:'rgba(255,255,255,.08)', border:'1.5px solid rgba(255,255,255,.15)',
-              borderRadius:'10px', padding:'24px 20px', textAlign:'center'
-            }}>
-              <div style={{fontSize:'32px', fontWeight:900, color:'#a8c832'}}>{t.label}</div>
-              <div style={{fontSize:'13px', fontWeight:700, color:'white', margin:'6px 0 8px'}}>{t.name}</div>
-              <div style={{fontSize:'12px', color:'#90b8c8', lineHeight:1.5}}>{t.detail}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* CTA */}
       <div style={{background:'#c8d84a', textAlign:'center', padding:'52px 40px'}}>
         <h2 style={{fontSize:'clamp(20px,3vw,30px)', fontWeight:900, color:'#0b4358', marginBottom:'12px'}}>
           ¿Listo para empezar?
         </h2>
         <p style={{fontSize:'15px', color:'#0b4358', opacity:.75, marginBottom:'28px'}}>
-          Solicitá acceso al portal y comenzá a gestionar tus pedidos MaTri en minutos.
+          Solicitá acceso al portal y comenzá a gestionar tus tratamientos MaTri en minutos.
         </p>
         <button onClick={() => onOpenModal('register')} style={{
           background:'#e05a4e', color:'white', border:'none',

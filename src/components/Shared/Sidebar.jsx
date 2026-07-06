@@ -3,7 +3,7 @@ import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
 const NAV_ITEMS = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard',               section: 'Principal' },
   { id: 'rooms',       icon: '🏠', label: 'Cámaras y ubicaciones',   section: null },
-  { id: 'orders',      icon: '📦', label: 'Pedidos',                 section: null },
+  { id: 'treatments',  icon: '📦', label: 'Tratamientos',            section: null },
   { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
   { id: 'generators',  icon: '⚡', label: 'Generadores',             section: 'Equipamiento' },
   { id: 'documents',   icon: '📄', label: 'Documentos',              section: 'Información' },
@@ -14,7 +14,9 @@ const NAV_ITEMS = [
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
 ]
 
-export default function Sidebar({ activePanel, onNavigate, onSignOut }) {
+export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '' }) {
+  const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
+
   return (
     <aside style={{
       width:'230px', minWidth:'230px', background:'#0b4358',
@@ -85,13 +87,12 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut }) {
           width:'32px', height:'32px', background:'#b5cc2e',
           borderRadius:'50%', display:'flex', alignItems:'center',
           justifyContent:'center', fontSize:'12px', fontWeight:800, color:'#0b4358'
-        }}>KL</div>
+        }}>{initials}</div>
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontSize:'12px', fontWeight:700, color:'white',
             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-            Kleppe S.A.
+            {orgName}
           </div>
-          <div style={{fontSize:'10px', color:'#607080'}}>Tier 1 · Wassington</div>
         </div>
         <button onClick={onSignOut} title="Cerrar sesión"
           style={{background:'none', border:'none', color:'#607080', fontSize:'16px', cursor:'pointer'}}>

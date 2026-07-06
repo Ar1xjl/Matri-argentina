@@ -1,33 +1,25 @@
 import { useState, useEffect } from 'react'
-import { getPrice, getBracket, PRODUCT_PRICES, SERVICE_FEES } from '../../data/pricing'
+import { supabase } from '../../lib/supabaseClient'
+import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 
-// ── Pouch optimizer ───────────────────────────────────────────────────────
-const POUCHES   = [100, 50, 20, 10]
-const DOSE_BASE = 0.067
-
-function greedyCeiling(g) {
-  let rem = g, r = []
-  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s, qty:q}); rem -= q*s }
-  if (rem > 0.001) r[r.length-1].qty += 1
-  return r
-}
 function greedyFloor(g) {
   let rem = g, r = []
   for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s, qty:q}); rem -= q*s }
   return r
 }
-function comboGrams(c)  { return c.reduce((s,p) => s + p.size*p.qty, 0) }
-function comboLabel(c)  { return c.filter(p=>p.qty>0).map(p=>`${p.qty}×${p.size}g`).join(' + ') || '—' }
-function actualPpb(g, vol) { return (g / (vol * DOSE_BASE)) * 1000 }
 function fmtUSD(v) { return '$' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 function fmtNum(v, d=1) { return Number(v).toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}) }
 
-// ── Tablets calculator ────────────────────────────────────────────────────
-function calcTabletCombo(vol) {
-  const large = Math.floor(vol / 5)
-  const rem   = vol - large * 5
-  const small = Math.ceil(rem / 2.5)
-  return { large, small, covered: large*5 + small*2.5 }
+function resolveBracket(brackets, vol) {
+  return brackets.find(b => vol >= b.min_m3 && (b.max_m3 == null || vol < b.max_m3))?.code
+}
+function getProductPrice(pricing, sku, vol) {
+  const bracket = resolveBracket(pricing.brackets, vol)
+  return pricing.product.find(p => p.sku === sku && p.bracket === bracket)?.price || 0
+}
+function getServiceFee(pricing, vol) {
+  const bracket = resolveBracket(pricing.brackets, vol)
+  return pricing.serviceFee.find(f => f.bracket === bracket)?.price || 0
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────
@@ -40,38 +32,50 @@ const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', t
 const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
-const ROOMS = [
-  { name:'Cámara Norte 1', vol:500 },
-  { name:'Cámara Norte 2', vol:620 },
-  { name:'Cámara Sur 3',   vol:360 },
-  { name:'Frigorífico A',  vol:240 },
-]
-
-export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T1' }) {
+export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [] }) {
+  const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [roomIdx,    setRoomIdx]    = useState(0)
   const [roomName,   setRoomName]   = useState('')
   const [ppb,        setPpb]        = useState('1000')
+  const [doseSource, setDoseSource] = useState('manual') // 'manual' | 'doseright'
   const [results,    setResults]    = useState(null)   // { exact, adjusted, tablets }
   const [selected,   setSelected]   = useState(null)   // 'exact' | 'adjusted' | 'tablets'
   const [serviceModel, setServiceModel] = useState('self') // 'service' | 'self'
-  const [orderSent,  setOrderSent]  = useState(false)
-  const [model,      setModel]      = useState('service')
+  const [treatmentSent, setTreatmentSent] = useState(false)
+
+  // Load this Organization's pricing (RLS returns whatever ancestor Distributor's
+  // tables are visible — see SYSTEM_ARCHITECTURE.md's pricing-visibility note).
+  useEffect(() => {
+    (async () => {
+      const [{ data: brackets }, { data: product }, { data: serviceFee }] = await Promise.all([
+        supabase.from('volume_brackets').select('*'),
+        supabase.from('pricing_product').select('*'),
+        supabase.from('pricing_service_fee').select('*'),
+      ])
+      setPricing({ brackets: brackets || [], product: product || [], serviceFee: serviceFee || [] })
+    })()
+  }, [])
 
   // Listen for dose coming back from DoseRight module
   useEffect(() => {
     const handler = (e) => {
       if (e.data && e.data.type === 'MATRI_DOSE') {
         setPpb(String(e.data.ppb))
+        setDoseSource('doseright')
         setResults(null)
         setSelected(null)
-        setOrderSent(false)
+        setTreatmentSent(false)
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  const vol    = ROOMS[roomIdx].vol
+  if (coldRooms.length === 0) {
+    return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando cámaras...</div>
+  }
+
+  const vol    = coldRooms[roomIdx].volume_m3
   const ppbVal = parseFloat(ppb) || 1000
 
   const calculate = () => {
@@ -81,9 +85,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
     const exactC  = greedyCeiling(grams)
     const exactG  = comboGrams(exactC)
     const exactPpb = actualPpb(exactG, vol)
-    const powderPrice = getPrice(PRODUCT_PRICES.MatriPowder.prices, userTier, vol)
-    const exactProductCost = exactG * powderPrice / 1000 * vol / exactG * exactG
-    // cost = vol * pricePerM3 * (actualPpb/1000)
+    const powderPrice = getProductPrice(pricing, 'MatriPowder', vol)
     const exactCost = vol * powderPrice * (exactPpb / 1000)
 
     // Powder adjusted (floor)
@@ -93,12 +95,12 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
     const adjCost = vol * powderPrice * (adjPpb / 1000)
 
     // Service fee
-    const serviceFee = getPrice(SERVICE_FEES.prices, userTier, vol)
+    const serviceFee = getServiceFee(pricing, vol)
 
-    // Tablets
-    const tabCombo  = calcTabletCombo(vol)
-    const tabPrice  = getPrice(PRODUCT_PRICES.MatriTablets.prices, userTier, vol)
-    const tabCost   = tabCombo.covered * tabPrice
+    // Tablets — count scales with target dose, same as powder grams
+    const tabCombo  = tabletCombo(ppbVal, vol)
+    const tabPrice  = getProductPrice(pricing, 'MatriTablets', vol)
+    const tabCost   = vol * tabPrice * (tabCombo.ppb / 1000)
 
     setResults({
       exact:    { combo:exactC, grams:exactG, ppb:exactPpb, productCost:exactCost, serviceFee },
@@ -107,40 +109,28 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
       powderPrice, tabPrice, serviceFee,
     })
     setSelected(null)
-    setOrderSent(false)
+    setTreatmentSent(false)
   }
 
-  const activeResult = results && selected
-    ? (selected === 'tablets' ? results.tablets : results[selected])
-    : null
-
-  const totalCost = (r, withService) => {
-    if (!r) return 0
-    if (selected === 'tablets') return r.productCost
-    return r.productCost + (withService ? r.serviceFee : 0)
-  }
-
-  const sendOrder = () => {
+  const sendTreatment = async () => {
     if (!selected || !results) return
     const r = selected === 'tablets' ? results.tablets : results[selected]
-    const product = selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'
-    const sachets = selected === 'tablets'
-      ? `${r.large} tabletas grandes + ${r.small} chicas`
-      : comboLabel(selected === 'exact' ? results.exact.combo : results.adjusted.combo)
+    const product = selected === 'tablets' ? 'tablets' : 'powder'
     const cost = selected === 'tablets'
       ? r.productCost
       : r.productCost + (serviceModel === 'service' ? r.serviceFee : 0)
+    const targetDosePpb = results[selected].ppb
 
-    setOrderSent(true)
-    if (onOrderConfirmed) {
-      onOrderConfirmed({
-        room: roomName || ROOMS[roomIdx].name,
+    setTreatmentSent(true)
+    if (onTreatmentConfirmed) {
+      await onTreatmentConfirmed({
+        cold_room_id: coldRooms[roomIdx].id,
         product,
-        sachets,
-        price: cost.toFixed(2),
-        model: serviceModel === 'service' ? 'Servicio' : 'Propio',
-        date: new Date().toLocaleDateString('es-AR'),
-        ppb: selected === 'tablets' ? 1000 : (selected === 'exact' ? results.exact.ppb : results.adjusted.ppb),
+        target_dose_ppb: targetDosePpb,
+        dose_source: doseSource,
+        price_local: Number(cost.toFixed(2)),
+        price_currency: 'USD', // simplification: single-currency demo data (see SYSTEM_ARCHITECTURE.md)
+        service_fee_local: selected !== 'tablets' && serviceModel === 'service' ? r.serviceFee : null,
       })
     }
   }
@@ -150,7 +140,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
     const isSelected = selected === id
     return (
       <div
-        onClick={() => { setSelected(id); setServiceModel('self'); setOrderSent(false) }}
+        onClick={() => { setSelected(id); setServiceModel('self'); setTreatmentSent(false) }}
         style={{
           borderRadius:'12px', border: isSelected ? '2px solid #0b4358' : '1.5px solid #ddddd5',
           padding:'18px', cursor:'pointer', background: isSelected ? '#f0f7ff' : '#fff',
@@ -215,7 +205,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
 
       {/* Admin bar */}
       <div style={{background:'#0b4358', color:'#fff', padding:'8px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', borderRadius:'8px 8px 0 0'}}>
-        <span>Tier activo: <strong>{userTier}</strong> · Precios según tabla de Wassington</span>
+        <span>Precios según la tabla configurada por tu distribuidor</span>
         </div>
 
       {/* Inputs */}
@@ -226,7 +216,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
           <div>
             <label style={lbl}>Cámara</label>
             <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
-              {ROOMS.map((r,i) => <option key={i} value={i}>{r.name} ({r.vol} m³)</option>)}
+              {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name} ({r.volume_m3} m³)</option>)}
             </select>
           </div>
           <div>
@@ -238,8 +228,8 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
         <div style={{marginBottom:'14px'}}>
           <label style={lbl}>Dosis objetivo (ppb)</label>
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
-            <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setResults(null) }} min="100" max="5000" step="50"/>
-            <button onClick={() => setPpb('1000')} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
+            <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setDoseSource('manual'); setResults(null) }} min="100" max="5000" step="50"/>
+            <button onClick={() => { setPpb('1000'); setDoseSource('manual') }} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
               Estándar (1.000 ppb)
             </button>
           </div>
@@ -270,10 +260,10 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
       {results && (
         <div>
           <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>
-            Compará las alternativas para {roomName || ROOMS[roomIdx].name} ({vol} m³)
+            Compará las alternativas para {roomName || coldRooms[roomIdx].name} ({vol} m³)
           </div>
           <div style={{fontSize:'12px', color:'#888', marginBottom:'16px'}}>
-            Tier {userTier} · Dosis objetivo: {fmtNum(ppbVal, 0)} ppb · Hacé click en una alternativa para seleccionarla
+            Dosis objetivo: {fmtNum(ppbVal, 0)} ppb · Hacé click en una alternativa para seleccionarla
           </div>
 
           <div style={{display:'flex', gap:'14px', flexWrap:'wrap', marginBottom:'20px'}}>
@@ -330,7 +320,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
               title="MatriTablets"
               badge={{label:'Autoaplicación', bg:'#fff3cd', color:'#b06a00'}}
               cost={results.tablets.productCost}
-              ppbVal={1000}
+              ppbVal={results.tablets.ppb}
               productLabel="MatriTablets"
             >
               <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
@@ -343,7 +333,7 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
                   <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.small}</div>
                 </div>
               </div>
-              <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(results.tablets.covered, 1)} m³ · No requiere generador</div>
+              <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(vol, 1)} m³ · No requiere generador</div>
             </OptionCard>
           </div>
 
@@ -380,13 +370,13 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
           {selected && (
             <div style={{background:'#0b4358', borderRadius:'12px', padding:'20px 24px', marginBottom:'16px'}}>
               <div style={{fontSize:'12px', fontWeight:700, color:'#b5cc2e', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'14px'}}>
-                Resumen del pedido seleccionado
+                Resumen del tratamiento seleccionado
               </div>
               <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'14px'}}>
                 {[
                   ['Producto', selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'],
                   ['Cámara', `${vol} m³`],
-                  ['Dosis', selected === 'tablets' ? '1.000 ppb' : `${fmtNum(results[selected]?.ppb || 0, 0)} ppb`],
+                  ['Dosis', `${fmtNum(results[selected]?.ppb || 0, 0)} ppb`],
                 ].map(([l,v]) => (
                   <div key={l} style={{background:'rgba(255,255,255,.08)', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
                     <div style={{fontSize:'10px', color:'rgba(255,255,255,.5)', marginBottom:'3px', textTransform:'uppercase'}}>{l}</div>
@@ -425,18 +415,18 @@ export default function Calculator({ onOrderConfirmed, onNavigate, userTier = 'T
           )}
 
           {/* Confirm button */}
-          {selected && !orderSent && (
-            <button onClick={sendOrder} style={{...calcBtn, background:'#0b4358', marginTop:'0'}}>
-              Confirmar y enviar pedido
+          {selected && !treatmentSent && (
+            <button onClick={sendTreatment} style={{...calcBtn, background:'#0b4358', marginTop:'0'}}>
+              Confirmar y enviar tratamiento
             </button>
           )}
 
-          {orderSent && (
+          {treatmentSent && (
             <div style={{background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'10px', padding:'16px', textAlign:'center', fontSize:'13px', color:'#1a6b30', fontWeight:500}}>
-              Pedido enviado a Wassington para aprobación
-              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Revisá el estado en la sección Pedidos</div>
-              <button onClick={() => onNavigate && onNavigate('orders')} style={{marginTop:'10px', background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 16px', fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit'}}>
-                Ver mis pedidos
+              Tratamiento enviado a Wassington para aprobación
+              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Revisá el estado en la sección Tratamientos</div>
+              <button onClick={() => onNavigate && onNavigate('treatments')} style={{marginTop:'10px', background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 16px', fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit'}}>
+                Ver mis tratamientos
               </button>
             </div>
           )}

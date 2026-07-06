@@ -1,49 +1,49 @@
-import powderLogo  from '../../assets/logos/MatriPowder_Logo.svg'
-import tabletsLogo from '../../assets/logos/MatriTablets_Logo.svg'
-
-export default function Dashboard({ onNavigate, orders = [] }) {
-  // ── Real stats derived from shared orders state ──────────────────────
-  const pending   = orders.filter(o => o.status === 'pending').length
-  const approved  = orders.filter(o => o.status === 'approved' || o.status === 'confirmed').length
-  const rejected  = orders.filter(o => o.status === 'rejected').length
-  const totalUSD  = orders
-    .filter(o => o.status === 'approved' || o.status === 'confirmed')
-    .reduce((s, o) => s + parseFloat(o.price || 0), 0)
+export default function Dashboard({ onNavigate, treatments = [] }) {
+  // ── Real stats derived from shared treatments state ──────────────────
+  const pending   = treatments.filter(t => t.status === 'submitted').length
+  const approved  = treatments.filter(t => t.status === 'approved' || t.status === 'applied' || t.status === 'completed').length
+  const totalUSD  = treatments
+    .filter(t => t.status === 'approved' || t.status === 'applied' || t.status === 'completed')
+    .reduce((s, t) => s + parseFloat(t.price_local || 0), 0)
 
   // Unique rooms that have been treated
-  const activeRooms = [...new Set(orders.map(o => o.room))].length
+  const activeRooms = [...new Set(treatments.map(t => t.cold_rooms?.name).filter(Boolean))].length
 
   const STATS = [
-    { icon:'🏠', label:'Cámaras activas',      value:String(activeRooms), unit:'con pedidos esta temporada' },
-    { icon:'📦', label:'Pedidos pendientes',    value:String(pending),     unit:'esperando aprobación' },
-    { icon:'✅', label:'Pedidos aprobados',     value:String(approved),    unit:'esta temporada' },
-    { icon:'💰', label:'Facturación (USD)',     value:`$${totalUSD.toFixed(0)}`, unit:'en pedidos aprobados' },
+    { icon:'🏠', label:'Cámaras activas',        value:String(activeRooms), unit:'con tratamientos esta temporada' },
+    { icon:'📦', label:'Tratamientos pendientes', value:String(pending),     unit:'esperando aprobación' },
+    { icon:'✅', label:'Tratamientos aprobados',  value:String(approved),    unit:'esta temporada' },
+    { icon:'💰', label:'Facturación (USD)',       value:`$${totalUSD.toFixed(0)}`, unit:'en tratamientos aprobados' },
   ]
 
-  // Recent orders — last 4
-  const recentOrders = [...orders].slice(0, 4)
+  // Recent treatments — last 4
+  const recentTreatments = [...treatments].slice(0, 4)
 
-  // Rooms summary — unique rooms with last order status
+  // Rooms summary — unique rooms with last treatment status
   const roomMap = {}
-  orders.forEach(o => {
-    if (!roomMap[o.room]) roomMap[o.room] = o
-    else if (new Date(o.date) > new Date(roomMap[o.room].date)) roomMap[o.room] = o
+  treatments.forEach(t => {
+    const roomName = t.cold_rooms?.name
+    if (!roomName) return
+    if (!roomMap[roomName]) roomMap[roomName] = t
+    else if (new Date(t.created_at) > new Date(roomMap[roomName].created_at)) roomMap[roomName] = t
   })
   const roomSummary = Object.values(roomMap).slice(0, 3)
 
   const statusConfig = {
     approved:  { cls:'approved',  label:'✓ Activa',      color:'var(--lime)' },
-    pending:   { cls:'pending',   label:'⏳ Pendiente',   color:'var(--amber)' },
-    confirmed: { cls:'confirmed', label:'📸 OK',          color:'var(--lime)' },
+    submitted: { cls:'pending',   label:'⏳ Pendiente',   color:'var(--amber)' },
+    applied:   { cls:'pending',   label:'🔧 Aplicado',    color:'var(--amber)' },
+    completed: { cls:'confirmed', label:'📸 OK',          color:'var(--lime)' },
     rejected:  { cls:'rejected',  label:'✗ Rechazado',   color:'#e8736a' },
+    cancelled: { cls:'rejected',  label:'– Cancelado',   color:'#e8736a' },
   }
 
-  const productTag = (name) => (
+  const productTag = (product) => (
     <span style={{
-      background: name === 'MatriPowder' ? '#eef4c0' : '#e1f5ee',
-      color: name === 'MatriPowder' ? '#4a6010' : '#0d7a5f',
+      background: product === 'powder' ? '#eef4c0' : '#e1f5ee',
+      color: product === 'powder' ? '#4a6010' : '#0d7a5f',
       fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'
-    }}>{name}</span>
+    }}>{product === 'powder' ? 'MatriPowder' : 'MatriTablets'}</span>
   )
 
   return (
@@ -63,27 +63,27 @@ export default function Dashboard({ onNavigate, orders = [] }) {
         ))}
       </div>
 
-      {/* Alert if pending orders */}
+      {/* Alert if pending treatments */}
       {pending > 0 && (
         <div className="alert warn" style={{marginBottom:'16px'}}>
-          ⏳ Tenés <strong>{pending} pedido{pending > 1 ? 's' : ''} pendiente{pending > 1 ? 's' : ''}</strong> esperando aprobación de Wassington.
+          ⏳ Tenés <strong>{pending} tratamiento{pending > 1 ? 's' : ''} pendiente{pending > 1 ? 's' : ''}</strong> esperando aprobación de Wassington.
         </div>
       )}
 
-      {/* Recent orders */}
+      {/* Recent treatments */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Últimos pedidos</span>
-          <button className="btn-secondary btn-sm" onClick={() => onNavigate('orders')}>Ver todos</button>
+          <span className="card-title">Últimos tratamientos</span>
+          <button className="btn-secondary btn-sm" onClick={() => onNavigate('treatments')}>Ver todos</button>
         </div>
-        {recentOrders.length === 0 ? (
+        {recentTreatments.length === 0 ? (
           <div style={{padding:'40px', textAlign:'center', color:'var(--gray)', fontSize:'13px'}}>
-            No hay pedidos todavía.{' '}
+            No hay tratamientos todavía.{' '}
             <span
               onClick={() => onNavigate('calculator')}
               style={{color:'var(--navy)', fontWeight:700, cursor:'pointer', textDecoration:'underline'}}
             >
-              Crear el primer pedido
+              Crear el primer tratamiento
             </span>
           </div>
         ) : (
@@ -91,22 +91,22 @@ export default function Dashboard({ onNavigate, orders = [] }) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Cámara</th><th>Producto</th><th>Precio (USD)</th>
+                  <th>Cámara</th><th>Producto</th><th>Precio</th>
                   <th>Fecha</th><th>Estado</th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((o, i) => {
-                  const s = statusConfig[o.status] || statusConfig.pending
+                {recentTreatments.map((t, i) => {
+                  const s = statusConfig[t.status] || statusConfig.submitted
                   return (
                     <tr key={i}>
-                      <td style={{fontWeight:600}}>{o.room}</td>
-                      <td>{productTag(o.product)}</td>
-                      <td style={{fontWeight:700}}>${o.price}</td>
-                      <td style={{color:'var(--gray)'}}>{o.date}</td>
+                      <td style={{fontWeight:600}}>{t.cold_rooms?.name}</td>
+                      <td>{productTag(t.product)}</td>
+                      <td style={{fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
+                      <td style={{color:'var(--gray)'}}>{new Date(t.created_at).toLocaleDateString('es-AR')}</td>
                       <td><span className={`status ${s.cls}`}>{s.label}</span></td>
                       <td>
-                        <button className="btn-secondary btn-sm" onClick={() => onNavigate('orders')}>Ver</button>
+                        <button className="btn-secondary btn-sm" onClick={() => onNavigate('treatments')}>Ver</button>
                       </td>
                     </tr>
                   )
@@ -126,22 +126,24 @@ export default function Dashboard({ onNavigate, orders = [] }) {
         <div className="card-body">
           {roomSummary.length === 0 ? (
             <div style={{textAlign:'center', color:'var(--gray)', fontSize:'13px', padding:'20px 0'}}>
-              No hay cámaras con pedidos todavía.
+              No hay cámaras con tratamientos todavía.
             </div>
           ) : (
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))', gap:'14px'}}>
-              {roomSummary.map((o, i) => {
-                const s = statusConfig[o.status] || statusConfig.pending
-                const pct = o.status === 'confirmed' ? 100 : o.status === 'approved' ? 75 : 40
+              {roomSummary.map((t, i) => {
+                const s = statusConfig[t.status] || statusConfig.submitted
+                const pct = t.status === 'completed' ? 100 : t.status === 'approved' || t.status === 'applied' ? 75 : 40
                 return (
                   <div key={i} style={{background:'var(--white)', border:'1.5px solid var(--border)', borderRadius:'var(--radius)', padding:'16px'}}>
-                    <div style={{fontSize:'14px', fontWeight:800, color:'var(--navy)', marginBottom:'3px'}}>{o.room}</div>
-                    <div style={{fontSize:'12px', color:'var(--gray)', marginBottom:'10px'}}>{o.product} · {o.model}</div>
+                    <div style={{fontSize:'14px', fontWeight:800, color:'var(--navy)', marginBottom:'3px'}}>{t.cold_rooms?.name}</div>
+                    <div style={{fontSize:'12px', color:'var(--gray)', marginBottom:'10px'}}>
+                      {t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'} · {t.service_fee_local != null ? 'Servicio' : 'Propio'}
+                    </div>
                     <div style={{height:'3px', background:'var(--border)', borderRadius:'2px', margin:'8px 0'}}>
                       <div style={{height:'100%', width:`${pct}%`, background:s.color, borderRadius:'2px'}}/>
                     </div>
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'11px', color:'var(--gray)'}}>
-                      <span>{o.date}</span>
+                      <span>{new Date(t.created_at).toLocaleDateString('es-AR')}</span>
                       <span className={`status ${s.cls}`} style={{fontSize:'10px'}}>{s.label}</span>
                     </div>
                   </div>
@@ -154,7 +156,7 @@ export default function Dashboard({ onNavigate, orders = [] }) {
               >
                 <div style={{textAlign:'center', color:'var(--gray)'}}>
                   <div style={{fontSize:'28px'}}>＋</div>
-                  <div style={{fontSize:'13px', fontWeight:700, marginTop:'4px'}}>Nuevo pedido</div>
+                  <div style={{fontSize:'13px', fontWeight:700, marginTop:'4px'}}>Nuevo tratamiento</div>
                 </div>
               </div>
             </div>

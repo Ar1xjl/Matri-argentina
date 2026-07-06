@@ -286,4 +286,16 @@ npm run dev
 
 ---
 
+## 14. Multi-country scaling — Organization hierarchy
+
+**Status:** Design agreed, superseded in detail by `DOMAIN_MODEL.md` and `SYSTEM_ARCHITECTURE.md` (adopted 2026-07-03). Not implemented yet — current app is a React-only mockup with no backend, no real auth, no persistence.
+
+This section originally sketched a preliminary Organization-hierarchy design. That design has since been formalized and extended (Treatment lifecycle, Business Roles, pricing snapshots, Generator lifecycle) after a deeper review with the FreshInset team. **See `DOMAIN_MODEL.md`** ("Organizational Model" and "Core Entities" sections) for the current, authoritative version — this section is kept only as a pointer, to avoid two documents describing the same model differently.
+
+For the technical implementation approach (Supabase, Row Level Security, no custom backend API), see `SYSTEM_ARCHITECTURE.md`.
+
+Country distributors already identified: Argentina (Wassington, with Podlesh as an existing sub-distributor in Río Negro), Colombia (Almagrícola, not yet onboarded), Brazil (ARUA, not yet onboarded), Chile (Fosfoquim, not yet onboarded), with New Zealand/Australia/others expected to follow the same onboarding pattern.
+
+---
+
 *Document generated July 2026. Update this file whenever significant architectural decisions are made.*

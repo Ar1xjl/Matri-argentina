@@ -1,4 +1,26 @@
+import { useState } from 'react'
+import { supabase } from '../../lib/supabaseClient'
+
 export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
+  const [email,    setEmail]    = useState('')
+  const [password, setPassword] = useState('')
+  const [error,    setError]    = useState('')
+  const [loading,  setLoading]  = useState(false)
+
+  const handleLogin = async () => {
+    setError('')
+    setLoading(true)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+    if (signInError) {
+      setError(signInError.message === 'Invalid login credentials'
+        ? 'Email o contraseña incorrectos.'
+        : signInError.message)
+      return
+    }
+    onLogin()
+  }
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -47,23 +69,34 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
               Ingresá con tu email y contraseña.
             </p>
-            {[['Email','email','empresa@correo.com'],['Contraseña','password','••••••••']].map(([label,type,ph]) => (
+            {[
+              ['Email','email','empresa@correo.com', email, setEmail],
+              ['Contraseña','password','••••••••', password, setPassword],
+            ].map(([label,type,ph,value,setValue]) => (
               <div key={label} style={{marginBottom:'16px'}}>
                 <label style={{display:'block', fontSize:'12px', fontWeight:700,
                   color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
                   letterSpacing:'.04em'}}>{label}</label>
-                <input type={type} placeholder={ph} style={{
-                  width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
-                  borderRadius:'7px', fontSize:'14px', color:'#0b4358'
-                }}/>
+                <input
+                  type={type} placeholder={ph} value={value}
+                  onChange={e => setValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  style={{
+                    width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
+                    borderRadius:'7px', fontSize:'14px', color:'#0b4358'
+                  }}/>
               </div>
             ))}
+            {error && (
+              <div style={{fontSize:'12px', color:'#8b2020', marginBottom:'12px'}}>{error}</div>
+            )}
             <button
-              onClick={onLogin}
+              onClick={handleLogin}
+              disabled={loading}
               className="btn-primary"
-              style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px'}}
+              style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: loading ? .6 : 1}}
             >
-              Ingresar al portal
+              {loading ? 'Ingresando…' : 'Ingresar al portal'}
             </button>
             <p style={{fontSize:'13px', color:'#6b7280', textAlign:'center', marginTop:'16px'}}>
               ¿Olvidaste tu contraseña?{' '}

@@ -1,16 +1,22 @@
 import { useState } from 'react'
 import RoomHistory from './RoomHistory'
 
-const ROOMS_DATA = [
-  { id:1, name:'Cámara Norte 1', location:'Est. San José',  vol:500, crop:'Manzana Fuji',   date:'20 jun 2026', status:'approved',  slabel:'Activa' },
-  { id:2, name:'Cámara Norte 2', location:'Est. San José',  vol:620, crop:'Pera Williams',  date:'12 jun 2026', status:'confirmed', slabel:'MatriSure OK' },
-  { id:3, name:'Cámara Sur 3',   location:'Bodega Norte',   vol:360, crop:'Pera Packham',   date:'18 jun 2026', status:'pending',   slabel:'Pendiente' },
-  { id:4, name:'Frigorífico A',  location:'Bodega Norte',   vol:240, crop:'Kiwi Hayward',   date:'15 jun 2026', status:'approved',  slabel:'Activa' },
-]
+const statusLabel = (status) => ({
+  approved:  { cls:'approved',  label:'Activa' },
+  submitted: { cls:'pending',   label:'Pendiente' },
+  applied:   { cls:'pending',   label:'Aplicado' },
+  completed: { cls:'confirmed', label:'MatriSure OK' },
+  rejected:  { cls:'rejected',  label:'Rechazado' },
+  cancelled: { cls:'rejected',  label:'Cancelado' },
+}[status] || null)
 
-export default function Rooms() {
+export default function Rooms({ coldRooms = [], treatments = [], onAddRoom }) {
   const [showForm, setShowForm] = useState(false)
   const [historyRoom, setHistoryRoom] = useState(null)
+  const [name, setName] = useState('')
+  const [location, setLocation] = useState('')
+  const [volume, setVolume] = useState('')
+  const [crop, setCrop] = useState('Manzanas')
 
   if (historyRoom) {
     return (
@@ -21,10 +27,27 @@ export default function Rooms() {
     )
   }
 
+  // Last treatment per Cold Room, for the "último trat." / estado columns
+  const lastTreatmentByRoom = {}
+  treatments.forEach(t => {
+    const roomId = t.cold_room_id
+    if (!roomId) return
+    if (!lastTreatmentByRoom[roomId] || new Date(t.created_at) > new Date(lastTreatmentByRoom[roomId].created_at)) {
+      lastTreatmentByRoom[roomId] = t
+    }
+  })
+
+  const handleSave = async () => {
+    if (!name || !volume) return
+    await onAddRoom({ name, location, volume_m3: Number(volume), primary_crop: crop })
+    setName(''); setLocation(''); setVolume(''); setCrop('Manzanas')
+    setShowForm(false)
+  }
+
   return (
     <div>
       <div className="alert info">
-        ℹ️ Las cámaras se guardan automáticamente con el primer pedido, o podés agregarlas manualmente.
+        ℹ️ Las cámaras se guardan automáticamente con el primer tratamiento, o podés agregarlas manualmente.
       </div>
 
       <div className="card">
@@ -40,31 +63,27 @@ export default function Rooms() {
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
               <div className="form-field">
                 <label>Nombre de la cámara</label>
-                <input placeholder="Ej: Cámara Norte 3"/>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Cámara Norte 3"/>
               </div>
               <div className="form-field">
                 <label>Ubicación / establecimiento</label>
-                <input placeholder="Ej: Est. San José"/>
+                <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Ej: Est. San José"/>
               </div>
               <div className="form-field">
                 <label>Volumen (m³)</label>
-                <input type="number" placeholder="Ej: 450"/>
+                <input type="number" value={volume} onChange={e => setVolume(e.target.value)} placeholder="Ej: 450"/>
               </div>
               <div className="form-field">
                 <label>Cultivo principal</label>
-                <select>
+                <select value={crop} onChange={e => setCrop(e.target.value)}>
                   <option>Manzanas</option>
                   <option>Peras</option>
                   <option>Kiwi</option>
                   <option>Otro</option>
                 </select>
               </div>
-              <div className="form-field">
-                <label>Variedad</label>
-                <input placeholder="Ej: Fuji, Williams, Hayward"/>
-              </div>
               <div className="form-field" style={{display:'flex', alignItems:'flex-end'}}>
-                <button className="btn-primary" style={{width:'100%'}}>Guardar cámara</button>
+                <button className="btn-primary" style={{width:'100%'}} onClick={handleSave}>Guardar cámara</button>
               </div>
             </div>
           </div>
@@ -79,24 +98,27 @@ export default function Rooms() {
               </tr>
             </thead>
             <tbody>
-              {ROOMS_DATA.map(r => (
-                <tr key={r.id}>
-                  <td style={{fontWeight:700}}>{r.name}</td>
-                  <td style={{color:'var(--gray)'}}>{r.location}</td>
-                  <td>{r.vol} m³</td>
-                  <td>{r.crop}</td>
-                  <td style={{color:'var(--gray)'}}>{r.date}</td>
-                  <td><span className={`status ${r.status}`}>{r.slabel}</span></td>
-                  <td>
-                    <div style={{display:'flex', gap:'6px'}}>
-                      <button className="btn-secondary btn-sm">Pedir</button>
-                      <button className="btn-secondary btn-sm" onClick={() => setHistoryRoom(r.name)}>
-                        🕒 Historial
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {coldRooms.map(r => {
+                const last = lastTreatmentByRoom[r.id]
+                const s = last ? statusLabel(last.status) : null
+                return (
+                  <tr key={r.id}>
+                    <td style={{fontWeight:700}}>{r.name}</td>
+                    <td style={{color:'var(--gray)'}}>{r.location || '—'}</td>
+                    <td>{r.volume_m3} m³</td>
+                    <td>{r.primary_crop || '—'}</td>
+                    <td style={{color:'var(--gray)'}}>{last ? new Date(last.created_at).toLocaleDateString('es-AR') : '—'}</td>
+                    <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>
+                    <td>
+                      <div style={{display:'flex', gap:'6px'}}>
+                        <button className="btn-secondary btn-sm" onClick={() => setHistoryRoom(r.name)}>
+                          🕒 Historial
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

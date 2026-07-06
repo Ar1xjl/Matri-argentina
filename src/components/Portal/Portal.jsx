@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Sidebar from '../Shared/Sidebar'
 import Dashboard from './Dashboard'
 import Rooms from './Rooms'
-import Orders from './Orders'
+import Treatments from './Treatments'
 import Calculator from './Calculator'
 import Generators from './Generators'
 import Documents from './Documents'
 import AppLog from './AppLog'
 import Profile from './Profile'
 import Wassington from './Wassington'
+import { supabase } from '../../lib/supabaseClient'
 
 const PANEL_TITLES = {
   dashboard:  'Dashboard',
   rooms:      'Cámaras y ubicaciones',
-  orders:     'Pedidos',
+  treatments: 'Tratamientos',
   calculator: 'Calculadora de dosis',
   generators: 'Generadores',
   documents:  'Documentos',
@@ -22,22 +23,47 @@ const PANEL_TITLES = {
   profile:    'Mi perfil',
 }
 
-// ── Initial shared order data — this simulates the database for now ──
-const INITIAL_ORDERS = [
-  { id:'ARG-0041', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Norte 1', product:'MatriPowder',  sachets:'5×50g',       price:'215.00', model:'Servicio', status:'approved',  date:'20 jun 2026' },
-  { id:'ARG-0040', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Sur 3',   product:'MatriPowder',  sachets:'3×50g+1×25g', price:'178.00', model:'Propio',   status:'pending',   date:'18 jun 2026' },
-  { id:'ARG-0039', customer:'Kleppe S.A.', tier:'T1', room:'Frigorífico A',  product:'MatriTablets', sachets:'2×50g+1×25g', price:'143.50', model:'Propio',   status:'approved',  date:'15 jun 2026' },
-  { id:'ARG-0038', customer:'Kleppe S.A.', tier:'T1', room:'Cámara Norte 2', product:'MatriPowder',  sachets:'6×50g+1×10g', price:'262.00', model:'Servicio', status:'confirmed', date:'12 jun 2026' },
-]
-
-let orderCounter = 42
-
 export default function Portal({ onSignOut }) {
   const [activePanel, setActivePanel] = useState('dashboard')
   const [seconds,     setSeconds]     = useState(600)
   const [showWarning, setShowWarning] = useState(false)
-  const [orders,      setOrders]      = useState(INITIAL_ORDERS)
-  const currentUser = { name:'Kleppe S.A.', tier:'T1', customer:'Kleppe S.A.' }
+  const [profile,     setProfile]     = useState(null)   // { id, org_id, full_name, organizations: {...} }
+  const [coldRooms,   setColdRooms]   = useState([])
+  const [treatments,  setTreatments]  = useState([])
+  const [loading,     setLoading]     = useState(true)
+
+  const loadTreatments = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('treatments')
+      .select('*, cold_rooms(name, volume_m3), organizations(name)')
+      .order('created_at', { ascending: false })
+    if (error) { console.error(error); return }
+    setTreatments(data)
+  }, [])
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*, organizations(*)')
+        .eq('id', user.id)
+        .single()
+      if (profileError) { console.error(profileError); setLoading(false); return }
+      setProfile(profileData)
+
+      const { data: rooms } = await supabase
+        .from('cold_rooms')
+        .select('*')
+        .eq('org_id', profileData.org_id)
+      setColdRooms(rooms || [])
+
+      await loadTreatments()
+      setLoading(false)
+    })()
+  }, [loadTreatments])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -56,29 +82,60 @@ export default function Portal({ onSignOut }) {
   const m = Math.floor(seconds / 60)
   const s = String(seconds % 60).padStart(2, '0')
 
-  // ── Order actions — shared across Calculator, Orders, Wassington ──
-  const addOrder = (newOrder) => {
-    const id = `ARG-00${orderCounter++}`
-    setOrders(prev => [{ ...newOrder, id, status:'pending', customer:'Kleppe S.A.', tier:'T1' }, ...prev])
-    return id
+  // ── Treatment actions — shared across Calculator, Treatments, Wassington ──
+  const addColdRoom = async (newRoom) => {
+    const { error } = await supabase
+      .from('cold_rooms')
+      .insert({ ...newRoom, org_id: profile.org_id })
+    if (error) { console.error(error); return }
+    const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
+    setColdRooms(rooms || [])
   }
 
-  const approveOrder = (id, finalPrice) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status:'approved', price: finalPrice ?? o.price } : o))
+  const addTreatment = async (newTreatment) => {
+    const { data, error } = await supabase
+      .from('treatments')
+      .insert({ ...newTreatment, org_id: profile.org_id, status: 'submitted', created_by: profile.id })
+      .select()
+      .single()
+    if (error) { console.error(error); return null }
+    await loadTreatments()
+    return data.id
   }
 
-  const rejectOrder = (id, reason) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status:'rejected', rejectReason: reason } : o))
+  const approveTreatment = async (id, finalPrice) => {
+    const { error } = await supabase
+      .from('treatments')
+      .update({ status: 'approved', price_local: finalPrice, approved_by: profile.id, approved_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { console.error(error); return }
+    await loadTreatments()
   }
+
+  const rejectTreatment = async (id, reason) => {
+    const { error } = await supabase
+      .from('treatments')
+      .update({ status: 'rejected', rejection_reason: reason })
+      .eq('id', id)
+    if (error) { console.error(error); return }
+    await loadTreatments()
+  }
+
+  if (loading) {
+    return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando...</div>
+  }
+
+  const currentUser = { name: profile?.organizations?.name || '', orgId: profile?.org_id }
 
   const panels = {
-    dashboard:  <Dashboard  onNavigate={navigate} orders={orders} />,
-    rooms:      <Rooms />,
-    orders:     <Orders     onNavigate={navigate} orders={orders} />,
-calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} userTier={currentUser.tier} />,    generators: <Generators />,
+    dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
+    rooms:      <Rooms coldRooms={coldRooms} treatments={treatments} onAddRoom={addColdRoom} />,
+    treatments: <Treatments onNavigate={navigate} treatments={treatments} />,
+    calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id} />,
+    generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog />,
-    wassington: <Wassington orders={orders} onApprove={approveOrder} onReject={rejectOrder} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} />,
     profile:    <Profile />,
   }
 
@@ -88,6 +145,7 @@ calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} userTi
         activePanel={activePanel}
         onNavigate={navigate}
         onSignOut={onSignOut}
+        orgName={currentUser.name}
       />
 
       <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
@@ -114,7 +172,7 @@ calculator: <Calculator onOrderConfirmed={addOrder} onNavigate={navigate} userTi
               {m}:{s}
             </div>
             <button className="btn-primary btn-sm" onClick={() => navigate('calculator')}>
-              + Nuevo pedido
+              + Nuevo tratamiento
             </button>
           </div>
         </div>
