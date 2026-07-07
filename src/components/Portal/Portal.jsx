@@ -9,18 +9,20 @@ import Documents from './Documents'
 import AppLog from './AppLog'
 import Profile from './Profile'
 import Wassington from './Wassington'
+import SeasonPlan from './SeasonPlan'
 import { supabase } from '../../lib/supabaseClient'
 
 const PANEL_TITLES = {
-  dashboard:  'Dashboard',
-  rooms:      'Cámaras y ubicaciones',
-  treatments: 'Tratamientos',
-  calculator: 'Calculadora de dosis',
-  generators: 'Generadores',
-  documents:  'Documentos',
-  applog:     'Registro de aplicaciones',
-  wassington: 'Panel Wassington',
-  profile:    'Mi perfil',
+  dashboard:   'Dashboard',
+  rooms:       'Cámaras y ubicaciones',
+  treatments:  'Tratamientos',
+  calculator:  'Calculadora de dosis',
+  seasonplan:  'Planificación de temporada',
+  generators:  'Generadores',
+  documents:   'Documentos',
+  applog:      'Registro de aplicaciones',
+  wassington:  'Panel Wassington',
+  profile:     'Mi perfil',
 }
 
 export default function Portal({ onSignOut }) {
@@ -30,6 +32,9 @@ export default function Portal({ onSignOut }) {
   const [profile,     setProfile]     = useState(null)   // { id, org_id, full_name, organizations: {...} }
   const [coldRooms,   setColdRooms]   = useState([])
   const [treatments,  setTreatments]  = useState([])
+  const [seasonPlan,      setSeasonPlan]      = useState(null)
+  const [seasonPlanLines, setSeasonPlanLines] = useState([])
+  const [conversionQueue, setConversionQueue] = useState([]) // Plan Lines still to convert, in order
   const [loading,     setLoading]     = useState(true)
 
   const loadTreatments = useCallback(async () => {
@@ -39,6 +44,35 @@ export default function Portal({ onSignOut }) {
       .order('created_at', { ascending: false })
     if (error) { console.error(error); return }
     setTreatments(data)
+  }, [])
+
+  // One active Season Plan per Organization — auto-created on first visit.
+  const loadSeasonPlan = useCallback(async (orgId, profileId) => {
+    let { data: plan } = await supabase
+      .from('season_plans')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!plan) {
+      const { data: created, error } = await supabase
+        .from('season_plans')
+        .insert({ org_id: orgId, season_label: `Temporada ${new Date().getFullYear()}`, created_by: profileId })
+        .select()
+        .single()
+      if (error) { console.error(error); return }
+      plan = created
+    }
+    setSeasonPlan(plan)
+
+    const { data: lines } = await supabase
+      .from('season_plan_lines')
+      .select('*')
+      .eq('season_plan_id', plan.id)
+      .order('planned_date', { ascending: true, nullsFirst: false })
+    setSeasonPlanLines(lines || [])
   }, [])
 
   useEffect(() => {
@@ -61,9 +95,50 @@ export default function Portal({ onSignOut }) {
       setColdRooms(rooms || [])
 
       await loadTreatments()
+      await loadSeasonPlan(profileData.org_id, profileData.id)
       setLoading(false)
     })()
-  }, [loadTreatments])
+  }, [loadTreatments, loadSeasonPlan])
+
+  const reloadSeasonPlanLines = async () => {
+    if (!seasonPlan) return
+    const { data: lines } = await supabase
+      .from('season_plan_lines')
+      .select('*')
+      .eq('season_plan_id', seasonPlan.id)
+      .order('planned_date', { ascending: true, nullsFirst: false })
+    setSeasonPlanLines(lines || [])
+  }
+
+  const addSeasonPlanLine = async () => {
+    const { error } = await supabase.from('season_plan_lines').insert({
+      season_plan_id: seasonPlan.id,
+      cold_room_id: coldRooms[0]?.id || null,
+      planned_dose_ppb: 1000,
+      product_preference: 'undecided',
+    })
+    if (error) { console.error(error); return }
+    await reloadSeasonPlanLines()
+  }
+
+  const updateSeasonPlanLine = async (id, patch) => {
+    const { error } = await supabase.from('season_plan_lines').update(patch).eq('id', id)
+    if (error) { console.error(error); return }
+    await reloadSeasonPlanLines()
+  }
+
+  const deleteSeasonPlanLine = async (id) => {
+    const { error } = await supabase.from('season_plan_lines').delete().eq('id', id)
+    if (error) { console.error(error); return }
+    await reloadSeasonPlanLines()
+  }
+
+  // Selected Plan Lines get converted one at a time, in sequence, through the
+  // existing Calculator — the customer reviews/adjusts each before sending it.
+  const startConversion = (selectedLines) => {
+    setConversionQueue(selectedLines)
+    setActivePanel('calculator')
+  }
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -100,6 +175,19 @@ export default function Portal({ onSignOut }) {
       .single()
     if (error) { console.error(error); return null }
     await loadTreatments()
+
+    // If this came from converting a Season Plan Line, mark it converted and
+    // advance to the next queued line (if any) so the customer reviews each
+    // one in sequence instead of going back to the plan table every time.
+    if (newTreatment.plan_line_id) {
+      await supabase.from('season_plan_lines').update({ status: 'converted' }).eq('id', newTreatment.plan_line_id)
+      await reloadSeasonPlanLines()
+      setConversionQueue(prev => {
+        const rest = prev.filter(l => l.id !== newTreatment.plan_line_id)
+        if (rest.length === 0) setActivePanel('seasonplan')
+        return rest
+      })
+    }
     return data.id
   }
 
@@ -195,7 +283,11 @@ export default function Portal({ onSignOut }) {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
     rooms:      <Rooms coldRooms={coldRooms} treatments={treatments} onAddRoom={addColdRoom} />,
     treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} />,
-    calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id} />,
+    calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id}
+                  prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
+    seasonplan: <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
+                  onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
+                  onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion} />,
     generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,

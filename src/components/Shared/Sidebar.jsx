@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { id: 'rooms',       icon: '🏠', label: 'Cámaras y ubicaciones',   section: null },
   { id: 'treatments',  icon: '📦', label: 'Tratamientos',            section: null },
   { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
+  { id: 'seasonplan',  icon: '🗓️', label: 'Planificación de temporada', section: null },
   { id: 'generators',  icon: '⚡', label: 'Generadores',             section: 'Equipamiento' },
   { id: 'documents',   icon: '📄', label: 'Documentos',              section: 'Información' },
   { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,

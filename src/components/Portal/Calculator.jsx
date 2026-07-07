@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
+import { fetchOrgPricing, getProductPrice, getServiceFee } from '../../lib/orgPricing'
 
 function greedyFloor(g) {
   let rem = g, r = []
@@ -9,18 +9,6 @@ function greedyFloor(g) {
 }
 function fmtUSD(v) { return '$' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 function fmtNum(v, d=1) { return Number(v).toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}) }
-
-function resolveBracket(brackets, vol) {
-  return brackets.find(b => vol >= b.min_m3 && (b.max_m3 == null || vol < b.max_m3))?.code
-}
-function getProductPrice(pricing, sku, vol) {
-  const bracket = resolveBracket(pricing.brackets, vol)
-  return pricing.product.find(p => p.sku === sku && p.bracket === bracket)?.price || 0
-}
-function getServiceFee(pricing, vol) {
-  const bracket = resolveBracket(pricing.brackets, vol)
-  return pricing.serviceFee.find(f => f.bracket === bracket)?.price || 0
-}
 
 // ── Styles ────────────────────────────────────────────────────────────────
 const card    = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'24px', marginBottom:'16px'}
@@ -32,7 +20,7 @@ const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', t
 const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
-export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [] }) {
+export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], prefill = null, queueLength = 0 }) {
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [roomIdx,    setRoomIdx]    = useState(0)
   const [roomName,   setRoomName]   = useState('')
@@ -46,15 +34,25 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   // Load this Organization's pricing (RLS returns whatever ancestor Distributor's
   // tables are visible — see SYSTEM_ARCHITECTURE.md's pricing-visibility note).
   useEffect(() => {
-    (async () => {
-      const [{ data: brackets }, { data: product }, { data: serviceFee }] = await Promise.all([
-        supabase.from('volume_brackets').select('*'),
-        supabase.from('pricing_product').select('*'),
-        supabase.from('pricing_service_fee').select('*'),
-      ])
-      setPricing({ brackets: brackets || [], product: product || [], serviceFee: serviceFee || [] })
-    })()
+    fetchOrgPricing().then(setPricing)
   }, [])
+
+  // Coming from Season Plan conversion — pre-fill room/dose, let the customer
+  // review and adjust before actually sending, same as any other Treatment.
+  // Adjusted during render (React's documented pattern for "sync state to a
+  // changed prop") rather than in an effect, to avoid a cascade of separate
+  // re-renders from several setState calls firing one after another.
+  const [appliedPrefillId, setAppliedPrefillId] = useState(null)
+  if (prefill && prefill.id !== appliedPrefillId && coldRooms.length > 0) {
+    setAppliedPrefillId(prefill.id)
+    const idx = coldRooms.findIndex(r => r.id === prefill.cold_room_id)
+    if (idx >= 0) setRoomIdx(idx)
+    if (prefill.planned_dose_ppb) setPpb(String(prefill.planned_dose_ppb))
+    setDoseSource('manual')
+    setResults(null)
+    setSelected(null)
+    setTreatmentSent(false)
+  }
 
   // Listen for dose coming back from DoseRight module
   useEffect(() => {
@@ -131,6 +129,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
         price_local: Number(cost.toFixed(2)),
         price_currency: 'USD', // simplification: single-currency demo data (see SYSTEM_ARCHITECTURE.md)
         service_fee_local: selected !== 'tablets' && serviceModel === 'service' ? r.serviceFee : null,
+        plan_line_id: prefill?.id || null,
       })
     }
   }
@@ -202,6 +201,12 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
 
   return (
     <div style={{maxWidth:'800px', margin:'0 auto'}}>
+
+      {prefill && (
+        <div className="alert info" style={{marginBottom:'14px'}}>
+          🗓️ Revisando línea de tu Planificación de Temporada{queueLength > 1 ? ` — quedan ${queueLength} por revisar` : ''}. Ajustá lo que haga falta y confirmá para enviarla a Wassington.
+        </div>
+      )}
 
       {/* Admin bar */}
       <div style={{background:'#0b4358', color:'#fff', padding:'8px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', borderRadius:'8px 8px 0 0'}}>
