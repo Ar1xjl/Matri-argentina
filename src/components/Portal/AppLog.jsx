@@ -18,15 +18,20 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
   const [historyRoom, setHistoryRoom] = useState(null)
   const [pendingPhoto, setPendingPhoto] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   const relevant = treatments.filter(t => ['approved','applied','completed'].includes(t.status))
 
-  const openForm = (t) => { setSelected(t); setView('form') }
+  const openForm = (t) => { setActionError(''); setSelected(t); setView('form') }
   const openHistory = (room) => { setHistoryRoom(room); setView('history') }
-  const openCapture = (t) => { setSelected(t); setView('capture') }
+  const openCapture = (t) => { setActionError(''); setSelected(t); setView('capture') }
 
   const handleApplySave = async ({ startTime, endTime }) => {
-    await onApply(selected.id, { startTime, endTime })
+    const res = await onApply(selected.id, { startTime, endTime })
+    if (res?.error) {
+      setActionError('No se pudo guardar el registro de aplicación: ' + res.error)
+      return
+    }
     setView('list')
   }
 
@@ -37,20 +42,33 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
 
   const handleReview = async (result, assistanceRequested = false) => {
     setSubmitting(true)
-    await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
+    const res = await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
     setSubmitting(false)
+    if (res?.error) {
+      setActionError('No se pudo guardar la verificación MatriSure: ' + res.error)
+      return
+    }
     setPendingPhoto(null)
     setView('list')
   }
 
+  const errorBanner = actionError && (
+    <div className="alert" style={{background:'#fdeaea', color:'#8b2020', border:'1px solid #f5c1c1', marginBottom:'16px'}}>
+      ⚠️ {actionError}
+    </div>
+  )
+
   if (view === 'form') {
     return (
-      <ApplicationForm
-        treatment={selected}
-        operatorName={operatorName}
-        onSave={handleApplySave}
-        onCancel={() => setView('list')}
-      />
+      <div>
+        {errorBanner}
+        <ApplicationForm
+          treatment={selected}
+          operatorName={operatorName}
+          onSave={handleApplySave}
+          onCancel={() => setView('list')}
+        />
+      </div>
     )
   }
 
@@ -66,6 +84,7 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
   if (view === 'review') {
     return (
       <div style={{maxWidth:'480px'}}>
+        {errorBanner}
         <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
           <img src={URL.createObjectURL(pendingPhoto)} alt="MatriSure" style={{width:'100%', borderRadius:'8px', marginBottom:'16px'}}/>
           <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>¿Qué mostró la tira?</div>

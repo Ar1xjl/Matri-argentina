@@ -122,6 +122,9 @@ export default function Portal({ onSignOut }) {
   }
 
   // Approved → Applied: Operator records execution details
+  // Returns { error: string|null } instead of swallowing failures — the UI
+  // must be able to tell the user something went wrong instead of silently
+  // acting as if it succeeded.
   const applyTreatment = async (id, { startTime, endTime }) => {
     // startTime/endTime come from <input type="datetime-local"> as full
     // "YYYY-MM-DDTHH:MM" values — each carries its own date, since many
@@ -136,8 +139,9 @@ export default function Portal({ onSignOut }) {
         application_end_time: endTime || null,
       })
       .eq('id', id)
-    if (error) { console.error(error); return }
+    if (error) { console.error('[applyTreatment]', error); return { error: error.message } }
     await loadTreatments()
+    return { error: null }
   }
 
   // Applied → Completed: upload MatriSure photo, self-confirm or escalate for assistance
@@ -146,7 +150,7 @@ export default function Portal({ onSignOut }) {
     const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(path, photoBlob, { contentType: 'image/jpeg' })
-    if (uploadError) { console.error(uploadError); return }
+    if (uploadError) { console.error('[submitMatriSure upload]', uploadError); return { error: uploadError.message } }
 
     const isReviewed = result !== 'pending_review'
     const { error: insertError } = await supabase.from('matrisure_verifications').insert({
@@ -157,12 +161,14 @@ export default function Portal({ onSignOut }) {
       reviewed_by: isReviewed ? profile.id : null,
       reviewed_at: isReviewed ? new Date().toISOString() : null,
     })
-    if (insertError) { console.error(insertError); return }
+    if (insertError) { console.error('[submitMatriSure insert]', insertError); return { error: insertError.message } }
 
     if (isReviewed) {
-      await supabase.from('treatments').update({ status: 'completed' }).eq('id', treatmentId)
+      const { error: updateError } = await supabase.from('treatments').update({ status: 'completed' }).eq('id', treatmentId)
+      if (updateError) { console.error('[submitMatriSure update]', updateError); return { error: updateError.message } }
     }
     await loadTreatments()
+    return { error: null }
   }
 
   // Bucket is private — every view needs a fresh signed URL, not a stored public link.
