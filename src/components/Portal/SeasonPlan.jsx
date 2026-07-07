@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { fetchOrgPricing, getProductPrice } from '../../lib/orgPricing'
 import { DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
+import { downloadPlanTemplate } from '../../lib/excelImport'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 
@@ -25,11 +26,48 @@ const card = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd
 const cell = {padding:'8px 10px', border:'0.5px solid #ddddd5', fontSize:'13px'}
 const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px', color:'#0b4358', fontFamily:'inherit'}
 
-export default function SeasonPlan({ plan, lines = [], coldRooms = [], onAddLine, onUpdateLine, onDeleteLine, onConvert }) {
+export default function SeasonPlan({
+  plan, lines = [], coldRooms = [], onAddLine, onUpdateLine, onDeleteLine, onConvert,
+  onImportPlan, onBulkSetProduct, onClearPlannedLines,
+}) {
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [selected, setSelected] = useState(new Set())
+  const [bulkProduct, setBulkProduct] = useState('powder')
+  const [importResult, setImportResult] = useState(null) // { imported, errors, duplicates } | null
+  const [importing, setImporting] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
+  const planFileInput = useRef(null)
 
   useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
+
+  const handleImport = async (file) => {
+    if (!file) return
+    setImporting(true)
+    setImportResult(null)
+    const result = await onImportPlan(file)
+    setImporting(false)
+    setImportResult(result)
+  }
+
+  // If there's already a planned line, ask whether this upload should
+  // replace them or just add to them — re-uploading a similar file with no
+  // warning is exactly how duplicates happen.
+  const handleFileSelected = (file) => {
+    if (!file) return
+    const hasPlannedLines = lines.some(l => l.status === 'planned')
+    if (hasPlannedLines) {
+      setPendingFile(file)
+    } else {
+      handleImport(file)
+    }
+  }
+
+  const resolvePendingImport = async (shouldClearFirst) => {
+    const file = pendingFile
+    setPendingFile(null)
+    if (shouldClearFirst) await onClearPlannedLines()
+    await handleImport(file)
+  }
 
   const enriched = useMemo(() => lines.map(l => {
     const room = coldRooms.find(r => r.id === l.cold_room_id)
@@ -66,10 +104,60 @@ export default function SeasonPlan({ plan, lines = [], coldRooms = [], onAddLine
     setSelected(new Set())
   }
 
+  const handleBulkApply = async () => {
+    if (selectedPlannedLines.length === 0) return
+    await onBulkSetProduct(selectedPlannedLines.map(l => l.id), bulkProduct)
+  }
+
   return (
     <div>
       <div className="alert info" style={{marginBottom:'16px'}}>
         📋 Planificá tu temporada completa — cámara, fecha estimada y dosis por tratamiento. No es vinculante: podés ajustar todo antes de convertir una línea en un Tratamiento real.
+      </div>
+
+      {/* Excel import */}
+      <div style={{...card, background:'#f9faf5'}}>
+        <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'10px'}}>
+          Carga rápida desde Excel
+        </div>
+        <div style={{display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center'}}>
+          <button className="btn-secondary btn-sm" onClick={downloadPlanTemplate}>📥 Descargar plantilla</button>
+          <button className="btn-lime btn-sm" disabled={importing} onClick={() => planFileInput.current?.click()}>📤 Subir plan</button>
+          <input ref={planFileInput} type="file" accept=".xlsx,.xls" style={{display:'none'}}
+            onChange={e => { handleFileSelected(e.target.files[0]); e.target.value = '' }}/>
+          {importing && <span style={{fontSize:'12px', color:'#888'}}>Importando…</span>}
+        </div>
+        <div style={{fontSize:'11px', color:'#888', marginTop:'6px'}}>
+          Frigorífico, Cámara, Volumen y Dosis son opcionales salvo el nombre de la Cámara — podés subir solo lo que ya tengas y completar el resto acá abajo. El producto se elige después de subir, seleccionando filas y aplicándolo en conjunto.
+        </div>
+
+        {importResult && (
+          <div style={{marginTop:'12px', fontSize:'12px'}}>
+            <div style={{color:'#1a6b30', fontWeight:600}}>
+              ✓ Se importaron {importResult.imported} registro{importResult.imported === 1 ? '' : 's'}.
+            </div>
+            {importResult.duplicates?.length > 0 && (
+              <div style={{marginTop:'6px', color:'#b06a00'}}>
+                {importResult.duplicates.length} fila{importResult.duplicates.length === 1 ? '' : 's'} no se volvieron a cargar por ser duplicadas (misma cámara + misma fecha ya planificada):
+                <ul style={{margin:'4px 0 0', paddingLeft:'18px'}}>
+                  {importResult.duplicates.map((d, i) => (
+                    <li key={i}>{d.room}{d.date ? ` — ${d.date}` : ' — sin fecha'}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {importResult.errors.length > 0 && (
+              <div style={{marginTop:'6px', color:'#8b2020'}}>
+                {importResult.errors.length} fila{importResult.errors.length === 1 ? '' : 's'} con problemas:
+                <ul style={{margin:'4px 0 0', paddingLeft:'18px'}}>
+                  {importResult.errors.map((e, i) => (
+                    <li key={i}>{e.row !== '-' ? `Fila ${e.row}: ` : ''}{e.reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary panel */}
@@ -93,10 +181,23 @@ export default function SeasonPlan({ plan, lines = [], coldRooms = [], onAddLine
 
       {/* Table */}
       <div style={card}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px'}}>
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || 'Temporada'}</span>
-          <div style={{display:'flex', gap:'10px'}}>
+          <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
             <button className="btn-secondary btn-sm" onClick={onAddLine}>+ Agregar línea</button>
+
+            {selectedPlannedLines.length > 0 && (
+              <>
+                <select style={{...inp, width:'auto'}} value={bulkProduct} onChange={e => setBulkProduct(e.target.value)}>
+                  <option value="powder">MatriPowder</option>
+                  <option value="tablets">MatriTablets</option>
+                </select>
+                <button className="btn-secondary btn-sm" onClick={handleBulkApply}>
+                  Aplicar a seleccionadas ({selectedPlannedLines.length})
+                </button>
+              </>
+            )}
+
             <button
               className="btn-primary btn-sm"
               disabled={selectedPlannedLines.length === 0}
@@ -174,6 +275,34 @@ export default function SeasonPlan({ plan, lines = [], coldRooms = [], onAddLine
           </table>
         )}
       </div>
+
+      {pendingFile && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setPendingFile(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'10px'}}>
+              Ya tenés cámaras planificadas para esta temporada
+            </div>
+            <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'18px'}}>
+              ¿Querés borrarlas y cargar el archivo de nuevo desde cero, o agregar estas cámaras a las que ya tenés cargadas?
+              Si el archivo trae la misma cámara para la misma fecha que ya está planificada, el sistema lo va a tomar como un duplicado y no lo va a cargar de nuevo.
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button className="btn-primary" onClick={() => resolvePendingImport(false)}>
+                Agregar a lo que ya tengo
+              </button>
+              <button className="btn-secondary" onClick={() => resolvePendingImport(true)}>
+                Borrar lo planificado y cargar de nuevo
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setPendingFile(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import Profile from './Profile'
 import Wassington from './Wassington'
 import SeasonPlan from './SeasonPlan'
 import { supabase } from '../../lib/supabaseClient'
+import { parsePlanFile } from '../../lib/excelImport'
 
 const PANEL_TITLES = {
   dashboard:   'Dashboard',
@@ -138,6 +139,108 @@ export default function Portal({ onSignOut }) {
   const startConversion = (selectedLines) => {
     setConversionQueue(selectedLines)
     setActivePanel('calculator')
+  }
+
+  // Excel import (Season Plan Phase 1.5) — one consolidated template
+  // (Frigorífico/Cámara/Volumen/Dosis/Fecha). Invalid rows are reported, not
+  // fatal to the whole file. Product is never set from the file — that's a
+  // deliberate bulk action in the table after upload (see bulkSetProduct).
+  const importPlanExcel = async (file) => {
+    const { valid, errors } = await parsePlanFile(file)
+    const rowErrors = [...errors]
+    const duplicates = []
+    if (valid.length === 0) return { imported: 0, errors: rowErrors, duplicates }
+
+    // Read current rooms/lines fresh from the database rather than trusting
+    // React state — if the caller just cleared planned lines (see
+    // clearPlannedLines) moments earlier, stale in-memory state here would
+    // make every re-uploaded row look like a duplicate of rows that no
+    // longer exist, silently dropping the whole import.
+    const [{ data: currentRooms }, { data: currentLines }] = await Promise.all([
+      supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id),
+      supabase.from('season_plan_lines').select('cold_room_id, planned_date').eq('season_plan_id', seasonPlan.id),
+    ])
+
+    // Resolve/auto-create rooms by name (case-insensitive), de-duplicated
+    // within this batch so the same new room isn't created twice.
+    const roomsByName = new Map((currentRooms || []).map(r => [r.name.trim().toLowerCase(), r]))
+    const linesToInsert = []
+
+    // Same Cámara + same Fecha (including "no date") = likely the same file
+    // re-uploaded — skip it. Same Cámara with a *different* Fecha is a real,
+    // separate application (different batch of fruit), not a duplicate.
+    const existingSignatures = new Set(
+      (currentLines || []).map(l => `${l.cold_room_id}|${l.planned_date || ''}`)
+    )
+
+    for (const row of valid) {
+      const key = row.roomName.toLowerCase()
+      let room = roomsByName.get(key)
+      if (!room) {
+        if (!row.roomVolume) {
+          rowErrors.push({ row: '-', reason: `Cámara nueva "${row.roomName}" sin volumen — no se pudo crear` })
+          continue
+        }
+        const { data: created, error } = await supabase
+          .from('cold_rooms')
+          .insert({ org_id: profile.org_id, name: row.roomName, volume_m3: row.roomVolume, location: row.location })
+          .select()
+          .single()
+        if (error) { rowErrors.push({ row: '-', reason: error.message }); continue }
+        room = created
+        roomsByName.set(key, room)
+      }
+
+      const signature = `${room.id}|${row.planned_date || ''}`
+      if (existingSignatures.has(signature)) {
+        duplicates.push({ room: row.roomName, date: row.planned_date })
+        continue
+      }
+      existingSignatures.add(signature) // also catches repeats within this same file
+
+      linesToInsert.push({
+        season_plan_id: seasonPlan.id,
+        cold_room_id: room.id,
+        planned_date: row.planned_date,
+        planned_dose_ppb: row.planned_dose_ppb,
+      })
+    }
+
+    if (linesToInsert.length > 0) {
+      const { error } = await supabase.from('season_plan_lines').insert(linesToInsert)
+      if (error) rowErrors.push({ row: '-', reason: error.message })
+    }
+
+    const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
+    setColdRooms(rooms || [])
+    await reloadSeasonPlanLines()
+
+    return { imported: linesToInsert.length, errors: rowErrors, duplicates }
+  }
+
+  // Bulk-apply a product choice to several selected Plan Lines at once —
+  // the Excel import never sets product per row, this is how it gets set
+  // after upload for many rows in one action.
+  const bulkSetPlanLineProduct = async (lineIds, product) => {
+    const { error } = await supabase
+      .from('season_plan_lines')
+      .update({ product_preference: product })
+      .in('id', lineIds)
+    if (error) { console.error(error); return }
+    await reloadSeasonPlanLines()
+  }
+
+  // "Start fresh" option before an Excel import — only clears `planned`
+  // lines. Never touches `converted` ones: those are the historical record
+  // of what actually became a real Treatment (see DOMAIN_MODEL.md Rule 22).
+  const clearPlannedLines = async () => {
+    const { error } = await supabase
+      .from('season_plan_lines')
+      .delete()
+      .eq('season_plan_id', seasonPlan.id)
+      .eq('status', 'planned')
+    if (error) { console.error(error); return }
+    await reloadSeasonPlanLines()
   }
 
   useEffect(() => {
@@ -287,7 +390,9 @@ export default function Portal({ onSignOut }) {
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
     seasonplan: <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
                   onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
-                  onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion} />,
+                  onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
+                  onImportPlan={importPlanExcel} onBulkSetProduct={bulkSetPlanLineProduct}
+                  onClearPlannedLines={clearPlannedLines} />,
     generators: <Generators />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
