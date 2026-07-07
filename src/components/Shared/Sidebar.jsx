@@ -14,8 +14,9 @@ const NAV_ITEMS = [
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
 ]
 
-export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '' }) {
+export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true }) {
   const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
+  const navItems = NAV_ITEMS.filter(item => item.id !== 'wassington' || canSeeWassingtonPanel)
 
   return (
     <aside style={{
@@ -31,7 +32,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
 
       {/* Nav */}
       <nav style={{flex:1, padding:'8px 0', overflowY:'auto'}}>
-        {NAV_ITEMS.map(item => (
+        {navItems.map(item => (
           <div key={item.id}>
             {item.section && (
               <div style={{

@@ -185,6 +185,11 @@ export default function Portal({ onSignOut }) {
   }
 
   const currentUser = { name: profile?.organizations?.name || '', orgId: profile?.org_id }
+  // "Panel Wassington" is a Distributor/Global admin view — Customers never see it,
+  // regardless of which Business Roles they hold within their own Organization
+  // (a demo Customer profile may hold Owner+Approver for convenience, but that
+  // approver role only means anything for descendants, and Customers have none).
+  const canSeeWassingtonPanel = profile?.organizations?.org_type !== 'customer'
 
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
@@ -205,6 +210,7 @@ export default function Portal({ onSignOut }) {
         onNavigate={navigate}
         onSignOut={onSignOut}
         orgName={currentUser.name}
+        canSeeWassingtonPanel={canSeeWassingtonPanel}
       />
 
       <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
@@ -237,7 +243,9 @@ export default function Portal({ onSignOut }) {
         </div>
 
         <div style={{padding:'24px', flex:1}}>
-          {panels[activePanel]}
+          {activePanel === 'wassington' && !canSeeWassingtonPanel
+            ? <Dashboard onNavigate={navigate} treatments={treatments} />
+            : panels[activePanel]}
         </div>
       </main>
 
