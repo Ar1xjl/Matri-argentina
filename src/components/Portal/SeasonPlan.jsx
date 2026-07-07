@@ -28,11 +28,14 @@ const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px
 
 export default function SeasonPlan({
   plan, lines = [], coldRooms = [], onAddLine, onUpdateLine, onDeleteLine, onConvert,
-  onImportPlan, onBulkSetProduct, onClearPlannedLines,
+  onImportPlan, onBulkApply, onClearPlannedLines,
 }) {
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [selected, setSelected] = useState(new Set())
-  const [bulkProduct, setBulkProduct] = useState('powder')
+  const [bulkDate,    setBulkDate]    = useState('')
+  const [bulkDose,    setBulkDose]    = useState('')
+  const [bulkCrop,    setBulkCrop]    = useState('')
+  const [bulkProduct, setBulkProduct] = useState('')
   const [importResult, setImportResult] = useState(null) // { imported, errors, duplicates } | null
   const [importing, setImporting] = useState(false)
   const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
@@ -96,6 +99,10 @@ export default function SeasonPlan({
     })
   }
 
+  const plannedIds = enriched.filter(l => l.status === 'planned').map(l => l.id)
+  const allSelected = plannedIds.length > 0 && plannedIds.every(id => selected.has(id))
+  const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(plannedIds))
+
   const selectedPlannedLines = enriched.filter(l => selected.has(l.id) && l.status === 'planned')
 
   const handleConvert = () => {
@@ -104,9 +111,18 @@ export default function SeasonPlan({
     setSelected(new Set())
   }
 
+  // Only fields the customer actually filled in get applied — leaving one
+  // blank means "don't touch this" for every selected row, not "clear it".
   const handleBulkApply = async () => {
     if (selectedPlannedLines.length === 0) return
-    await onBulkSetProduct(selectedPlannedLines.map(l => l.id), bulkProduct)
+    const patch = {}
+    if (bulkDate)    patch.planned_date = bulkDate
+    if (bulkDose)    patch.planned_dose_ppb = Number(bulkDose)
+    if (bulkProduct) patch.product_preference = bulkProduct
+    if (bulkCrop)    patch.primary_crop = bulkCrop
+    if (Object.keys(patch).length === 0) return
+    await onBulkApply(selectedPlannedLines.map(l => l.id), patch)
+    setBulkDate(''); setBulkDose(''); setBulkCrop(''); setBulkProduct('')
   }
 
   return (
@@ -185,19 +201,6 @@ export default function SeasonPlan({
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || 'Temporada'}</span>
           <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
             <button className="btn-secondary btn-sm" onClick={onAddLine}>+ Agregar línea</button>
-
-            {selectedPlannedLines.length > 0 && (
-              <>
-                <select style={{...inp, width:'auto'}} value={bulkProduct} onChange={e => setBulkProduct(e.target.value)}>
-                  <option value="powder">MatriPowder</option>
-                  <option value="tablets">MatriTablets</option>
-                </select>
-                <button className="btn-secondary btn-sm" onClick={handleBulkApply}>
-                  Aplicar a seleccionadas ({selectedPlannedLines.length})
-                </button>
-              </>
-            )}
-
             <button
               className="btn-primary btn-sm"
               disabled={selectedPlannedLines.length === 0}
@@ -209,6 +212,39 @@ export default function SeasonPlan({
           </div>
         </div>
 
+        {selectedPlannedLines.length > 0 && (
+          <div style={{background:'#f0f7ff', border:'1px solid #cfe3f7', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px'}}>
+            <div style={{fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'8px'}}>
+              Edición en lote — {selectedPlannedLines.length} línea{selectedPlannedLines.length === 1 ? '' : 's'} seleccionada{selectedPlannedLines.length === 1 ? '' : 's'}. Completá solo lo que quieras cambiar.
+            </div>
+            <div style={{display:'flex', gap:'10px', flexWrap:'wrap', alignItems:'flex-end'}}>
+              <div>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Fecha</label>
+                <input style={inp} type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Dosis (ppb)</label>
+                <input style={{...inp, width:'100px'}} type="number" value={bulkDose} onChange={e => setBulkDose(e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Cultivo (de la cámara)</label>
+                <input style={inp} type="text" value={bulkCrop} onChange={e => setBulkCrop(e.target.value)} placeholder="Ej: Pera Williams"/>
+              </div>
+              <div>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Producto</label>
+                <select style={inp} value={bulkProduct} onChange={e => setBulkProduct(e.target.value)}>
+                  <option value="">Sin cambios</option>
+                  <option value="powder">MatriPowder</option>
+                  <option value="tablets">MatriTablets</option>
+                </select>
+              </div>
+              <button className="btn-secondary btn-sm" onClick={handleBulkApply}>
+                Aplicar a seleccionadas
+              </button>
+            </div>
+          </div>
+        )}
+
         {enriched.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
             No hay líneas planificadas todavía. Hacé click en "+ Agregar línea" para empezar.
@@ -217,7 +253,10 @@ export default function SeasonPlan({
           <table style={{width:'100%', borderCollapse:'collapse'}}>
             <thead>
               <tr>
-                {['', 'Cámara', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo indicativo', 'Notas', 'Estado', ''].map(h => (
+                <th style={{...cell, background:'#f5f5ee'}}>
+                  <input type="checkbox" checked={allSelected} disabled={plannedIds.length === 0} onChange={toggleSelectAll}/>
+                </th>
+                {['Cámara', 'Cultivo', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo indicativo', 'Notas', 'Estado', ''].map(h => (
                   <th key={h} style={{...cell, background:'#f5f5ee', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase'}}>{h}</th>
                 ))}
               </tr>
@@ -235,6 +274,9 @@ export default function SeasonPlan({
                       <option value="" disabled>Elegir cámara</option>
                       {coldRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.volume_m3} m³)</option>)}
                     </select>
+                  </td>
+                  <td style={{...cell, color:'#6b6b6b'}}>
+                    {l.room?.primary_crop || '—'}
                   </td>
                   <td style={cell}>
                     <input style={inp} type="date" value={l.planned_date || ''} disabled={l.status !== 'planned'}

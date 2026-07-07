@@ -218,15 +218,34 @@ export default function Portal({ onSignOut }) {
     return { imported: linesToInsert.length, errors: rowErrors, duplicates }
   }
 
-  // Bulk-apply a product choice to several selected Plan Lines at once —
-  // the Excel import never sets product per row, this is how it gets set
-  // after upload for many rows in one action.
-  const bulkSetPlanLineProduct = async (lineIds, product) => {
-    const { error } = await supabase
-      .from('season_plan_lines')
-      .update({ product_preference: product })
-      .in('id', lineIds)
-    if (error) { console.error(error); return }
+  // Bulk-edit several selected Plan Lines at once — only the fields the
+  // customer actually filled in the toolbar get applied, so leaving one
+  // blank doesn't wipe it out on every selected row. `primary_crop` isn't a
+  // Plan Line field — it belongs to the Cold Room, so it updates every
+  // distinct room referenced by the selected lines instead.
+  const bulkApplyToLines = async (lineIds, { planned_date, planned_dose_ppb, product_preference, primary_crop }) => {
+    const linePatch = {}
+    if (planned_date !== undefined)      linePatch.planned_date = planned_date
+    if (planned_dose_ppb !== undefined)  linePatch.planned_dose_ppb = planned_dose_ppb
+    if (product_preference !== undefined) linePatch.product_preference = product_preference
+
+    if (Object.keys(linePatch).length > 0) {
+      const { error } = await supabase.from('season_plan_lines').update(linePatch).in('id', lineIds)
+      if (error) { console.error(error); return }
+    }
+
+    if (primary_crop) {
+      const roomIds = [...new Set(
+        seasonPlanLines.filter(l => lineIds.includes(l.id)).map(l => l.cold_room_id)
+      )]
+      if (roomIds.length > 0) {
+        const { error } = await supabase.from('cold_rooms').update({ primary_crop }).in('id', roomIds)
+        if (error) { console.error(error); return }
+        const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
+        setColdRooms(rooms || [])
+      }
+    }
+
     await reloadSeasonPlanLines()
   }
 
@@ -391,7 +410,7 @@ export default function Portal({ onSignOut }) {
     seasonplan: <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
                   onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                   onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
-                  onImportPlan={importPlanExcel} onBulkSetProduct={bulkSetPlanLineProduct}
+                  onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
                   onClearPlannedLines={clearPlannedLines} />,
     generators: <Generators />,
     documents:  <Documents />,
