@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,
     href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
   { id: 'applog',      icon: '📋', label: 'Registro de aplicaciones',section: null },
-  { id: 'wassington',  icon: '⚙️', label: 'Panel Wassington',        section: 'Administración' },
+  { id: 'wassington',  icon: '⚙️', label: null,                      section: 'Administración' },
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
 ]
 
@@ -73,7 +73,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                 }}
               >
                 <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
-                {item.label}
+                {item.label || `Panel ${orgName}`}
               </div>
             )}
           </div>

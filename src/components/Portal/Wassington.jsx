@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
+import Organizations from './Organizations'
 import { pouchBreakdownLabel } from '../../lib/dosing'
 
 function matriSureOf(t) {
@@ -8,15 +9,7 @@ function matriSureOf(t) {
   return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
 }
 
-const CUSTOMERS = [
-  { name:'Kleppe S.A.',         cuit:'30-12345678-9', retailer:'Wassington', region:'Río Negro', status:'approved', treatments:12 },
-  { name:'Tres Ases S.A.',      cuit:'30-98765432-1', retailer:'Wassington', region:'Mendoza',   status:'approved', treatments:8  },
-  { name:'Frutícola Río Negro', cuit:'30-11223344-5', retailer:'Podlesh',    region:'Río Negro', status:'approved', treatments:5  },
-  { name:'Kiwi Sur S.R.L.',     cuit:'30-55667788-2', retailer:'RetailSur',  region:'Neuquén',   status:'approved', treatments:3  },
-  { name:'Frutales del Sur',    cuit:'30-99887766-3', retailer:'Podlesh',    region:'Río Negro', status:'pending',  treatments:0  },
-]
-
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, profile }) {
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
@@ -182,42 +175,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       )}
 
       {/* CRM tab */}
-      {tab === 'crm' && (
-        <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
-          <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-            <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>CRM — Clientes</span>
-            <button style={{background:'#b5cc2e', color:'#0b4358', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}>+ Nuevo cliente</button>
-          </div>
-          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
-            <thead>
-              <tr>
-                {['Razón Social','CUIT','Distribuidor','Región','Tratamientos','Estado',''].map(h => (
-                  <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {CUSTOMERS.map((c, i) => (
-                <tr key={i} style={{borderBottom: i < CUSTOMERS.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
-                  <td style={{padding:'12px 16px', fontWeight:600}}>{c.name}</td>
-                  <td style={{padding:'12px 16px', fontFamily:'monospace', fontSize:'12px', color:'#6b6b6b'}}>{c.cuit}</td>
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{c.retailer}</td>
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{c.region}</td>
-                  <td style={{padding:'12px 16px', fontWeight:700, textAlign:'center'}}>{c.treatments}</td>
-                  <td style={{padding:'12px 16px'}}>
-                    <span style={{background: c.status==='approved'?'#eaf7ee':'#fff3cd', color: c.status==='approved'?'#1a6b30':'#b06a00', fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>
-                      {c.status==='approved' ? '✓ Activo' : '⏳ Pendiente'}
-                    </span>
-                  </td>
-                  <td style={{padding:'12px 16px'}}>
-                    <button style={{background:'#f5f5ee', color:'#0b4358', border:'0.5px solid #ddddd5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}>Ver</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {tab === 'crm' && <Organizations profile={profile} />}
 
       {/* Approve/Reject Modal */}
       {modal && (

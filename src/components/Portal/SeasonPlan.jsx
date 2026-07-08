@@ -28,7 +28,7 @@ const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px
 
 export default function SeasonPlan({
   plan, lines = [], coldRooms = [], onAddLine, onUpdateLine, onDeleteLine, onConvert,
-  onImportPlan, onBulkApply, onClearPlannedLines,
+  onImportPlan, onBulkApply, onClearPlannedLines, onNavigate,
 }) {
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [selected, setSelected] = useState(new Set())
@@ -194,6 +194,25 @@ export default function SeasonPlan({
       <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
         Pagás por la dosis real que usás — no una tarifa fija que asume 1.000 ppb para todos los cultivos.
       </div>
+
+      {lines.some(l => l.product_preference === 'powder') && (
+        <div style={{
+          ...card, background:'#0b4358', display:'flex', alignItems:'center',
+          justifyContent:'space-between', flexWrap:'wrap', gap:'12px',
+        }}>
+          <div>
+            <div style={{fontSize:'14px', fontWeight:700, color:'#fff', marginBottom:'2px'}}>
+              ¿Querés optimizar el costo de tus aplicaciones?
+            </div>
+            <div style={{fontSize:'12px', color:'rgba(255,255,255,.7)'}}>
+              Con tu Plan de Temporada podés ver si conviene comprar, alquilar o usar el servicio gestionado para tus generadores.
+            </div>
+          </div>
+          <button className="btn-lime btn-sm" onClick={() => onNavigate?.('generators')}>
+            Ir a Generadores →
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div style={card}>

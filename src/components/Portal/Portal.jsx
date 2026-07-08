@@ -22,7 +22,6 @@ const PANEL_TITLES = {
   generators:  'Generadores',
   documents:   'Documentos',
   applog:      'Registro de aplicaciones',
-  wassington:  'Panel Wassington',
   profile:     'Mi perfil',
 }
 
@@ -411,11 +410,11 @@ export default function Portal({ onSignOut }) {
                   onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                   onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
                   onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
-                  onClearPlannedLines={clearPlannedLines} />,
-    generators: <Generators />,
+                  onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
+    generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} profile={profile} />,
     profile:    <Profile />,
   }
 
@@ -437,7 +436,7 @@ export default function Portal({ onSignOut }) {
           boxShadow:'0 1px 3px rgba(0,0,0,.06)'
         }}>
           <h1 style={{fontSize:'17px', fontWeight:700, color:'#0b4358'}}>
-            {PANEL_TITLES[activePanel]}
+            {activePanel === 'wassington' ? `Panel ${currentUser.name}` : PANEL_TITLES[activePanel]}
           </h1>
           <div style={{display:'flex', alignItems:'center', gap:'14px'}}>
             <div style={{
