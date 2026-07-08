@@ -2,8 +2,21 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { fetchOrgPricing, getProductPrice } from '../../lib/orgPricing'
 import { DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { downloadPlanTemplate } from '../../lib/excelImport'
+import { exportToExcel } from '../../lib/tableTools'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
+
+const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecided: 'Sin decidir' }
+const SEASON_PLAN_COLUMNS = [
+  { header: 'Cámara',           get: l => l.room?.name || '' },
+  { header: 'Cultivo',          get: l => l.room?.primary_crop || '' },
+  { header: 'Fecha estimada',   get: l => l.planned_date || '' },
+  { header: 'Dosis (ppb)',      get: l => l.planned_dose_ppb ?? '' },
+  { header: 'Producto',         get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
+  { header: 'Costo indicativo', get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+  { header: 'Notas',            get: l => l.notes || '' },
+  { header: 'Estado',           get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
+]
 
 // Same "indicative cost" math as the Calculator — exact-dose Powder cost, or
 // scaled Tablets cost. Undecided product has no indicative cost yet.
@@ -220,6 +233,7 @@ export default function SeasonPlan({
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || 'Temporada'}</span>
           <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
             <button className="btn-secondary btn-sm" onClick={onAddLine}>+ Agregar línea</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, enriched)}>⬇ Exportar a Excel</button>
             <button
               className="btn-primary btn-sm"
               disabled={selectedPlannedLines.length === 0}

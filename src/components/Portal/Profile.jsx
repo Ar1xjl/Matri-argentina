@@ -12,7 +12,6 @@ export default function Profile() {
             ['Situación Fiscal', 'Responsable Inscripto',    true],
             ['Email',            'compras@kleppe.com.ar',    false],
             ['Teléfono',         '+54 299 XXX-XXXX',         false],
-            ['Nivel asignado',   'Tier 1 — Wassington',      true],
           ].map(([label, value, readonly]) => (
             <div key={label} className="form-field">
               <label>{label}</label>

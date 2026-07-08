@@ -52,7 +52,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom }) {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Ubicaciones y cámaras</span>
+          <span className="card-title">Frigoríficos y Cámaras</span>
           <button className="btn-lime btn-sm" onClick={() => setShowForm(!showForm)}>
             {showForm ? '✕ Cancelar' : '+ Nueva cámara'}
           </button>

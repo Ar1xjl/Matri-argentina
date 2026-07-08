@@ -129,7 +129,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
         price_local: Number(cost.toFixed(2)),
         price_currency: 'USD', // simplification: single-currency demo data (see SYSTEM_ARCHITECTURE.md)
         service_fee_local: selected !== 'tablets' && serviceModel === 'service' ? r.serviceFee : null,
-        plan_line_id: prefill?.id || null,
+        plan_line_id: prefill?.origin === 'plan_line' ? prefill.id : null,
       })
     }
   }
@@ -204,7 +204,9 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
 
       {prefill && (
         <div className="alert info" style={{marginBottom:'14px'}}>
-          🗓️ Revisando línea de tu Planificación de Temporada{queueLength > 1 ? ` — quedan ${queueLength} por revisar` : ''}. Ajustá lo que haga falta y confirmá para enviarla a Wassington.
+          {prefill.origin === 'repeat'
+            ? '↺ Repitiendo un tratamiento anterior. Ajustá lo que haga falta y confirmá para enviarlo a Wassington.'
+            : `🗓️ Revisando línea de tu Planificación de Temporada${queueLength > 1 ? ` — quedan ${queueLength} por revisar` : ''}. Ajustá lo que haga falta y confirmá para enviarla a Wassington.`}
         </div>
       )}
 

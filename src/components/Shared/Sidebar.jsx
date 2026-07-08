@@ -2,15 +2,15 @@ import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
 
 const NAV_ITEMS = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard',               section: 'Principal' },
-  { id: 'rooms',       icon: '🏠', label: 'Cámaras y ubicaciones',   section: null },
-  { id: 'treatments',  icon: '📦', label: 'Tratamientos',            section: null },
-  { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
+  { id: 'rooms',       icon: '🏠', label: 'Frigoríficos y Cámaras',  section: null },
   { id: 'seasonplan',  icon: '🗓️', label: 'Planificación de temporada', section: null },
+  { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
+  { id: 'treatments',  icon: '📦', label: 'Tratamientos',            section: null },
+  { id: 'applog',      icon: '📋', label: 'Registro de aplicaciones',section: null },
   { id: 'generators',  icon: '⚡', label: 'Generadores',             section: 'Equipamiento' },
   { id: 'documents',   icon: '📄', label: 'Documentos',              section: 'Información' },
   { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,
     href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
-  { id: 'applog',      icon: '📋', label: 'Registro de aplicaciones',section: null },
   { id: 'wassington',  icon: '⚙️', label: null,                      section: 'Administración' },
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
 ]

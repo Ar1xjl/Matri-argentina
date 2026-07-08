@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { pouchBreakdownLabel } from '../../lib/dosing'
+import { exportToExcel, filterRows } from '../../lib/tableTools'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
 
 // Supabase may embed a to-one relation as an object or a single-item array
@@ -27,8 +28,23 @@ const statusLabel = (status) => ({
   cancelled: { cls:'rejected',  label:'– Cancelado' },
 }[status] || { cls:'pending', label:status })
 
-export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl }) {
+const COLUMNS = [
+  { header: 'N° tratamiento', get: t => `#${t.id.slice(0,8)}` },
+  { header: 'Cámara',         get: t => t.cold_rooms?.name || '' },
+  { header: 'Producto',       get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
+  { header: 'Sachets',        get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Precio',         get: t => t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '' },
+  { header: 'Modelo',         get: t => t.service_fee_local != null ? 'Servicio' : 'Propio' },
+  { header: 'Estado',         get: t => statusLabel(t.status).label },
+]
+
+export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl, onRepeat }) {
   const [viewingPhoto, setViewingPhoto] = useState(null) // storage path, or null
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({})
+
+  const filtered = filterRows(treatments, COLUMNS, filters)
+  const setFilter = (header, value) => setFilters(prev => ({ ...prev, [header]: value }))
 
   return (
     <div>
@@ -39,18 +55,27 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl 
         <button className="btn-primary" onClick={() => onNavigate('calculator')}>
           + Nuevo tratamiento
         </button>
-        <button className="btn-secondary">Filtrar</button>
+        <button className="btn-secondary" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? '✕ Ocultar filtros' : 'Filtrar'}
+        </button>
+        <button className="btn-secondary" onClick={() => exportToExcel('tratamientos.xlsx', COLUMNS, filtered)}>
+          ⬇ Exportar a Excel
+        </button>
       </div>
 
       <div className="card">
         <div className="card-header">
           <span className="card-title">Todos los tratamientos</span>
-          <span style={{fontSize:'12px', color:'var(--gray)'}}>{treatments.length} tratamientos esta temporada</span>
+          <span style={{fontSize:'12px', color:'var(--gray)'}}>{filtered.length} de {treatments.length} tratamientos esta temporada</span>
         </div>
         <div style={{padding:0}}>
           {treatments.length === 0 ? (
             <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
               No hay tratamientos todavía. Hacé click en "+ Nuevo tratamiento" para crear el primero.
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+              Ningún tratamiento coincide con los filtros aplicados.
             </div>
           ) : (
             <table className="data-table">
@@ -60,9 +85,24 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl 
                   <th>Sachets</th><th>Precio</th><th>Modelo</th>
                   <th>Estado</th><th></th>
                 </tr>
+                {showFilters && (
+                  <tr>
+                    {COLUMNS.map(c => (
+                      <th key={c.header} style={{padding:'4px 8px'}}>
+                        <input
+                          value={filters[c.header] || ''}
+                          onChange={e => setFilter(c.header, e.target.value)}
+                          placeholder="Filtrar..."
+                          style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
+                        />
+                      </th>
+                    ))}
+                    <th></th>
+                  </tr>
+                )}
               </thead>
               <tbody>
-                {treatments.map(t => {
+                {filtered.map(t => {
                   const s = statusLabel(t.status)
                   const model = t.service_fee_local != null ? 'Servicio' : 'Propio'
                   const matriSure = matriSureOf(t)
@@ -97,7 +137,7 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl 
                               📷 Ver foto
                             </button>
                           )}
-                          <button className="btn-secondary btn-sm">↺ Repetir</button>
+                          <button className="btn-secondary btn-sm" onClick={() => onRepeat(t)}>↺ Repetir</button>
                         </div>
                       </td>
                     </tr>

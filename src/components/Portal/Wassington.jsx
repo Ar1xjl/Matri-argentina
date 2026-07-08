@@ -4,11 +4,32 @@ import MatriSurePhotoModal from './MatriSurePhotoModal'
 import Organizations from './Organizations'
 import Inventory from './Inventory'
 import { pouchBreakdownLabel } from '../../lib/dosing'
+import { exportToExcel, filterRows } from '../../lib/tableTools'
 
 function matriSureOf(t) {
   const m = t.matrisure_verifications
   return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
 }
+
+const PENDING_COLUMNS = [
+  { header: 'N° tratamiento', get: t => `#${t.id.slice(0,8)}` },
+  { header: 'Cliente',        get: t => t.organizations?.name || '' },
+  { header: 'Cámara',         get: t => t.cold_rooms?.name || '' },
+  { header: 'Producto',       get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
+  { header: 'Sachets',        get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Precio',         get: t => t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '' },
+  { header: 'Modelo',         get: t => t.service_fee_local != null ? 'Servicio' : 'Propio' },
+  { header: 'Fecha',          get: t => new Date(t.created_at).toLocaleDateString('es-AR') },
+]
+
+const PROCESSED_COLUMNS = [
+  { header: 'N° tratamiento', get: t => `#${t.id.slice(0,8)}` },
+  { header: 'Cliente',        get: t => t.organizations?.name || '' },
+  { header: 'Cámara',         get: t => t.cold_rooms?.name || '' },
+  { header: 'Precio final',   get: t => t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '' },
+  { header: 'Estado',         get: t => ({ approved:'✓ Aprobado', applied:'🔧 Aplicado', completed:'📸 MatriSure OK', rejected:'✗ Rechazado' }[t.status] || t.status) },
+  { header: 'Motivo',         get: t => t.rejection_reason || '' },
+]
 
 export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile }) {
   const [tab,       setTab]       = useState('treatments')
@@ -18,9 +39,15 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [resolving, setResolving] = useState(null) // treatment id currently being resolved
   const [resolveError, setResolveError] = useState('')
+  const [showPendingFilters, setShowPendingFilters] = useState(false)
+  const [pendingFilters, setPendingFilters] = useState({})
+  const [showProcessedFilters, setShowProcessedFilters] = useState(false)
+  const [processedFilters, setProcessedFilters] = useState({})
 
   const pending   = treatments.filter(t => t.status === 'submitted')
   const processed = treatments.filter(t => ['approved','applied','completed','rejected'].includes(t.status))
+  const filteredPending   = filterRows(pending, PENDING_COLUMNS, pendingFilters)
+  const filteredProcessed = filterRows(processed, PROCESSED_COLUMNS, processedFilters)
   // Customer picked "no estoy seguro" during their own MatriSure capture —
   // the photo is already uploaded, this is Wassington confirming the result.
   const needsAssistance = treatments.filter(t => {
@@ -153,11 +180,19 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
           <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
             <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
               <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Tratamientos pendientes de aprobación</span>
-              <span style={{background:'#fff3cd', color:'#b06a00', fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'}}>{pending.length} pendientes</span>
+              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                <span style={{background:'#fff3cd', color:'#b06a00', fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'}}>{filteredPending.length} de {pending.length} pendientes</span>
+                <button className="btn-secondary btn-sm" onClick={() => setShowPendingFilters(!showPendingFilters)}>{showPendingFilters ? '✕ Filtros' : 'Filtrar'}</button>
+                <button className="btn-secondary btn-sm" onClick={() => exportToExcel('tratamientos_pendientes.xlsx', PENDING_COLUMNS, filteredPending)}>⬇ Exportar</button>
+              </div>
             </div>
             {pending.length === 0 ? (
               <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
                 ✓ No hay tratamientos pendientes — todos procesados.
+              </div>
+            ) : filteredPending.length === 0 ? (
+              <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+                Ningún tratamiento coincide con los filtros aplicados.
               </div>
             ) : (
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
@@ -167,9 +202,24 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                       <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                     ))}
                   </tr>
+                  {showPendingFilters && (
+                    <tr>
+                      {PENDING_COLUMNS.map(c => (
+                        <th key={c.header} style={{padding:'4px 8px'}}>
+                          <input
+                            value={pendingFilters[c.header] || ''}
+                            onChange={e => setPendingFilters(prev => ({ ...prev, [c.header]: e.target.value }))}
+                            placeholder="Filtrar..."
+                            style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
+                          />
+                        </th>
+                      ))}
+                      <th></th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
-                  {pending.map((t, i) => {
+                  {filteredPending.map((t, i) => {
                     const model = t.service_fee_local != null ? 'Servicio' : 'Propio'
                     return (
                       <tr key={i} style={{borderBottom:'0.5px solid #ddddd5'}}>
@@ -198,9 +248,19 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
           {/* Recently processed */}
           {processed.length > 0 && (
             <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
-              <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5'}}>
+              <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
                 <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Procesados recientemente</span>
+                <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                  <span style={{fontSize:'11px', color:'#6b6b6b'}}>{filteredProcessed.length} de {processed.length}</span>
+                  <button className="btn-secondary btn-sm" onClick={() => setShowProcessedFilters(!showProcessedFilters)}>{showProcessedFilters ? '✕ Filtros' : 'Filtrar'}</button>
+                  <button className="btn-secondary btn-sm" onClick={() => exportToExcel('tratamientos_procesados.xlsx', PROCESSED_COLUMNS, filteredProcessed)}>⬇ Exportar</button>
+                </div>
               </div>
+              {filteredProcessed.length === 0 ? (
+                <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+                  Ningún tratamiento coincide con los filtros aplicados.
+                </div>
+              ) : (
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
@@ -208,15 +268,30 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                       <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                     ))}
                   </tr>
+                  {showProcessedFilters && (
+                    <tr>
+                      {PROCESSED_COLUMNS.map(c => (
+                        <th key={c.header} style={{padding:'4px 8px'}}>
+                          <input
+                            value={processedFilters[c.header] || ''}
+                            onChange={e => setProcessedFilters(prev => ({ ...prev, [c.header]: e.target.value }))}
+                            placeholder="Filtrar..."
+                            style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
+                          />
+                        </th>
+                      ))}
+                      <th></th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
-                  {processed.map((t, i) => {
+                  {filteredProcessed.map((t, i) => {
                     const matriSure = matriSureOf(t)
                     const statusText = {
                       approved: '✓ Aprobado', applied: '🔧 Aplicado', completed: '📸 MatriSure OK', rejected: '✗ Rechazado',
                     }[t.status] || t.status
                     return (
-                    <tr key={i} style={{borderBottom: i < processed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
+                    <tr key={i} style={{borderBottom: i < filteredProcessed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
                       <td style={{padding:'12px 16px', fontWeight:700}}># {t.id.slice(0,8)}</td>
                       <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
                       <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
@@ -233,6 +308,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                   })}
                 </tbody>
               </table>
+              )}
             </div>
           )}
         </div>

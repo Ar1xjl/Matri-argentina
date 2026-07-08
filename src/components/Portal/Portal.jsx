@@ -16,7 +16,7 @@ import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
 
 const PANEL_TITLES = {
   dashboard:   'Dashboard',
-  rooms:       'Cámaras y ubicaciones',
+  rooms:       'Frigoríficos y Cámaras',
   treatments:  'Tratamientos',
   calculator:  'Calculadora de dosis',
   seasonplan:  'Planificación de temporada',
@@ -137,7 +137,22 @@ export default function Portal({ onSignOut }) {
   // Selected Plan Lines get converted one at a time, in sequence, through the
   // existing Calculator — the customer reviews/adjusts each before sending it.
   const startConversion = (selectedLines) => {
-    setConversionQueue(selectedLines)
+    setConversionQueue(selectedLines.map(l => ({ ...l, origin: 'plan_line' })))
+    setActivePanel('calculator')
+  }
+
+  // "Repetir" on an existing Treatment — same room/dose prefilled into the
+  // Calculator, customer still has to review and confirm before it sends.
+  // Reuses the same prefill queue as Season Plan conversion (Calculator only
+  // needs cold_room_id/planned_dose_ppb), tagged so it doesn't get mistaken
+  // for a Plan Line and doesn't set plan_line_id on the new Treatment.
+  const repeatTreatment = (treatment) => {
+    setConversionQueue([{
+      origin: 'repeat',
+      id: treatment.id,
+      cold_room_id: treatment.cold_room_id,
+      planned_dose_ppb: treatment.target_dose_ppb,
+    }])
     setActivePanel('calculator')
   }
 
@@ -298,15 +313,20 @@ export default function Portal({ onSignOut }) {
     if (error) { console.error(error); return null }
     await loadTreatments()
 
-    // If this came from converting a Season Plan Line, mark it converted and
-    // advance to the next queued line (if any) so the customer reviews each
-    // one in sequence instead of going back to the plan table every time.
+    // If this came from converting a Season Plan Line, mark it converted.
     if (newTreatment.plan_line_id) {
       await supabase.from('season_plan_lines').update({ status: 'converted' }).eq('id', newTreatment.plan_line_id)
       await reloadSeasonPlanLines()
+    }
+
+    // Advance whatever prefill queue triggered this Treatment (Season Plan
+    // conversion, or a single "Repetir" item) so the next one shows up, or
+    // we return to the screen that started it once the queue is empty.
+    if (conversionQueue.length > 0) {
+      const wasRepeat = conversionQueue[0]?.origin === 'repeat'
       setConversionQueue(prev => {
-        const rest = prev.filter(l => l.id !== newTreatment.plan_line_id)
-        if (rest.length === 0) setActivePanel('seasonplan')
+        const rest = prev.slice(1)
+        if (rest.length === 0) setActivePanel(wasRepeat ? 'treatments' : 'seasonplan')
         return rest
       })
     }
@@ -449,7 +469,7 @@ export default function Portal({ onSignOut }) {
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
     rooms:      <Rooms coldRooms={coldRooms} treatments={treatments} onAddRoom={addColdRoom} />,
-    treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} />,
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id}
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
     seasonplan: <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}

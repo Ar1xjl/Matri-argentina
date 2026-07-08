@@ -5,12 +5,21 @@ import ApplicationForm from './ApplicationForm'
 import MatriSureCapture from './MatriSureCapture'
 import RoomHistory from './RoomHistory'
 import { pouchBreakdownLabel } from '../../lib/dosing'
+import { exportToExcel } from '../../lib/tableTools'
 
 const statusLabel = (status) => ({
   approved:  { cls:'pending',   label:'⏳ Listo para aplicar' },
   applied:   { cls:'pending',   label:'🔧 Aplicado — falta MatriSure' },
   completed: { cls:'confirmed', label:'📸 Confirmado' },
 }[status] || null)
+
+const APPLOG_COLUMNS = [
+  { header: 'Cámara',            get: t => t.cold_rooms?.name || '' },
+  { header: 'Producto',          get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
+  { header: 'Dosis / sachets',   get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Fecha aplicación',  get: t => t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '' },
+  { header: 'MatriSure',         get: t => statusLabel(t.status)?.label || '' },
+]
 
 export default function AppLog({ treatments = [], operatorName, onApply, onSubmitMatriSure }) {
   const [view, setView] = useState('list') // 'list' | 'form' | 'capture' | 'review' | 'history'
@@ -136,7 +145,10 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
       <div className="card">
         <div className="card-header">
           <span className="card-title">Registro de aplicaciones</span>
-          <span style={{fontSize:'12px', color:'var(--gray)'}}>Temporada 2026</span>
+          <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+            <span style={{fontSize:'12px', color:'var(--gray)'}}>Temporada 2026</span>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('registro_de_aplicaciones.xlsx', APPLOG_COLUMNS, relevant)}>⬇ Exportar a Excel</button>
+          </div>
         </div>
         <div style={{padding:0}}>
           {relevant.length === 0 ? (
