@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
 import Organizations from './Organizations'
+import Inventory from './Inventory'
 import { pouchBreakdownLabel } from '../../lib/dosing'
 
 function matriSureOf(t) {
@@ -9,15 +10,23 @@ function matriSureOf(t) {
   return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
 }
 
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, profile }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile }) {
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
   const [reason,    setReason]    = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
+  const [resolving, setResolving] = useState(null) // treatment id currently being resolved
+  const [resolveError, setResolveError] = useState('')
 
   const pending   = treatments.filter(t => t.status === 'submitted')
   const processed = treatments.filter(t => ['approved','applied','completed','rejected'].includes(t.status))
+  // Customer picked "no estoy seguro" during their own MatriSure capture —
+  // the photo is already uploaded, this is Wassington confirming the result.
+  const needsAssistance = treatments.filter(t => {
+    const m = matriSureOf(t)
+    return t.status === 'applied' && m?.assistance_requested && m?.result === 'pending_review' && !m?.reviewed_at
+  })
 
   const openApprove = (t) => { setEditPrice(t.price_local ?? ''); setModal({ treatment: t, action:'approve' }) }
   const openReject  = (t) => { setReason(''); setModal({ treatment: t, action:'reject' }) }
@@ -25,6 +34,14 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
   const confirmApprove = () => { onApprove(modal.treatment.id, editPrice); closeModal() }
   const confirmReject  = () => { onReject(modal.treatment.id, reason);     closeModal() }
+
+  const resolveAssistance = async (treatmentId, result) => {
+    setResolving(treatmentId)
+    setResolveError('')
+    const res = await onResolveMatriSure(treatmentId, result)
+    setResolving(null)
+    if (res?.error) setResolveError('No se pudo guardar la confirmación: ' + res.error)
+  }
 
   const totalUSD = treatments
     .filter(t => t.status === 'approved' || t.status === 'applied' || t.status === 'completed')
@@ -40,6 +57,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const TABS = [
     { id:'treatments', label:'📦 Tratamientos y aprobación' },
     { id:'crm',        label:'👥 CRM — Clientes' },
+    { id:'inventory',  label:'📦 Inventario' },
     { id:'pricing',    label:'💲 Gestión de precios' },
   ]
 
@@ -84,6 +102,52 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
               </div>
             ))}
           </div>
+
+          {/* MatriSure assistance requests — Customer wasn't sure and asked for help */}
+          {needsAssistance.length > 0 && (
+            <div style={{background:'#fff', borderRadius:'12px', border:'1px solid #f5c97a', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+              <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#fff8ea'}}>
+                <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>🙋 MatriSure — el cliente pidió ayuda para confirmar</span>
+                <span style={{background:'#fff3cd', color:'#b06a00', fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'}}>{needsAssistance.length} esperando</span>
+              </div>
+              {resolveError && (
+                <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {resolveError}</div>
+              )}
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+                <thead>
+                  <tr>
+                    {['N° tratamiento','Cliente','Cámara','Foto',''].map(h => (
+                      <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {needsAssistance.map((t, i) => (
+                    <tr key={t.id} style={{borderBottom: i < needsAssistance.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
+                      <td style={{padding:'12px 16px', fontWeight:700}}># {t.id.slice(0,8)}</td>
+                      <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
+                      <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
+                      <td style={{padding:'12px 16px'}}>
+                        <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSureOf(t).photo_url)}>📷 Ver foto</button>
+                      </td>
+                      <td style={{padding:'12px 16px'}}>
+                        <div style={{display:'flex', gap:'6px'}}>
+                          <button disabled={resolving === t.id} onClick={() => resolveAssistance(t.id, 'confirmed')}
+                            style={{background:'#eaf7ee', color:'#1a6b30', border:'0.5px solid #a3d9b0', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>
+                            ✓ Dosis alcanzada
+                          </button>
+                          <button disabled={resolving === t.id} onClick={() => resolveAssistance(t.id, 'not_reached')}
+                            style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f5c1c1', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}>
+                            ✗ No alcanzada
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pending treatments */}
           <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
@@ -176,6 +240,9 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
       {/* CRM tab */}
       {tab === 'crm' && <Organizations profile={profile} />}
+
+      {/* Inventory tab */}
+      {tab === 'inventory' && <Inventory profile={profile} />}
 
       {/* Approve/Reject Modal */}
       {modal && (

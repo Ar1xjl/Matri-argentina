@@ -146,6 +146,16 @@ Available → Dispatched → On Rent → Returned → Available
 
 > MatriTablets do not require a Generator. Generator is optional on Treatment and only relevant when product is MatriPowder.
 
+### Inventory
+
+Tracks on-hand quantity of each Product SKU variant (MatriPowder pouch sizes: 100g/50g/20g/10g; MatriTablets: grande/chica) held by a Distributor-level Organization. Introduced 2026-07-10 after a first customer-facing demo surfaced it as a real operational gap.
+
+**v1 scope (2026-07-10):** tracked only at the Distributor level (e.g. Wassington) — Sub-distributor-level breakdown, low-stock alerts, and a formal dispatch-to-Sub-distributor flow are explicitly deferred to a later iteration. Not visible to Customers; it's an internal Distributor/Global tool.
+
+**Decrement:** automatic, at the moment a Treatment moves to Applied — the same pouch/tablet breakdown already computed for display (see Treatment → dose breakdown) is subtracted from the owning Distributor's stock. Stock can go negative; this is a visible signal that more was applied than was on hand, not hidden by clamping to zero.
+
+**Manual adjustment:** the Distributor (or FreshInset Global, per the usual subtree visibility) can add/subtract quantity directly — for receiving new stock or correcting a physical count.
+
 ### Pricing
 
 Configured per Organization, in that Organization's own currency (see "Currency" under Organization above) — **not inherited from FreshInset Global or any ancestor.** Each country Distributor defines its own pricing tables from scratch when it's activated (same pattern Wassington already follows for Argentina). This is a deliberate scope boundary: this platform is not an ERP and is not tied to invoicing/collections — pricing here exists only to give customers transparent, indicative cost visibility, not to drive accounting. Sub-distributors inherit their parent Distributor's pricing tables unless explicitly overridden at approval time.
@@ -327,6 +337,7 @@ FreshInset Global
 31. The pre-dispatch checklist is a blocking gate: a Generator cannot be marked Dispatched with an incomplete checklist.
 32. A MatriSure Verification is reviewed by the Customer's own Approver by default; the Customer may instead request assistance, escalating review to an Approver from the Distributor/Sub-distributor above.
 33. A fourth time-based alert flags a MatriSure Verification stuck in `pending_review` for too long.
+34. Inventory (Product SKU stock) is tracked only at the Distributor level in v1, decrements automatically when a Treatment is Applied, and is never visible to Customers.
 
 ---
 

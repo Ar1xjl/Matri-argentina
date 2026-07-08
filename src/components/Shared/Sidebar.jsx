@@ -15,9 +15,12 @@ const NAV_ITEMS = [
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
 ]
 
-export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true }) {
+export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true }) {
   const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
-  const navItems = NAV_ITEMS.filter(item => item.id !== 'wassington' || canSeeWassingtonPanel)
+  const navItems = NAV_ITEMS.filter(item =>
+    (item.id !== 'wassington' || canSeeWassingtonPanel) &&
+    (item.id !== 'applog' || canApplyTreatments)
+  )
 
   return (
     <aside style={{

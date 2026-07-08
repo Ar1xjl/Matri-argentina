@@ -12,6 +12,7 @@ import Wassington from './Wassington'
 import SeasonPlan from './SeasonPlan'
 import { supabase } from '../../lib/supabaseClient'
 import { parsePlanFile } from '../../lib/excelImport'
+import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
 
 const PANEL_TITLES = {
   dashboard:   'Dashboard',
@@ -331,6 +332,29 @@ export default function Portal({ onSignOut }) {
   }
 
   // Approved → Applied: Operator records execution details
+  // Best-effort — mirrors the same pouch/tablet breakdown already computed
+  // for display (dosing.js) to decrement the owning Distributor's stock.
+  // Never blocks the Apply action: inventory is an internal tracking aid,
+  // not a gate on recording that a treatment was physically applied.
+  const decrementInventoryForTreatment = async (treatmentId) => {
+    const t = treatments.find(tr => tr.id === treatmentId)
+    if (!t?.cold_rooms?.volume_m3) return
+    try {
+      if (t.product === 'powder') {
+        const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (t.target_dose_ppb / 1000)
+        for (const { size, qty } of greedyCeiling(grams)) {
+          if (qty > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriPowder', p_variant: `${size}g`, p_qty: qty })
+        }
+      } else if (t.product === 'tablets') {
+        const { large, small } = tabletCombo(t.target_dose_ppb, t.cold_rooms.volume_m3)
+        if (large > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'grande', p_qty: large })
+        if (small > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'chica', p_qty: small })
+      }
+    } catch (err) {
+      console.error('[decrementInventoryForTreatment]', err)
+    }
+  }
+
   // Returns { error: string|null } instead of swallowing failures — the UI
   // must be able to tell the user something went wrong instead of silently
   // acting as if it succeeded.
@@ -349,6 +373,7 @@ export default function Portal({ onSignOut }) {
       })
       .eq('id', id)
     if (error) { console.error('[applyTreatment]', error); return { error: error.message } }
+    await decrementInventoryForTreatment(id)
     await loadTreatments()
     return { error: null }
   }
@@ -380,6 +405,23 @@ export default function Portal({ onSignOut }) {
     return { error: null }
   }
 
+  // Distributor/Global resolving a Customer's "not sure, please help" MatriSure
+  // request — the Customer already uploaded the photo; this just settles the
+  // result and completes the Treatment (Rule 32).
+  const resolveMatriSureReview = async (treatmentId, result) => {
+    const { error: reviewError } = await supabase
+      .from('matrisure_verifications')
+      .update({ result, reviewed_by: profile.id, reviewed_at: new Date().toISOString() })
+      .eq('treatment_id', treatmentId)
+    if (reviewError) { console.error('[resolveMatriSureReview]', reviewError); return { error: reviewError.message } }
+
+    const { error: statusError } = await supabase.from('treatments').update({ status: 'completed' }).eq('id', treatmentId)
+    if (statusError) { console.error('[resolveMatriSureReview]', statusError); return { error: statusError.message } }
+
+    await loadTreatments()
+    return { error: null }
+  }
+
   // Bucket is private — every view needs a fresh signed URL, not a stored public link.
   const getMatriSurePhotoUrl = async (path) => {
     const { data, error } = await supabase.storage
@@ -399,6 +441,10 @@ export default function Portal({ onSignOut }) {
   // (a demo Customer profile may hold Owner+Approver for convenience, but that
   // approver role only means anything for descendants, and Customers have none).
   const canSeeWassingtonPanel = profile?.organizations?.org_type !== 'customer'
+  // Only Customers physically hold Cold Rooms and apply Treatments — a
+  // Distributor/Sub-distributor/Global login should review MatriSure results
+  // (see "wassington" panel), not record the application itself.
+  const canApplyTreatments = profile?.organizations?.org_type === 'customer'
 
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
@@ -414,7 +460,7 @@ export default function Portal({ onSignOut }) {
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} profile={profile} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} />,
     profile:    <Profile />,
   }
 
@@ -426,6 +472,7 @@ export default function Portal({ onSignOut }) {
         onSignOut={onSignOut}
         orgName={currentUser.name}
         canSeeWassingtonPanel={canSeeWassingtonPanel}
+        canApplyTreatments={canApplyTreatments}
       />
 
       <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
@@ -459,6 +506,8 @@ export default function Portal({ onSignOut }) {
 
         <div style={{padding:'24px', flex:1}}>
           {activePanel === 'wassington' && !canSeeWassingtonPanel
+            ? <Dashboard onNavigate={navigate} treatments={treatments} />
+            : activePanel === 'applog' && !canApplyTreatments
             ? <Dashboard onNavigate={navigate} treatments={treatments} />
             : panels[activePanel]}
         </div>
