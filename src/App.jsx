@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Landing from './components/Landing/Landing'
 import Portal from './components/Portal/Portal'
 import AuthModal from './components/Auth/AuthModal'
+import ResetPassword from './components/Auth/ResetPassword'
 import { supabase } from './lib/supabaseClient'
 import './index.css'
 
@@ -9,10 +10,12 @@ export default function App() {
   const [session,   setSession]   = useState(undefined) // undefined = still loading
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTab,  setModalTab]  = useState('login')
+  const [recovering, setRecovering] = useState(false) // came in via a "reset password" email link
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
       setSession(newSession)
     })
     return () => listener.subscription.unsubscribe()
@@ -27,6 +30,10 @@ export default function App() {
   const handleSignOut = () => supabase.auth.signOut()
 
   if (session === undefined) return null // avoid landing flash while session loads
+
+  if (recovering) {
+    return <ResetPassword onDone={() => setRecovering(false)} />
+  }
 
   return (
     <>

@@ -44,8 +44,17 @@ export default function Users({ profile }) {
   const me = members.find(m => m.id === profile.id)
   const isOwner = rolesOf(me).includes('owner')
 
+  // Roles are independent, not a hierarchy — an Owner assigns whatever
+  // combination fits (e.g. Aprobador+Planificador for a mid-size org, or all
+  // four for a one-person shop). The one convenience: any other role implies
+  // being able to at least view, so checking it also checks Viewer.
   const toggleRole = (roleId) => {
-    setSelectedRoles(prev => prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId])
+    setSelectedRoles(prev => {
+      if (prev.includes(roleId)) return prev.filter(r => r !== roleId)
+      const next = [...prev, roleId]
+      if (roleId !== 'viewer' && !next.includes('viewer')) next.push('viewer')
+      return next
+    })
   }
 
   const handleAdd = async () => {

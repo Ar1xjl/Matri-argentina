@@ -15,6 +15,10 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
   const [signupDone,     setSignupDone]     = useState(false)
   const [pendingConfirm, setPendingConfirm] = useState(false)
 
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError,   setResetError]   = useState('')
+  const [resetSent,    setResetSent]    = useState(false)
+
   const handleLogin = async () => {
     setError('')
     setLoading(true)
@@ -27,6 +31,22 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
       return
     }
     onLogin()
+  }
+
+  // Sends a real recovery email — no admin/service_role needed, same as any
+  // public "forgot password" flow. App.jsx listens for the PASSWORD_RECOVERY
+  // auth event and shows ResetPassword.jsx when the user comes back via the
+  // emailed link.
+  const handleForgotPassword = async () => {
+    setResetError('')
+    if (!email.trim()) { setResetError('Escribí tu email arriba primero.'); return }
+    setResetLoading(true)
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    })
+    setResetLoading(false)
+    if (resetErr) { setResetError(resetErr.message); return }
+    setResetSent(true)
   }
 
   // Creates the Auth account only — no Organization/role yet. An Owner
@@ -126,10 +146,23 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
             >
               {loading ? 'Ingresando…' : 'Ingresar al portal'}
             </button>
-            <p style={{fontSize:'13px', color:'#6b7280', textAlign:'center', marginTop:'16px'}}>
-              ¿Olvidaste tu contraseña?{' '}
-              <a href="#" style={{color:'#0b4358', fontWeight:700}}>Contactá a Wassington</a>
-            </p>
+            {resetSent ? (
+              <div style={{fontSize:'12px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'10px', textAlign:'center', marginTop:'16px'}}>
+                ✓ Te enviamos un email a {email} con un link para elegir una nueva contraseña.
+              </div>
+            ) : (
+              <>
+                <p style={{fontSize:'13px', color:'#6b7280', textAlign:'center', marginTop:'16px', marginBottom:0}}>
+                  ¿Olvidaste tu contraseña?{' '}
+                  <a href="#" onClick={(e) => { e.preventDefault(); handleForgotPassword() }} style={{color:'#0b4358', fontWeight:700}}>
+                    {resetLoading ? 'Enviando…' : 'Recuperarla por email'}
+                  </a>
+                </p>
+                {resetError && (
+                  <div style={{fontSize:'12px', color:'#8b2020', textAlign:'center', marginTop:'8px'}}>{resetError}</div>
+                )}
+              </>
+            )}
           </div>
         )}
 
