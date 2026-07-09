@@ -1,15 +1,19 @@
 import * as XLSX from 'xlsx'
 
-// One consolidated template: Frigorífico + Cámara + Volumen + Dosis + Fecha.
-// Product is deliberately not a column here — after upload, the customer
-// selects multiple rows in the table and applies a product to all of them
-// at once (bulk action), rather than typing it per row in Excel.
+// One consolidated template: Frigorífico + Cámara + Cultivo + Volumen + Dosis
+// + Fecha. Product is deliberately not a column here — after upload, the
+// customer selects multiple rows in the table and applies a product to all
+// of them at once (bulk action), rather than typing it per row in Excel.
+// Cultivo is a Cold Room attribute, not a per-line one, but it's included
+// here since dose targets are tied to a crop — it sets/updates the room's
+// primary_crop, same as the in-app bulk "Cultivo" edit.
 export function downloadPlanTemplate() {
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet([
     {
       'Frigorífico': 'Est. San José',
       'Cámara': 'Cámara Norte 1',
+      'Cultivo': 'Manzanas',
       'Volumen (m³)': 500,
       'Dosis (ppb)': 1000,
       'Fecha (DD/MM/AAAA)': '15/03/2026',
@@ -79,6 +83,7 @@ export async function parsePlanFile(file) {
       roomName,
       roomVolume,
       location: String(row['Frigorífico'] || '').trim() || null,
+      primaryCrop: String(row['Cultivo'] || '').trim() || null,
       planned_date: plannedDate,
       planned_dose_ppb: dose,
     })

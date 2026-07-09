@@ -220,12 +220,17 @@ export default function Portal({ onSignOut }) {
         }
         const { data: created, error } = await supabase
           .from('cold_rooms')
-          .insert({ org_id: profile.org_id, name: row.roomName, volume_m3: row.roomVolume, location: row.location })
+          .insert({ org_id: profile.org_id, name: row.roomName, volume_m3: row.roomVolume, location: row.location, primary_crop: row.primaryCrop })
           .select()
           .single()
         if (error) { rowErrors.push({ row: '-', reason: error.message }); continue }
         room = created
         roomsByName.set(key, room)
+      } else if (row.primaryCrop && row.primaryCrop !== room.primary_crop) {
+        // Cultivo lives on the Cold Room, not the Plan Line — the sheet may
+        // be correcting/filling it in for a room that already existed.
+        const { error } = await supabase.from('cold_rooms').update({ primary_crop: row.primaryCrop }).eq('id', room.id)
+        if (!error) { room.primary_crop = row.primaryCrop; roomsByName.set(key, room) }
       }
 
       const signature = `${room.id}|${row.planned_date || ''}`
