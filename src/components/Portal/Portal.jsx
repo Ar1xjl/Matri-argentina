@@ -8,8 +8,10 @@ import Generators from './Generators'
 import Documents from './Documents'
 import AppLog from './AppLog'
 import Profile from './Profile'
+import Users from './Users'
 import Wassington from './Wassington'
 import SeasonPlan from './SeasonPlan'
+import SeasonPlanRollup from './SeasonPlanRollup'
 import { supabase } from '../../lib/supabaseClient'
 import { parsePlanFile } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
@@ -23,6 +25,7 @@ const PANEL_TITLES = {
   generators:  'Generadores',
   documents:   'Documentos',
   applog:      'Registro de aplicaciones',
+  users:       'Usuarios',
   profile:     'Mi perfil',
 }
 
@@ -32,11 +35,13 @@ export default function Portal({ onSignOut }) {
   const [showWarning, setShowWarning] = useState(false)
   const [profile,     setProfile]     = useState(null)   // { id, org_id, full_name, organizations: {...} }
   const [coldRooms,   setColdRooms]   = useState([])
+  const [allRooms,    setAllRooms]    = useState([]) // subtree-wide — Cámaras screen only
   const [treatments,  setTreatments]  = useState([])
   const [seasonPlan,      setSeasonPlan]      = useState(null)
   const [seasonPlanLines, setSeasonPlanLines] = useState([])
   const [conversionQueue, setConversionQueue] = useState([]) // Plan Lines still to convert, in order
   const [loading,     setLoading]     = useState(true)
+  const [notAssigned, setNotAssigned] = useState(false)
 
   const loadTreatments = useCallback(async () => {
     const { data, error } = await supabase
@@ -86,7 +91,15 @@ export default function Portal({ onSignOut }) {
         .select('*, organizations(*)')
         .eq('id', user.id)
         .single()
-      if (profileError) { console.error(profileError); setLoading(false); return }
+      if (profileError) {
+        // PGRST116 = no profile row yet — a self-registered account (see
+        // AuthModal's "Crear cuenta") waiting for an Owner to assign it to
+        // an Organization, not a real error.
+        if (profileError.code === 'PGRST116') setNotAssigned(true)
+        else console.error(profileError)
+        setLoading(false)
+        return
+      }
       setProfile(profileData)
 
       const { data: rooms } = await supabase
@@ -94,6 +107,15 @@ export default function Portal({ onSignOut }) {
         .select('*')
         .eq('org_id', profileData.org_id)
       setColdRooms(rooms || [])
+
+      // Whatever the whole subtree can see — for a Customer this is identical
+      // to the query above (their subtree is just themselves); for a
+      // Distributor/Sub-distributor/Global it's every descendant Customer's
+      // rooms too, which is what the Cámaras screen needs to show them.
+      const { data: subtreeRooms } = await supabase
+        .from('cold_rooms')
+        .select('*, organizations(name)')
+      setAllRooms(subtreeRooms || [])
 
       await loadTreatments()
       await loadSeasonPlan(profileData.org_id, profileData.id)
@@ -226,8 +248,7 @@ export default function Portal({ onSignOut }) {
       if (error) rowErrors.push({ row: '-', reason: error.message })
     }
 
-    const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
-    setColdRooms(rooms || [])
+    await reloadRooms()
     await reloadSeasonPlanLines()
 
     return { imported: linesToInsert.length, errors: rowErrors, duplicates }
@@ -256,8 +277,7 @@ export default function Portal({ onSignOut }) {
       if (roomIds.length > 0) {
         const { error } = await supabase.from('cold_rooms').update({ primary_crop }).in('id', roomIds)
         if (error) { console.error(error); return }
-        const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
-        setColdRooms(rooms || [])
+        await reloadRooms()
       }
     }
 
@@ -294,20 +314,52 @@ export default function Portal({ onSignOut }) {
   const m = Math.floor(seconds / 60)
   const s = String(seconds % 60).padStart(2, '0')
 
-  // ── Treatment actions — shared across Calculator, Treatments, Wassington ──
-  const addColdRoom = async (newRoom) => {
-    const { error } = await supabase
-      .from('cold_rooms')
-      .insert({ ...newRoom, org_id: profile.org_id })
-    if (error) { console.error(error); return }
+  const reloadRooms = async () => {
     const { data: rooms } = await supabase.from('cold_rooms').select('*').eq('org_id', profile.org_id)
     setColdRooms(rooms || [])
+    const { data: subtreeRooms } = await supabase.from('cold_rooms').select('*, organizations(name)')
+    setAllRooms(subtreeRooms || [])
+  }
+
+  // ── Treatment actions — shared across Calculator, Treatments, Wassington ──
+  // targetOrgId lets a Distributor/Sub-distributor add a room on behalf of
+  // one of its Customers (Cámaras screen); defaults to the caller's own org.
+  const addColdRoom = async (newRoom, targetOrgId) => {
+    const { error } = await supabase
+      .from('cold_rooms')
+      .insert({ ...newRoom, org_id: targetOrgId || profile.org_id })
+    if (error) { console.error(error); return { error: error.message } }
+    await reloadRooms()
+    return { error: null }
+  }
+
+  // Postgres blocks this with a foreign-key violation if the room still has
+  // Treatments or Season Plan Lines referencing it — surfaced as an error,
+  // not silently swallowed, same as every other mutation in this file.
+  const deleteColdRoom = async (id) => {
+    const { error } = await supabase.from('cold_rooms').delete().eq('id', id)
+    if (error) {
+      console.error('[deleteColdRoom]', error)
+      const friendly = error.code === '23503'
+        ? 'No se puede eliminar: esta cámara tiene Tratamientos o líneas de Plan de Temporada asociadas.'
+        : error.message
+      return { error: friendly }
+    }
+    await reloadRooms()
+    return { error: null }
   }
 
   const addTreatment = async (newTreatment) => {
+    // A Treatment belongs to whoever's Cold Room it's for — normally that's
+    // the caller's own org, but a Distributor/Sub-distributor can create one
+    // on behalf of a Customer (e.g. a phone order), picking that Customer's
+    // room from the subtree-wide list. Resolve the real owner from the room
+    // rather than assuming it's always the person creating it.
+    const room = allRooms.find(r => r.id === newTreatment.cold_room_id)
+    const ownerOrgId = room?.org_id || profile.org_id
     const { data, error } = await supabase
       .from('treatments')
-      .insert({ ...newTreatment, org_id: profile.org_id, status: 'submitted', created_by: profile.id })
+      .insert({ ...newTreatment, org_id: ownerOrgId, status: 'submitted', created_by: profile.id })
       .select()
       .single()
     if (error) { console.error(error); return null }
@@ -366,9 +418,11 @@ export default function Portal({ onSignOut }) {
           if (qty > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriPowder', p_variant: `${size}g`, p_qty: qty })
         }
       } else if (t.product === 'tablets') {
-        const { large, small } = tabletCombo(t.target_dose_ppb, t.cold_rooms.volume_m3)
-        if (large > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'grande', p_qty: large })
-        if (small > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'chica', p_qty: small })
+        // Consumes from the loose-tablet pool (opened envelopes), not the
+        // unopened envelope counts — opening a sobre is a separate, manual
+        // Inventory action (see Inventory.jsx).
+        const { count } = tabletCombo(t.target_dose_ppb, t.cold_rooms.volume_m3)
+        if (count > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'suelta', p_qty: count })
       }
     } catch (err) {
       console.error('[decrementInventoryForTreatment]', err)
@@ -455,6 +509,21 @@ export default function Portal({ onSignOut }) {
     return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando...</div>
   }
 
+  if (notAssigned) {
+    return (
+      <div style={{minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f5ee', padding:'20px'}}>
+        <div style={{background:'#fff', borderRadius:'14px', padding:'32px', maxWidth:'420px', textAlign:'center', boxShadow:'0 4px 16px rgba(0,0,0,.08)'}}>
+          <div style={{fontSize:'32px', marginBottom:'12px'}}>⏳</div>
+          <div style={{fontSize:'17px', fontWeight:800, color:'#0b4358', marginBottom:'10px'}}>Tu cuenta todavía no está asignada</div>
+          <div style={{fontSize:'13px', color:'#6b7280', lineHeight:1.6, marginBottom:'20px'}}>
+            Tu login se creó correctamente, pero todavía nadie te asignó a una organización. Pedile a quien administre tu cuenta (por ejemplo, el dueño de la cuenta de tu distribuidor) que te agregue desde "Usuarios" en el portal.
+          </div>
+          <button className="btn-secondary" onClick={onSignOut}>Cerrar sesión</button>
+        </div>
+      </div>
+    )
+  }
+
   const currentUser = { name: profile?.organizations?.name || '', orgId: profile?.org_id }
   // "Panel Wassington" is a Distributor/Global admin view — Customers never see it,
   // regardless of which Business Roles they hold within their own Organization
@@ -468,19 +537,22 @@ export default function Portal({ onSignOut }) {
 
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
-    rooms:      <Rooms coldRooms={coldRooms} treatments={treatments} onAddRoom={addColdRoom} />,
+    rooms:      <Rooms coldRooms={allRooms} treatments={treatments} onAddRoom={addColdRoom} onDeleteRoom={deleteColdRoom} profile={profile} />,
     treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} />,
-    calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={coldRooms} orgId={profile?.org_id}
+    calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={canSeeWassingtonPanel ? allRooms : coldRooms} orgId={profile?.org_id}
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
-    seasonplan: <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
-                  onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
-                  onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
-                  onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
-                  onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
-    generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} />,
+    seasonplan: canSeeWassingtonPanel
+                  ? <SeasonPlanRollup />
+                  : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
+                      onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
+                      onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
+                      onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
+                      onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
+    generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} />,
+    users:      <Users profile={profile} />,
     profile:    <Profile />,
   }
 

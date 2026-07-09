@@ -223,7 +223,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
           <div>
             <label style={lbl}>Cámara</label>
             <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
-              {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name} ({r.volume_m3} m³)</option>)}
+              {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name}{r.organizations?.name ? ` — ${r.organizations.name}` : ''} ({r.volume_m3} m³)</option>)}
             </select>
           </div>
           <div>
@@ -333,11 +333,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
               <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
                 <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
                   <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta grande (5m³)</div>
-                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.large}</div>
-                </div>
-                <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
-                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta chica (2.5m³)</div>
-                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.small}</div>
+                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.count}</div>
                 </div>
               </div>
               <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(vol, 1)} m³ · No requiere generador</div>

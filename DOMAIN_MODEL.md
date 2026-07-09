@@ -148,13 +148,15 @@ Available → Dispatched → On Rent → Returned → Available
 
 ### Inventory
 
-Tracks on-hand quantity of each Product SKU variant (MatriPowder pouch sizes: 100g/50g/20g/10g; MatriTablets: grande/chica) held by a Distributor-level Organization. Introduced 2026-07-10 after a first customer-facing demo surfaced it as a real operational gap.
+Tracks on-hand quantity of each Product SKU variant held by a Distributor-level Organization. Introduced 2026-07-10 after a first customer-facing demo surfaced it as a real operational gap.
 
 **v1 scope (2026-07-10):** tracked only at the Distributor level (e.g. Wassington) — Sub-distributor-level breakdown, low-stock alerts, and a formal dispatch-to-Sub-distributor flow are explicitly deferred to a later iteration. Not visible to Customers; it's an internal Distributor/Global tool.
 
-**Decrement:** automatic, at the moment a Treatment moves to Applied — the same pouch/tablet breakdown already computed for display (see Treatment → dose breakdown) is subtracted from the owning Distributor's stock. Stock can go negative; this is a visible signal that more was applied than was on hand, not hidden by clamping to zero.
+**SKU variants:** MatriPowder pouch sizes 100g/50g/20g/10g. MatriTablets — only the "grande" tablet (1000 ppb / 5 m³) is tracked for now; "chica" is paused (corrected 2026-07-11, see Business Rule 35). Tablets ship in non-splittable envelopes of 10/15/50, so MatriTablets tracks two different things as separate variants: unopened envelope counts (`sobre_10`/`sobre_15`/`sobre_50` — purchasing/warehouse unit) and a loose-tablet pool (`suelta` — individual tablets from an already-opened envelope). Opening an envelope is a manual action (decrement the sobre variant, add its tablet count to `suelta`) — not automatic.
 
-**Manual adjustment:** the Distributor (or FreshInset Global, per the usual subtree visibility) can add/subtract quantity directly — for receiving new stock or correcting a physical count.
+**Decrement:** automatic, at the moment a Treatment moves to Applied. For MatriPowder, the same pouch breakdown already computed for display is subtracted from the owning Distributor's stock. For MatriTablets, only the `suelta` (loose) variant is decremented by the tablet count needed — envelope counts are never touched automatically. Stock can go negative; this is a visible signal that more was applied than was on hand, not hidden by clamping to zero.
+
+**Manual adjustment:** the Distributor (or FreshInset Global, per the usual subtree visibility) can add/subtract quantity directly — for receiving new stock, opening an envelope, or correcting a physical count.
 
 ### Pricing
 
@@ -338,6 +340,7 @@ FreshInset Global
 32. A MatriSure Verification is reviewed by the Customer's own Approver by default; the Customer may instead request assistance, escalating review to an Approver from the Distributor/Sub-distributor above.
 33. A fourth time-based alert flags a MatriSure Verification stuck in `pending_review` for too long.
 34. Inventory (Product SKU stock) is tracked only at the Distributor level in v1, decrements automatically when a Treatment is Applied, and is never visible to Customers.
+35. MatriTablets dosing only considers the "grande" tablet (chica paused); envelope counts (non-splittable purchasing units) and the loose-tablet pool (what Treatments actually consume) are tracked as separate Inventory variants — opening an envelope is always a manual action, never automatic.
 
 ---
 

@@ -7,6 +7,14 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
 
+  const [signupName,     setSignupName]     = useState('')
+  const [signupEmail,    setSignupEmail]    = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
+  const [signupError,    setSignupError]    = useState('')
+  const [signupLoading,  setSignupLoading]  = useState(false)
+  const [signupDone,     setSignupDone]     = useState(false)
+  const [pendingConfirm, setPendingConfirm] = useState(false)
+
   const handleLogin = async () => {
     setError('')
     setLoading(true)
@@ -19,6 +27,26 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
       return
     }
     onLogin()
+  }
+
+  // Creates the Auth account only — no Organization/role yet. An Owner
+  // assigns it afterward from "Usuarios" (Rule 19: self-service by the
+  // Organization's own Owner, not an automatic email invite — see
+  // DOMAIN_MODEL.md's note on why this app has no privileged invite flow).
+  const handleSignup = async () => {
+    setSignupError('')
+    if (!signupName.trim()) { setSignupError('Completá tu nombre.'); return }
+    setSignupLoading(true)
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: signupEmail,
+      password: signupPassword,
+      options: { data: { full_name: signupName.trim() } },
+    })
+    setSignupLoading(false)
+    if (signUpError) { setSignupError(signUpError.message); return }
+    if (data.session) { onLogin(); return }
+    setPendingConfirm(true)
+    setSignupDone(true)
   }
 
   return (
@@ -43,19 +71,19 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
 
         {/* Tabs */}
         <div style={{display:'flex', borderBottom:'2px solid #dde0d5', marginBottom:'24px'}}>
-          {['login','register'].map(t => (
+          {['login','signup','register'].map(t => (
             <button
               key={t}
               onClick={() => onSwitchTab(t)}
               style={{
                 flex:1, padding:'10px', textAlign:'center',
-                fontSize:'14px', fontWeight:700, background:'none', border:'none',
+                fontSize:'13px', fontWeight:700, background:'none', border:'none',
                 borderBottom: tab === t ? '3px solid #0b4358' : '3px solid transparent',
                 color: tab === t ? '#0b4358' : '#6b7280',
                 marginBottom:'-2px', cursor:'pointer'
               }}
             >
-              {t === 'login' ? 'Ingresar' : 'Solicitar acceso'}
+              {t === 'login' ? 'Ingresar' : t === 'signup' ? 'Crear cuenta' : 'Nueva empresa'}
             </button>
           ))}
         </div>
@@ -105,11 +133,63 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
           </div>
         )}
 
+        {/* Signup — creates a login only; a Distributor/Customer Owner
+            assigns it to their Organization afterward from "Usuarios". */}
+        {tab === 'signup' && (
+          <div>
+            <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
+              Crear cuenta
+            </h2>
+            <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
+              Creá tu login personal. Después, quien administre tu empresa en el portal te va a asignar a la cuenta correspondiente.
+            </p>
+            {signupDone ? (
+              <div style={{fontSize:'13px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'14px'}}>
+                {pendingConfirm
+                  ? '✓ Cuenta creada. Revisá tu email para confirmarla antes de ingresar.'
+                  : '✓ Cuenta creada. Ya podés ingresar.'}
+              </div>
+            ) : (
+              <>
+                {[
+                  ['Nombre completo','text','Tu nombre y apellido', signupName, setSignupName],
+                  ['Email','email','vos@empresa.com', signupEmail, setSignupEmail],
+                  ['Contraseña','password','••••••••', signupPassword, setSignupPassword],
+                ].map(([label,type,ph,value,setValue]) => (
+                  <div key={label} style={{marginBottom:'16px'}}>
+                    <label style={{display:'block', fontSize:'12px', fontWeight:700,
+                      color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
+                      letterSpacing:'.04em'}}>{label}</label>
+                    <input
+                      type={type} placeholder={ph} value={value}
+                      onChange={e => setValue(e.target.value)}
+                      style={{
+                        width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
+                        borderRadius:'7px', fontSize:'14px', color:'#0b4358'
+                      }}/>
+                  </div>
+                ))}
+                {signupError && (
+                  <div style={{fontSize:'12px', color:'#8b2020', marginBottom:'12px'}}>{signupError}</div>
+                )}
+                <button
+                  onClick={handleSignup}
+                  disabled={signupLoading}
+                  className="btn-primary"
+                  style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: signupLoading ? .6 : 1}}
+                >
+                  {signupLoading ? 'Creando…' : 'Crear cuenta'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Register */}
         {tab === 'register' && (
           <div>
             <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
-              Solicitar acceso
+              Solicitar acceso — nueva empresa
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
               Completá tus datos. Wassington validará tu cuenta en 24 hs.

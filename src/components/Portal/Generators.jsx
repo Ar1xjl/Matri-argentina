@@ -3,15 +3,29 @@ import generatorImg  from '../../assets/images/MatriGenerator.png'
 import generatorLogo from '../../assets/logos/MatriGenerator_Logo.svg'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchOrgPricing, getGeneratorPrice, getServiceFee } from '../../lib/orgPricing'
+import { exportToExcel, filterRows } from '../../lib/tableTools'
 
 const GENERATOR_STATUS_LABEL = {
   available: '✓ Disponible', dispatched: '📦 Despachado', on_rent: '📅 En alquiler',
   returned: '↩️ Devuelto', in_service: '🔧 En service', repaired: '✓ Reparado', out_of_service: '✗ Fuera de servicio',
 }
 
-export default function Generators({ orgId, seasonPlanLines = [], coldRooms = [] }) {
+const FLEET_COLUMNS = [
+  { header: 'ID unidad',        get: g => g.unit_code || '' },
+  { header: 'N° de serie',      get: g => g.serial_number || '' },
+  { header: 'Estado',           get: g => GENERATOR_STATUS_LABEL[g.status] || g.status },
+  { header: 'Última revisión',  get: g => g.last_service_date || '' },
+  { header: 'Notas',            get: g => g.notes || '' },
+]
+
+export default function Generators({ orgId, seasonPlanLines = [], coldRooms = [], profile }) {
   const [pricing,      setPricing]      = useState({ brackets: [], product: [], serviceFee: [], generator: [] })
   const [myGenerators, setMyGenerators] = useState([])
+  const [showFleetFilters, setShowFleetFilters] = useState(false)
+  const [fleetFilters, setFleetFilters] = useState({})
+
+  const isDistributorView = profile?.organizations?.org_type !== 'customer'
+  const filteredFleet = filterRows(myGenerators, FLEET_COLUMNS, fleetFilters)
   const [rooms,      setRooms]      = useState(3)
   const [treatments, setTreatments] = useState(2)
   const [vol,        setVol]        = useState(500)
@@ -94,6 +108,77 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
     { title:'Batería recargable', price:'$95 USD', desc:'Batería de repuesto para el generador MaTri. Compatibilidad garantizada.', btn:'Solicitar compra', style:'primary' },
     { title:'Alquilar generador', price: `${fmtUSD(genRental)}/día`, desc:'Alquilá por los días que necesitás. Wassington confirma disponibilidad y realiza checklist previo.', btn:'Solicitar alquiler', style:'lime' },
   ]
+
+  const fleetSection = (
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title">Mis generadores</span>
+        <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+          <span style={{fontSize:'12px', color:'var(--gray)'}}>ID individual por unidad</span>
+          <button className="btn-secondary btn-sm" onClick={() => setShowFleetFilters(!showFleetFilters)}>{showFleetFilters ? '✕ Filtros' : 'Filtrar'}</button>
+          <button className="btn-secondary btn-sm" onClick={() => exportToExcel('generadores.xlsx', FLEET_COLUMNS, filteredFleet)}>⬇ Exportar</button>
+        </div>
+      </div>
+      <div style={{padding:0}}>
+        {myGenerators.length === 0 ? (
+          <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+            Todavía no tenés generadores propios. Si comprás uno, va a aparecer acá con seguimiento individual.
+          </div>
+        ) : filteredFleet.length === 0 ? (
+          <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+            Ningún generador coincide con los filtros aplicados.
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>
+              </tr>
+              {showFleetFilters && (
+                <tr>
+                  {FLEET_COLUMNS.map(c => (
+                    <th key={c.header} style={{padding:'4px 8px'}}>
+                      <input
+                        value={fleetFilters[c.header] || ''}
+                        onChange={e => setFleetFilters(prev => ({ ...prev, [c.header]: e.target.value }))}
+                        placeholder="Filtrar..."
+                        style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
+                      />
+                    </th>
+                  ))}
+                </tr>
+              )}
+            </thead>
+            <tbody>
+              {filteredFleet.map(g => (
+                <tr key={g.id}>
+                  <td style={{fontWeight:700, fontFamily:'monospace'}}>{g.unit_code}</td>
+                  <td style={{fontFamily:'monospace', color:'var(--gray)'}}>{g.serial_number || '—'}</td>
+                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
+                  <td style={{color:'var(--gray)'}}>{g.last_service_date || '—'}</td>
+                  <td style={{color:'var(--gray)'}}>{g.notes || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+
+  // Distributor/Sub-distributor/Global owns the fleet, not the buy-vs-rent
+  // decision — lead with fleet status, skip the Customer-facing ROI
+  // calculator and purchase cards entirely.
+  if (isDistributorView) {
+    return (
+      <div>
+        <div className="alert info">
+          📦 Estado de tu flota de generadores — quién los tiene, cuáles están disponibles para alquilar, y cuáles necesitan service.
+        </div>
+        {fleetSection}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -245,39 +330,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
         ))}
       </div>
 
-      {/* My generators */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Mis generadores</span>
-          <span style={{fontSize:'12px', color:'var(--gray)'}}>ID individual por unidad</span>
-        </div>
-        <div style={{padding:0}}>
-          {myGenerators.length === 0 ? (
-            <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-              Todavía no tenés generadores propios. Si comprás uno, va a aparecer acá con seguimiento individual.
-            </div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myGenerators.map(g => (
-                  <tr key={g.id}>
-                    <td style={{fontWeight:700, fontFamily:'monospace'}}>{g.unit_code}</td>
-                    <td style={{fontFamily:'monospace', color:'var(--gray)'}}>{g.serial_number || '—'}</td>
-                    <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
-                    <td style={{color:'var(--gray)'}}>{g.last_service_date || '—'}</td>
-                    <td style={{color:'var(--gray)'}}>{g.notes || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      {fleetSection}
     </div>
   )
 }

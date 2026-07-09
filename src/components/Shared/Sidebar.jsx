@@ -12,7 +12,8 @@ const NAV_ITEMS = [
   { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,
     href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
   { id: 'wassington',  icon: '⚙️', label: null,                      section: 'Administración' },
-  { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: 'Cuenta' },
+  { id: 'users',       icon: '👥', label: 'Usuarios',                section: 'Cuenta' },
+  { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: null },
 ]
 
 export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true }) {

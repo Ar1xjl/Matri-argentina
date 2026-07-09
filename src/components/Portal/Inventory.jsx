@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
-const SKU_LABEL = { MatriPowder: 'MatriPowder', MatriTablets: 'MatriTablets' }
+const SKU_LABEL = { MatriPowder: 'MatriPowder', MatriTablets: 'MatriTablets (grande, 5m³)' }
+// Tablets ship in non-splittable envelopes of 10/15/50 — tracked as unopened
+// envelope counts, separate from "suelta" (loose tablets from an opened
+// envelope, the pool Treatments actually consume from — see dosing.js).
+// "Chica" tablet is paused for now, see dosing.js's tabletCombo.
 const SKU_VARIANTS = {
   MatriPowder: ['100g', '50g', '20g', '10g'],
-  MatriTablets: ['grande', 'chica'],
+  MatriTablets: ['sobre_10', 'sobre_15', 'sobre_50', 'suelta'],
+}
+const VARIANT_LABEL = {
+  sobre_10: 'Sobre × 10 tabletas',
+  sobre_15: 'Sobre × 15 tabletas',
+  sobre_50: 'Sobre × 50 tabletas',
+  suelta: 'Sueltas (fuera de sobre)',
 }
 
 export default function Inventory({ profile }) {
@@ -54,6 +64,9 @@ export default function Inventory({ profile }) {
         <div style={{fontSize:'11px', color:'#888', marginTop:'2px'}}>
           Stock disponible de tu propia organización. Se descuenta automáticamente cuando un cliente marca un Tratamiento como aplicado — este primer alcance no reparte stock por sub-distribuidor todavía.
         </div>
+        <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+          MatriTablets: los "Sobre × N" son paquetes cerrados, sin abrir — no se descuentan solos. Cuando abrís uno físicamente, restale 1 al sobre y sumale su cantidad a "Sueltas" a mano; los Tratamientos descuentan de ahí, y lo que sobra de un sobre abierto queda disponible para el siguiente.
+        </div>
       </div>
 
       {error && <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {error}</div>}
@@ -80,7 +93,7 @@ export default function Inventory({ profile }) {
                       {SKU_LABEL[sku]}
                     </td>
                   )}
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{variant}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{VARIANT_LABEL[variant] || variant}</td>
                   <td style={{padding:'12px 16px', fontWeight:700, color: qty < 0 ? '#8b2020' : '#0b4358'}}>{qty}</td>
                   <td style={{padding:'12px 16px'}}>
                     <input
