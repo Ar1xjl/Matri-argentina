@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import CustomerPricingModal from './CustomerPricingModal'
 
 const TYPE_LABEL = {
   global: 'FreshInset Global', distributor: 'Distribuidor',
@@ -23,10 +24,15 @@ export default function Organizations({ profile }) {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [pricingCustomer, setPricingCustomer] = useState(null) // org row, or null
+  const [myRoles, setMyRoles] = useState([])
 
   const myOrgType = profile?.organizations?.org_type
   const isGlobal = myOrgType === 'global'
   const childTypes = ALLOWED_CHILD_TYPES[myOrgType] || []
+  // Setting a Customer's negotiated price is an Owner/Approver action
+  // (DOMAIN_MODEL.md Rule 36) — same authority as approving a Treatment's price.
+  const canEditPricing = myRoles.includes('owner') || myRoles.includes('approver')
 
   const fetchOrgs = () => supabase.from('organizations').select('*').order('org_type').order('name')
 
@@ -38,12 +44,15 @@ export default function Organizations({ profile }) {
   }
 
   useEffect(() => {
+    supabase.from('user_roles').select('role').eq('profile_id', profile.id).then(({ data }) => {
+      setMyRoles((data || []).map(r => r.role))
+    })
     fetchOrgs().then(({ data, error }) => {
       if (error) console.error(error)
       setOrgs(data || [])
       setLoading(false)
     })
-  }, [])
+  }, [profile.id])
 
   const orgById = useMemo(() => new Map(orgs.map(o => [o.id, o])), [orgs])
   // Only non-Customer orgs in my subtree can act as a parent — a Customer has no children.
@@ -127,17 +136,27 @@ export default function Organizations({ profile }) {
                   </span>
                 </td>
                 <td style={{padding:'12px 16px'}}>
-                  {o.status === 'pending' && isGlobal && (
-                    <button
-                      style={{background:'#f5f5ee', color:'#0b4358', border:'0.5px solid #ddddd5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
-                      onClick={() => activateOrg(o.id)}
-                    >
-                      Activar
-                    </button>
-                  )}
-                  {o.status === 'pending' && !isGlobal && (
-                    <span style={{fontSize:'11px', color:'#888'}}>Espera aprobación de FreshInset Global</span>
-                  )}
+                  <div style={{display:'flex', gap:'6px'}}>
+                    {o.status === 'pending' && isGlobal && (
+                      <button
+                        style={{background:'#f5f5ee', color:'#0b4358', border:'0.5px solid #ddddd5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                        onClick={() => activateOrg(o.id)}
+                      >
+                        Activar
+                      </button>
+                    )}
+                    {o.status === 'pending' && !isGlobal && (
+                      <span style={{fontSize:'11px', color:'#888'}}>Espera aprobación de FreshInset Global</span>
+                    )}
+                    {o.org_type === 'customer' && o.id !== profile.org_id && canEditPricing && (
+                      <button
+                        style={{background:'#e8f4fc', color:'#0c447c', border:'0.5px solid #b8dcf5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                        onClick={() => setPricingCustomer(o)}
+                      >
+                        💲 Precio
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -229,6 +248,10 @@ export default function Organizations({ profile }) {
             </div>
           </div>
         </div>
+      )}
+
+      {pricingCustomer && (
+        <CustomerPricingModal customer={pricingCustomer} profile={profile} onClose={() => setPricingCustomer(null)} />
       )}
     </div>
   )

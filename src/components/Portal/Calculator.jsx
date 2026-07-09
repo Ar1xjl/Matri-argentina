@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
-import { fetchOrgPricing, getProductPrice, getServiceFee } from '../../lib/orgPricing'
+import { fetchOrgPricing, fetchCustomerOverride, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
 
 function greedyFloor(g) {
   let rem = g, r = []
@@ -20,8 +20,9 @@ const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', t
 const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
-export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], prefill = null, queueLength = 0 }) {
+export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0 }) {
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
+  const [override,   setOverride]   = useState(null)
   const [roomIdx,    setRoomIdx]    = useState(0)
   const [roomName,   setRoomName]   = useState('')
   const [ppb,        setPpb]        = useState('1000')
@@ -36,6 +37,14 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   useEffect(() => {
     fetchOrgPricing().then(setPricing)
   }, [])
+
+  // A negotiated price for this Customer, if one was set by their Distributor
+  // (DOMAIN_MODEL.md Rule 36) — resolveProductPrice/resolveServiceFee below
+  // fall back to standard list pricing automatically when this is null.
+  useEffect(() => {
+    if (!orgId) return
+    fetchCustomerOverride(orgId).then(setOverride)
+  }, [orgId])
 
   // Coming from Season Plan conversion — pre-fill room/dose, let the customer
   // review and adjust before actually sending, same as any other Treatment.
@@ -83,7 +92,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
     const exactC  = greedyCeiling(grams)
     const exactG  = comboGrams(exactC)
     const exactPpb = actualPpb(exactG, vol)
-    const powderPrice = getProductPrice(pricing, 'MatriPowder', vol)
+    const powderPrice = resolveProductPrice(pricing, 'MatriPowder', vol, override)
     const exactCost = vol * powderPrice * (exactPpb / 1000)
 
     // Powder adjusted (floor)
@@ -93,11 +102,11 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
     const adjCost = vol * powderPrice * (adjPpb / 1000)
 
     // Service fee
-    const serviceFee = getServiceFee(pricing, vol)
+    const serviceFee = resolveServiceFee(pricing, vol, override)
 
     // Tablets — count scales with target dose, same as powder grams
     const tabCombo  = tabletCombo(ppbVal, vol)
-    const tabPrice  = getProductPrice(pricing, 'MatriTablets', vol)
+    const tabPrice  = resolveProductPrice(pricing, 'MatriTablets', vol, override)
     const tabCost   = vol * tabPrice * (tabCombo.ppb / 1000)
 
     setResults({
@@ -212,8 +221,8 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
 
       {/* Admin bar */}
       <div style={{background:'#0b4358', color:'#fff', padding:'8px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', borderRadius:'8px 8px 0 0'}}>
-        <span>Precios según la tabla configurada por tu distribuidor</span>
-        </div>
+        <span>{override ? 'Precio pactado con tu distribuidor aplicado a este cálculo' : 'Precios según la tabla configurada por tu distribuidor'}</span>
+      </div>
 
       {/* Inputs */}
       <div style={card}>

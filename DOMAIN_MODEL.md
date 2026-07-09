@@ -171,7 +171,9 @@ Configured per Organization, in that Organization's own currency (see "Currency"
 | Generator purchase | currency / unit | Volume bracket, within the Organization |
 | Generator rental | currency / day | Volume bracket, within the Organization |
 
-> **Correction (2026-07-07):** dropped "Organization tier" as a segmentation axis — it was a leftover from the original Argentina-only model, where Tier (T1/T2/T3) stood in for "which Distributor manages this customer." That's now expressed directly by the Organization tree itself (Business Rule 14), so a separate tier field on top of it was redundant. If a Distributor ever wants different pricing for different customers it manages directly (not just by volume), that's handled by the Approver's per-Treatment override authority, not a platform-wide tier table.
+> **Correction (2026-07-07):** dropped "Organization tier" as a segmentation axis — it was a leftover from the original Argentina-only model, where Tier (T1/T2/T3) stood in for "which Distributor manages this customer." That's now expressed directly by the Organization tree itself (Business Rule 14), so a separate tier field on top of it was redundant.
+
+> **Evolved (2026-07-11):** the note above originally said a different price per Customer was handled purely via the Approver's per-Treatment override at approval time. With 50+ Customers expected under Wassington alone, that's not practical to redo by hand on every Treatment — see "Customer Pricing Override" below for the standing mechanism that replaces it. The per-Treatment override authority (Business Rule 8) still exists and still wins for a one-off exception, but the common case is now a persistent override.
 
 **Volume brackets:** 0–600 m³ / 600–1,200 m³ / 1,200–1,800 m³ / 1,800+ m³ (default starting point — a new Distributor can adjust bracket boundaries to fit its own market when it sets up its pricing).
 
@@ -182,6 +184,14 @@ Configured per Organization, in that Organization's own currency (see "Currency"
 **Country-level dashboards** show their own Organization's figures in local currency (their own reality, no conversion needed). **FreshInset Global's dashboard** shows everything consolidated in USD, using each Treatment's frozen USD snapshot.
 
 **New SKUs:** adding a new product SKU requires only a new Pricing table entry — no code changes.
+
+**Customer Pricing Override (2026-07-11):** a Customer may have a standing negotiated price, set by whichever Organization is its immediate ancestor in the tree (the Distributor or Sub-distributor it's assigned to) — this reuses the Organization tree itself as the "who's allowed to negotiate with this Customer" mechanism, not a separate account-assignment concept. Two independent mechanisms, chosen per SKU/service fee:
+- **Fixed override**: a flat $/m³ (or flat service-fee amount) that replaces the entire volume-bracket table for that SKU — for large strategic clients, where the business goal of pushing self-application means the Powder service fee is often bonified or free.
+- **% discount**: reduces the standard list price by a percentage — for mid-size clients, set independently per SKU/service fee.
+
+Small/high-collection-risk clients get neither — they simply pay standard list price, unchanged. Resolution order when computing a Customer's actual price: fixed override, if set → else % discount, if set → else standard list price.
+
+A negotiated price may carry a **minimum volume commitment** (`minimum_commitment_m3`) — this is purely informational. The system shows commitment-vs-actual (what the Customer has in their Season Plan and what they've actually completed as Treatments); it never auto-reverts or blocks pricing on its own. Whether to keep honoring a deal a Customer is falling short on is always a human business decision.
 
 ### Documentation
 
@@ -341,6 +351,7 @@ FreshInset Global
 33. A fourth time-based alert flags a MatriSure Verification stuck in `pending_review` for too long.
 34. Inventory (Product SKU stock) is tracked only at the Distributor level in v1, decrements automatically when a Treatment is Applied, and is never visible to Customers.
 35. MatriTablets dosing only considers the "grande" tablet (chica paused); envelope counts (non-splittable purchasing units) and the loose-tablet pool (what Treatments actually consume) are tracked as separate Inventory variants — opening an envelope is always a manual action, never automatic.
+36. A Customer Pricing Override is set by that Customer's immediate ancestor Organization (Distributor or Sub-distributor), never by the Customer itself; a fixed override always wins over a % discount, which always wins over standard list price. A minimum volume commitment attached to an override is informational only — it never automatically revokes or blocks pricing.
 
 ---
 

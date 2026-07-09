@@ -548,7 +548,7 @@ export default function Portal({ onSignOut }) {
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
     seasonplan: canSeeWassingtonPanel
                   ? <SeasonPlanRollup />
-                  : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms}
+                  : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
                       onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                       onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
                       onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}

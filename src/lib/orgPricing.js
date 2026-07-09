@@ -30,3 +30,44 @@ export function getGeneratorPrice(pricing, vol) {
   const bracket = resolveBracket(pricing.brackets, vol)
   return pricing.generator.find(g => g.bracket === bracket) || { purchase_price: 0, rental_price: 0 }
 }
+
+// ── Customer Pricing Override (DOMAIN_MODEL.md Rule 36) ────────────────────
+// A negotiated price is resolved per SKU/fee: fixed override wins, else a %
+// discount off list, else standard list price. Never auto-enforced beyond
+// that — minimum_commitment_m3 is informational only, handled in the UI.
+
+// This Customer's own override — filtered explicitly by org id (not left to
+// RLS alone) since a Distributor caller would otherwise see every one of
+// its Customers' rows, not just one.
+export async function fetchCustomerOverride(customerOrgId) {
+  if (!customerOrgId) return null
+  const { data } = await supabase.from('customer_pricing_overrides').select('*').eq('customer_org_id', customerOrgId).maybeSingle()
+  return data
+}
+
+// Every override visible to the caller (a Distributor/Sub-distributor sees
+// all of its descendant Customers') — for screens that price multiple
+// Customers at once, e.g. the Season Plan rollup.
+export async function fetchAllCustomerOverrides() {
+  const { data } = await supabase.from('customer_pricing_overrides').select('*')
+  return data || []
+}
+
+function applyOverride(standardPrice, override, fixedKey, pctKey) {
+  if (!override) return standardPrice
+  if (override[fixedKey] != null) return override[fixedKey]
+  const pct = override[pctKey] || 0
+  return pct > 0 ? standardPrice * (1 - pct / 100) : standardPrice
+}
+
+export function resolveProductPrice(pricing, sku, vol, override) {
+  const standard = getProductPrice(pricing, sku, vol)
+  const fixedKey = sku === 'MatriPowder' ? 'powder_price_override' : 'tablets_price_override'
+  const pctKey   = sku === 'MatriPowder' ? 'powder_discount_pct'   : 'tablets_discount_pct'
+  return applyOverride(standard, override, fixedKey, pctKey)
+}
+
+export function resolveServiceFee(pricing, vol, override) {
+  const standard = getServiceFee(pricing, vol)
+  return applyOverride(standard, override, 'service_fee_override', 'service_fee_discount_pct')
+}
