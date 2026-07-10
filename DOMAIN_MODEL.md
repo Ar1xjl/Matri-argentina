@@ -148,6 +148,14 @@ Available → Dispatched → On Rent → Returned → Available
 
 > MatriTablets do not require a Generator. Generator is optional on Treatment and only relevant when product is MatriPowder.
 
+**Registering a brand-new unit (Fase F, 2026-07-13):** only FreshInset Global or a country Distributor (e.g. Wassington) can register a unit that's brand new to the system (just purchased from the manufacturer) — a Sub-distributor never originates new stock, it only ever receives units via transfer from above.
+
+**Transfer/dispatch actions, from the owner's "Mis generadores" screen:**
+- **Traspaso a sub-distribuidor:** a simple ownership move — `org_id` changes to the Sub-distributor, no checklist, no dispatch record. From that point the Sub-distributor manages the unit as part of its own fleet, exactly like a Distributor does.
+- **Alquilar a cliente:** requires the pre-dispatch checklist (Rule 31); creates a `generator_dispatches` row and moves status to `on_rent`; ownership (`org_id`) never changes — it stays the Distributor's/Sub-distributor's asset the whole time (Rule 29).
+- **Vender a cliente:** also requires the same checklist (a real physical handover deserves the same safety check as a rental, even though it's permanent) — but unlike renting, `org_id` changes to the Customer, permanently, and no dispatch record is created (fresh history starts there, per Rule 29).
+- **Marcar como devuelto:** closes the open `generator_dispatches` row (`returned_at`) and flips status back to `available`.
+
 ### Inventory
 
 Tracks on-hand quantity of each Product SKU variant held by a Distributor-level Organization. Introduced 2026-07-10 after a first customer-facing demo surfaced it as a real operational gap.
@@ -358,6 +366,7 @@ FreshInset Global
 36. A Customer Pricing Override is set by that Customer's immediate ancestor Organization (Distributor or Sub-distributor), never by the Customer itself; a fixed override always wins over a % discount, which always wins over standard list price. A minimum volume commitment attached to an override is informational only — it never automatically revokes or blocks pricing.
 37. A Treatment's MatriPowder sachet breakdown is frozen at approval time, same as its price — it is never recomputed from a pouch-size catalog that may have changed since.
 38. A prospective Customer may submit a self-service access request before having any account; any non-Customer staff member (Distributor, Sub-distributor or Global) may review it and either reject it or assign it into the org tree, at which point Business Rule 13's normal activation approval still applies to the resulting Organization.
+39. Only FreshInset Global or a country Distributor may register a brand-new Generator unit into the system; a Sub-distributor only ever receives units via transfer. Transferring a unit to a Sub-distributor moves ownership directly with no checklist; renting or selling to a Customer both require the same pre-dispatch checklist, but only selling permanently changes ownership — renting never does (extends Rule 29).
 
 ---
 

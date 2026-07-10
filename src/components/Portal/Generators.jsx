@@ -4,6 +4,7 @@ import generatorLogo from '../../assets/logos/MatriGenerator_Logo.svg'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchOrgPricing, getGeneratorPrice, getServiceFee } from '../../lib/orgPricing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import GeneratorTransferModal from './GeneratorTransferModal'
 
 const GENERATOR_STATUS_LABEL = {
   available: '✓ Disponible', dispatched: '📦 Despachado', on_rent: '📅 En alquiler',
@@ -25,6 +26,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const [fleetFilters, setFleetFilters] = useState({})
 
   const isDistributorView = profile?.organizations?.org_type !== 'customer'
+  const canRegisterNew = ['global', 'distributor'].includes(profile?.organizations?.org_type)
   const filteredFleet = filterRows(myGenerators, FLEET_COLUMNS, fleetFilters)
   const [rooms,      setRooms]      = useState(3)
   const [treatments, setTreatments] = useState(2)
@@ -32,13 +34,53 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const [showRoi,    setShowRoi]    = useState(false)
   const [usedPlanData, setUsedPlanData] = useState(false)
 
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newGen, setNewGen] = useState({ unit_code: '', serial_number: '', purchase_date: '', notes: '' })
+  const [addError, setAddError] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null) // generator row being transferred, or null
+
   useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
 
-  useEffect(() => {
+  const loadGenerators = () => {
     if (!orgId) return
     supabase.from('generators').select('*').eq('org_id', orgId)
       .then(({ data }) => setMyGenerators(data || []))
-  }, [orgId])
+  }
+
+  useEffect(loadGenerators, [orgId])
+
+  const handleAddGenerator = async () => {
+    setAddError('')
+    if (!newGen.unit_code.trim()) { setAddError('Completá el ID de unidad.'); return }
+    setAddSaving(true)
+    const { error } = await supabase.from('generators').insert({
+      org_id: orgId,
+      unit_code: newGen.unit_code.trim(),
+      serial_number: newGen.serial_number.trim() || null,
+      purchase_date: newGen.purchase_date || null,
+      notes: newGen.notes.trim() || null,
+    })
+    setAddSaving(false)
+    if (error) {
+      setAddError(error.code === '23505' ? 'Ya existe un generador con ese ID de unidad.' : error.message)
+      return
+    }
+    setNewGen({ unit_code: '', serial_number: '', purchase_date: '', notes: '' })
+    setShowAddForm(false)
+    loadGenerators()
+  }
+
+  const handleReturn = async (generatorId) => {
+    const { data: dispatch } = await supabase.from('generator_dispatches').select('id')
+      .eq('generator_id', generatorId).is('returned_at', null)
+      .order('dispatched_at', { ascending: false }).limit(1).maybeSingle()
+    if (dispatch) {
+      await supabase.from('generator_dispatches').update({ returned_at: new Date().toISOString() }).eq('id', dispatch.id)
+    }
+    await supabase.from('generators').update({ status: 'available' }).eq('id', generatorId)
+    loadGenerators()
+  }
 
   // Only MatriPowder lines represent real generator demand — Tablets need no
   // generator, and "sin decidir" is too speculative to plan a fleet around.
@@ -117,12 +159,43 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
           <span style={{fontSize:'12px', color:'var(--gray)'}}>ID individual por unidad</span>
           <button className="btn-secondary btn-sm" onClick={() => setShowFleetFilters(!showFleetFilters)}>{showFleetFilters ? '✕ Filtros' : 'Filtrar'}</button>
           <button className="btn-secondary btn-sm" onClick={() => exportToExcel('generadores.xlsx', FLEET_COLUMNS, filteredFleet)}>⬇ Exportar</button>
+          {canRegisterNew && (
+            <button className="btn-lime btn-sm" onClick={() => setShowAddForm(!showAddForm)}>{showAddForm ? '✕ Cancelar' : '+ Agregar generador'}</button>
+          )}
         </div>
       </div>
+
+      {showAddForm && (
+        <div style={{padding:'16px 20px', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>
+          <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>ID de unidad</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.unit_code} onChange={e => setNewGen(prev => ({ ...prev, unit_code: e.target.value }))} placeholder="Ej: GEN-011"/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>N° de serie</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.serial_number} onChange={e => setNewGen(prev => ({ ...prev, serial_number: e.target.value }))} placeholder="Opcional"/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Fecha de compra</label>
+              <input type="date" style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.purchase_date} onChange={e => setNewGen(prev => ({ ...prev, purchase_date: e.target.value }))}/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Notas</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.notes} onChange={e => setNewGen(prev => ({ ...prev, notes: e.target.value }))} placeholder="Opcional"/>
+            </div>
+          </div>
+          {addError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'10px'}}>{addError}</div>}
+          <button className="btn-primary btn-sm" disabled={addSaving} onClick={handleAddGenerator}>{addSaving ? 'Guardando…' : 'Guardar generador'}</button>
+        </div>
+      )}
+
       <div style={{padding:0}}>
         {myGenerators.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            Todavía no tenés generadores propios. Si comprás uno, va a aparecer acá con seguimiento individual.
+            {canRegisterNew
+              ? 'Todavía no tenés generadores propios. Usá "+ Agregar generador" para dar de alta la primera unidad.'
+              : 'Todavía no tenés generadores propios. Van a aparecer acá cuando tu distribuidor te transfiera uno.'}
           </div>
         ) : filteredFleet.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
@@ -132,7 +205,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
           <div className="table-scroll"><table className="data-table">
             <thead>
               <tr>
-                <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>
+                <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>{isDistributorView && <th></th>}
               </tr>
               {showFleetFilters && (
                 <tr>
@@ -146,6 +219,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                       />
                     </th>
                   ))}
+                  {isDistributorView && <th/>}
                 </tr>
               )}
             </thead>
@@ -157,12 +231,31 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                   <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
                   <td style={{color:'var(--gray)'}}>{g.last_service_date || '—'}</td>
                   <td style={{color:'var(--gray)'}}>{g.notes || '—'}</td>
+                  {isDistributorView && (
+                    <td>
+                      {g.status === 'available' && (
+                        <button className="btn-secondary btn-sm" onClick={() => setTransferTarget(g)}>Transferir</button>
+                      )}
+                      {(g.status === 'dispatched' || g.status === 'on_rent') && (
+                        <button className="btn-secondary btn-sm" onClick={() => handleReturn(g.id)}>Marcar devuelto</button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table></div>
         )}
       </div>
+
+      {transferTarget && (
+        <GeneratorTransferModal
+          generator={transferTarget}
+          profile={profile}
+          onClose={() => setTransferTarget(null)}
+          onDone={() => { setTransferTarget(null); loadGenerators() }}
+        />
+      )}
     </div>
   )
 
