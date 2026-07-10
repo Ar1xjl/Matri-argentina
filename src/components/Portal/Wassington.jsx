@@ -115,7 +115,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       </div>
 
       {/* Pricing tab */}
-      {tab === 'pricing' && <PricingPanel />}
+      {tab === 'pricing' && <PricingPanel profile={profile} />}
 
       {/* Treatments tab */}
       {tab === 'treatments' && (
