@@ -231,3 +231,36 @@ input, select { font-family: inherit; }
   .section-pad { padding: 32px 20px !important; }
   .cta-pad { padding: 40px 20px !important; }
 }
+
+/* ── Authenticated Portal shell — responsive ─────────────── */
+.sidebar-backdrop { display: none; }
+.sidebar-hamburger { display: none; }
+.header-season-badge { display: flex; }
+
+.main-content { min-width: 0; } /* flex items default to min-width:auto — without this, content sets the item's minimum size and overflows instead of wrapping/scrolling internally */
+
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); transition: transform .2s ease; z-index: 200; }
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-backdrop.open {
+    display: block; position: fixed; inset: 0;
+    background: rgba(7,46,61,.5); z-index: 150;
+  }
+  .sidebar-hamburger { display: flex; align-items: center; justify-content: center; }
+  .main-content { margin-left: 0 !important; }
+}
+
+@media (max-width: 600px) {
+  .header-season-badge { display: none; }
+}
+
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Stat-card / summary grids that use a fixed repeat(N,1fr) — collapse on mobile
+   instead of forcing the whole page wider than the viewport. */
+@media (max-width: 700px) {
+  .responsive-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 420px) {
+  .responsive-grid { grid-template-columns: 1fr !important; }
+}

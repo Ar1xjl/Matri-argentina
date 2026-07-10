@@ -389,7 +389,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
               <div style={{fontSize:'12px', fontWeight:700, color:'#b5cc2e', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'14px'}}>
                 Resumen del tratamiento seleccionado
               </div>
-              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'14px'}}>
+              <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'14px'}}>
                 {[
                   ['Producto', selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'],
                   ['Cámara', `${vol} m³`],

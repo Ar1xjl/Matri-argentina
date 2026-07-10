@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: null },
 ]
 
-export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true }) {
+export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true, mobileOpen = false }) {
   const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
   const navItems = NAV_ITEMS.filter(item =>
     (item.id !== 'wassington' || canSeeWassingtonPanel) &&
@@ -24,7 +24,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
   )
 
   return (
-    <aside style={{
+    <aside className={`sidebar${mobileOpen ? ' sidebar-open' : ''}`} style={{
       width:'230px', minWidth:'230px', background:'#0b4358',
       display:'flex', flexDirection:'column',
       position:'fixed', top:0, left:0, bottom:0, zIndex:50

@@ -92,7 +92,7 @@ export default function SeasonPlanRollup() {
         📋 Todo lo que tus clientes (y los de tus sub-distribuidores) planificaron para la temporada — pensado para ver dónde está el potencial de negocio. Es de solo lectura: cada cliente edita su propio plan.
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
         {[
           ['Clientes con plan cargado', totals.customers],
           ['Total aplicaciones', totals.applications],
@@ -120,7 +120,7 @@ export default function SeasonPlanRollup() {
             {enriched.length === 0 ? 'Todavía ningún cliente cargó su Plan de Temporada.' : 'Ninguna línea coincide con los filtros aplicados.'}
           </div>
         ) : (
-          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+          <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
             <thead>
               <tr>
                 {COLUMNS.map(c => (
@@ -161,7 +161,7 @@ export default function SeasonPlanRollup() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

@@ -121,7 +121,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       {tab === 'treatments' && (
         <div>
           {/* Stats */}
-          <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'24px'}}>
+          <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'24px'}}>
             {STATS.map((s,i) => (
               <div key={i} style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'18px', position:'relative', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
                 <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'#b5cc2e'}}/>
@@ -143,7 +143,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
               {resolveError && (
                 <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {resolveError}</div>
               )}
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+              <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
                     {['N° tratamiento','Cliente','Cámara','Foto',''].map(h => (
@@ -175,7 +175,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           )}
 
@@ -198,7 +198,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                 Ningún tratamiento coincide con los filtros aplicados.
               </div>
             ) : (
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+              <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
                     {['N° tratamiento','Cliente','Cámara','Producto','Sachets','Precio','Modelo','Fecha',''].map(h => (
@@ -244,7 +244,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                     )
                   })}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
 
@@ -264,7 +264,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                   Ningún tratamiento coincide con los filtros aplicados.
                 </div>
               ) : (
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+              <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
                     {['N° tratamiento','Cliente','Cámara','Precio final','Estado','Motivo',''].map(h => (
@@ -310,7 +310,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                     )
                   })}
                 </tbody>
-              </table>
+              </table></div>
               )}
             </div>
           )}

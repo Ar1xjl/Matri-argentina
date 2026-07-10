@@ -129,7 +129,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
             Ningún generador coincide con los filtros aplicados.
           </div>
         ) : (
-          <table className="data-table">
+          <div className="table-scroll"><table className="data-table">
             <thead>
               <tr>
                 <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>
@@ -160,7 +160,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
@@ -207,7 +207,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                 📋 Estos números vienen de tu Plan de Temporada. Solo se consideran las líneas con producto MatriPowder para este análisis — MatriTablets no necesita generador, y las líneas "sin decidir" todavía no cuentan como demanda real.
               </div>
             )}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px', marginBottom:'20px'}}>
+            <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px', marginBottom:'20px'}}>
               <div>
                 <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
                   Cámaras con MatriPowder
@@ -262,6 +262,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
 
             {/* Comparison table */}
             <div style={{background:'#fff', borderRadius:'10px', border:'0.5px solid #ddddd5', overflow:'hidden'}}>
+              <div className="table-scroll">
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
@@ -308,6 +309,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             <div style={{fontSize:'11px', color:'#888', marginTop:'10px'}}>
@@ -318,7 +320,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
       </div>
 
       {/* Product cards */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'20px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'20px'}}>
         {PRODUCTS.map((p, i) => (
           <div key={i} style={{background:'white', border:'1.5px solid var(--border)', borderRadius:'var(--radius)', padding:'22px 18px', display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center'}}>
             <img src={generatorImg} alt="Generador" style={{height:'90px', objectFit:'contain', marginBottom:'12px', opacity: i===1 ? .6 : 1}}/>

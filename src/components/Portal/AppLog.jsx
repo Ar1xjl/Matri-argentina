@@ -156,7 +156,7 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
               No hay tratamientos aprobados todavía.
             </div>
           ) : (
-            <table className="data-table">
+            <div className="table-scroll"><table className="data-table">
               <thead>
                 <tr>
                   <th>Cámara</th><th>Producto</th><th>Dosis / sachets</th>
@@ -202,7 +202,7 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>

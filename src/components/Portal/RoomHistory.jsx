@@ -60,7 +60,7 @@ export default function RoomHistory({ roomName, onClose }) {
 
       {/* Timeline */}
       <div className="card" style={{marginBottom:0}}>
-        <div style={{padding:0}}>
+        <div style={{padding:0}} className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>

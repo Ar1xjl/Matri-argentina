@@ -32,6 +32,7 @@ const PANEL_TITLES = {
 
 export default function Portal({ onSignOut }) {
   const [activePanel, setActivePanel] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false) // mobile drawer only — desktop sidebar is always visible
   const [seconds,     setSeconds]     = useState(600)
   const [showWarning, setShowWarning] = useState(false)
   const [profile,     setProfile]     = useState(null)   // { id, org_id, full_name, organizations: {...} }
@@ -315,7 +316,7 @@ export default function Portal({ onSignOut }) {
   }, [])
 
   const resetSession = () => { setSeconds(600); setShowWarning(false) }
-  const navigate     = (panel) => { setActivePanel(panel); resetSession() }
+  const navigate     = (panel) => { setActivePanel(panel); resetSession(); setSidebarOpen(false) }
 
   const m = Math.floor(seconds / 60)
   const s = String(seconds % 60).padStart(2, '0')
@@ -586,27 +587,39 @@ export default function Portal({ onSignOut }) {
         orgName={currentUser.name}
         canSeeWassingtonPanel={canSeeWassingtonPanel}
         canApplyTreatments={canApplyTreatments}
+        mobileOpen={sidebarOpen}
       />
+      {sidebarOpen && (
+        <div className="sidebar-backdrop open" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <main style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
+      <main className="main-content" style={{marginLeft:'230px', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh'}}>
         <div style={{
           background:'white', borderBottom:'0.5px solid #ddddd5',
           padding:'12px 28px', display:'flex', alignItems:'center',
           justifyContent:'space-between', position:'sticky', top:0, zIndex:40,
-          boxShadow:'0 1px 3px rgba(0,0,0,.06)'
+          boxShadow:'0 1px 3px rgba(0,0,0,.06)', gap:'12px'
         }}>
-          <h1 style={{fontSize:'17px', fontWeight:700, color:'#0b4358'}}>
-            {activePanel === 'wassington' ? `Panel ${currentUser.name}` : PANEL_TITLES[activePanel]}
-          </h1>
-          <div style={{display:'flex', alignItems:'center', gap:'14px'}}>
-            <div style={{
+          <div style={{display:'flex', alignItems:'center', gap:'12px', minWidth:0}}>
+            <button
+              className="sidebar-hamburger"
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label="Abrir menú"
+              style={{background:'none', border:'none', fontSize:'22px', color:'#0b4358', cursor:'pointer', flexShrink:0}}
+            >☰</button>
+            <h1 style={{fontSize:'17px', fontWeight:700, color:'#0b4358', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+              {activePanel === 'wassington' ? `Panel ${currentUser.name}` : PANEL_TITLES[activePanel]}
+            </h1>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:'14px', flexShrink:0}}>
+            <div className="header-season-badge" style={{
               background:'#f0f7e0', color:'#3b6d11',
               fontSize:'11px', fontWeight:700, padding:'4px 12px',
               borderRadius:'100px', letterSpacing:'.04em'
             }}>Temporada 2026</div>
-            <div style={{
+            <div className="header-season-badge" style={{
               fontSize:'11px', color:'#6b6b6b',
-              display:'flex', alignItems:'center', gap:'5px'
+              alignItems:'center', gap:'5px'
             }}>
               <div style={{width:'7px', height:'7px', background:'#b5cc2e', borderRadius:'50%'}}/>
               {m}:{s}

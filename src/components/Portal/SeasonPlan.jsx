@@ -290,7 +290,7 @@ export default function SeasonPlan({
             No hay líneas planificadas todavía. Hacé click en "+ Agregar línea" para empezar.
           </div>
         ) : (
-          <table style={{width:'100%', borderCollapse:'collapse'}}>
+          <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse'}}>
             <thead>
               <tr>
                 <th style={{...cell, background:'#f5f5ee'}}>
@@ -354,7 +354,7 @@ export default function SeasonPlan({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

@@ -258,7 +258,7 @@ export default function Users({ profile }) {
               <span style={{fontSize:'12px', color:'var(--gray)'}}>{members.length} usuario{members.length === 1 ? '' : 's'}</span>
             </div>
             {removeError && <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {removeError}</div>}
-            <div style={{padding:0}}>
+            <div style={{padding:0}} className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr><th>Nombre</th><th>Email</th><th>Roles</th>{isOwner && <th></th>}</tr>

@@ -94,7 +94,7 @@ export default function CustomerPricingModal({ customer, profile, onClose }) {
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>Cargando…</div>
         ) : (
           <>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px', marginBottom:'16px'}}>
+            <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'10px', marginBottom:'16px'}}>
               {[
                 ['Comprometido (m³)', form.minimum_commitment_m3 || '—'],
                 ['En Plan de Temporada (m³)', stats.planM3.toLocaleString('es-AR')],
@@ -109,7 +109,7 @@ export default function CustomerPricingModal({ customer, profile, onClose }) {
 
             <div style={{background:'#f5f5ee', borderRadius:'8px', padding:'10px 12px', marginBottom:'16px'}}>
               <div style={{fontSize:'11px', fontWeight:700, color:'#0b4358', marginBottom:'6px', textTransform:'uppercase', letterSpacing:'.04em'}}>Precio de lista actual (referencia)</div>
-              <table style={{width:'100%', fontSize:'12px', borderCollapse:'collapse'}}>
+              <div className="table-scroll"><table style={{width:'100%', fontSize:'12px', borderCollapse:'collapse'}}>
                 <thead>
                   <tr>
                     <th style={{textAlign:'left', color:'#888', fontWeight:600, paddingBottom:'4px'}}>Bracket</th>
@@ -128,7 +128,7 @@ export default function CustomerPricingModal({ customer, profile, onClose }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
 
             <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'8px'}}>MatriPowder</div>

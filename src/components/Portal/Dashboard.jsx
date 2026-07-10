@@ -49,7 +49,7 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
   return (
     <div>
       {/* Stats */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'16px', marginBottom:'24px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'16px', marginBottom:'24px'}}>
         {STATS.map((s, i) => (
           <div key={i} className="card" style={{marginBottom:0, position:'relative', overflow:'hidden'}}>
             <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'var(--lime)'}}/>
@@ -87,7 +87,7 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
             </span>
           </div>
         ) : (
-          <div style={{padding:0}}>
+          <div style={{padding:0}} className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
@@ -165,7 +165,7 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
       </div>
 
       {/* Quick actions */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
         {[
           { icon:'🧮', label:'Nueva calculadora', desc:'Calculá dosis y compará alternativas', action:'calculator' },
           { icon:'📋', label:'Registro MatriSure', desc:'Subí foto de verificación de dosis', action:'applog' },

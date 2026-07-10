@@ -202,7 +202,7 @@ export default function Organizations({ profile }) {
       {loading ? (
         <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>Cargando…</div>
       ) : (
-        <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+        <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
           <thead>
             <tr>
               {['Nombre','Tipo','Organización superior','País','Moneda','Estado',''].map(h => (
@@ -249,7 +249,7 @@ export default function Organizations({ profile }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {showModal && (

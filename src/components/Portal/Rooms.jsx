@@ -106,7 +106,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
 
         {showForm && (
           <div style={{padding:'20px', borderBottom:'1px solid var(--border)', background:'var(--gray-lt)'}}>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
+            <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
               {isDistributorView && (
                 <div className="form-field">
                   <label>Cliente</label>
@@ -155,7 +155,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
               {coldRooms.length === 0 ? 'No hay cámaras cargadas todavía.' : 'Ninguna cámara coincide con los filtros aplicados.'}
             </div>
           ) : (
-            <table className="data-table">
+            <div className="table-scroll"><table className="data-table">
               <thead>
                 <tr>
                   {isDistributorView && <th>Cliente</th>}
@@ -205,7 +205,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>

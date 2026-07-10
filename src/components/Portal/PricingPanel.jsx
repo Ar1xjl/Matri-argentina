@@ -154,7 +154,7 @@ export default function PricingPanel({ profile }) {
               )}
             </div>
           </div>
-          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+          <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
             <thead>
               <tr>
                 <th style={{...thStyle, textAlign:'left'}}>Bracket (m³)</th>
@@ -193,7 +193,7 @@ export default function PricingPanel({ profile }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 

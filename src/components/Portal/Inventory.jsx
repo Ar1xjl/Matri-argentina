@@ -86,7 +86,7 @@ export default function Inventory({ profile }) {
       {loading ? (
         <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>Cargando…</div>
       ) : (
-        <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+        <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
           <thead>
             <tr>
               {['SKU','Variante','Stock actual','Ajustar (+/-)',''].map(h => (
@@ -125,7 +125,7 @@ export default function Inventory({ profile }) {
               )
             }))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   )

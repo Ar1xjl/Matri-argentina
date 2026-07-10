@@ -78,7 +78,7 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl,
               Ningún tratamiento coincide con los filtros aplicados.
             </div>
           ) : (
-            <table className="data-table">
+            <div className="table-scroll"><table className="data-table">
               <thead>
                 <tr>
                   <th>N° tratamiento</th><th>Cámara</th><th>Producto</th>
@@ -144,7 +144,7 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl,
                   )
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
       </div>
