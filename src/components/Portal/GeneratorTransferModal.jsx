@@ -58,11 +58,17 @@ export default function GeneratorTransferModal({ generator, profile, onClose, on
     if (mode === 'subdistributor') {
       const { error } = await supabase.from('generators').update({ org_id: targetOrgId }).eq('id', generator.id)
       setSaving(false)
-      if (error) { setError(error.message); return }
+      if (error) {
+        setError(error.code === '23505' ? 'El destino ya tiene un generador con ese ID de unidad — pídele que lo renombre antes del traspaso.' : error.message)
+        return
+      }
     } else if (mode === 'sell') {
       const { error } = await supabase.from('generators').update({ org_id: targetOrgId, status: 'available' }).eq('id', generator.id)
       setSaving(false)
-      if (error) { setError(error.message); return }
+      if (error) {
+        setError(error.code === '23505' ? 'El destino ya tiene un generador con ese ID de unidad — pídele que lo renombre antes del traspaso.' : error.message)
+        return
+      }
     } else {
       const { error: dispatchError } = await supabase.from('generator_dispatches').insert({
         generator_id: generator.id,
