@@ -38,6 +38,8 @@ Every Organization has one parent except FreshInset Global. Visibility, permissi
 
 **Language:** each Organization may set its own portal display language (independent of currency/country — e.g. a Distributor could operate in English even in a Spanish-speaking market). Not required at onboarding: a new country can launch using an existing language (Spanish/English) and add its local translation later without blocking activation. Providing (and funding) that translation is the responsibility of the Distributor requesting it, not FreshInset Global.
 
+**Access request (self-service intake, Fase E, 2026-07-13):** a prospective Customer with no account yet can submit an access request from the public "Solicitar acceso — nueva empresa" form (Razón Social, CUIT, Situación Fiscal, Provincia, email, teléfono), stored in `organization_access_requests` — a standalone table, separate from `organizations`, since the requester has no Organization to scope the request under and doesn't choose a parent. Any Distributor/Sub-distributor/Global staff member can review pending requests (there's no subtree to restrict this to yet) and either reject it or assign it — which creates the real Organization (choosing its type and parent, same "+ Nueva organización" flow as any manual creation) and links the request to the result. The new Organization still starts `pending` and needs FreshInset Global's activation like any other (Business Rule 13) — approving the request only slots it into the tree, it doesn't activate it.
+
 ### User
 
 Belongs to **exactly one** Organization and holds one or more Business Roles there. Multiple users per Organization are supported from the first version to reflect real operational structures. This applies uniformly at every level of the tree — FreshInset Global staff, Distributor staff, Sub-distributor staff, and Customer staff are all Users of some Organization, using the same model.
@@ -355,6 +357,7 @@ FreshInset Global
 35. MatriTablets dosing considers both "grande" and "chica" tablets (chica = half a grande in dose terms; briefly paused 2026-07-11, restored 2026-07-12); envelope counts (non-splittable purchasing units, own catalog per tablet size) and the loose-tablet pool per size (what Treatments actually consume) are tracked as separate Inventory variants — opening an envelope is always a manual action, never automatic, and is blocked if it would delete a size that still has stock.
 36. A Customer Pricing Override is set by that Customer's immediate ancestor Organization (Distributor or Sub-distributor), never by the Customer itself; a fixed override always wins over a % discount, which always wins over standard list price. A minimum volume commitment attached to an override is informational only — it never automatically revokes or blocks pricing.
 37. A Treatment's MatriPowder sachet breakdown is frozen at approval time, same as its price — it is never recomputed from a pouch-size catalog that may have changed since.
+38. A prospective Customer may submit a self-service access request before having any account; any non-Customer staff member (Distributor, Sub-distributor or Global) may review it and either reject it or assign it into the org tree, at which point Business Rule 13's normal activation approval still applies to the resulting Organization.
 
 ---
 

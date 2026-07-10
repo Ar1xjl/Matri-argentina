@@ -26,6 +26,8 @@ export default function Organizations({ profile }) {
   const [error, setError] = useState(null)
   const [pricingCustomer, setPricingCustomer] = useState(null) // org row, or null
   const [myRoles, setMyRoles] = useState([])
+  const [requests, setRequests] = useState([]) // pending organization_access_requests
+  const [convertingRequest, setConvertingRequest] = useState(null) // request row being turned into an org, or null
 
   const myOrgType = profile?.organizations?.org_type
   const isGlobal = myOrgType === 'global'
@@ -43,6 +45,13 @@ export default function Organizations({ profile }) {
     setLoading(false)
   }
 
+  const loadRequests = async () => {
+    const { data, error } = await supabase.from('organization_access_requests')
+      .select('*').eq('status', 'pending').order('created_at')
+    if (error) { console.error(error); return }
+    setRequests(data || [])
+  }
+
   useEffect(() => {
     supabase.from('user_roles').select('role').eq('profile_id', profile.id).then(({ data }) => {
       setMyRoles((data || []).map(r => r.role))
@@ -52,6 +61,10 @@ export default function Organizations({ profile }) {
       setOrgs(data || [])
       setLoading(false)
     })
+    supabase.from('organization_access_requests').select('*').eq('status', 'pending').order('created_at').then(({ data, error }) => {
+      if (error) { console.error(error); return }
+      setRequests(data || [])
+    })
   }, [profile.id])
 
   const orgById = useMemo(() => new Map(orgs.map(o => [o.id, o])), [orgs])
@@ -59,7 +72,25 @@ export default function Organizations({ profile }) {
   const validParents = useMemo(() => orgs.filter(o => o.org_type !== 'customer'), [orgs])
 
   const openModal = () => {
+    setConvertingRequest(null)
     setForm({ ...emptyForm, org_type: childTypes[0] || '', parent_id: profile?.org_id || '' })
+    setError(null)
+    setShowModal(true)
+  }
+
+  // Assigning a pending access request reuses the same "+ Nueva organización"
+  // modal, pre-filled — the request itself has no org_type/parent_id (the
+  // requester doesn't know where they'll be slotted in), so the reviewer
+  // still picks that here, same as any manual creation.
+  const openModalForRequest = (request) => {
+    setConvertingRequest(request)
+    setForm({
+      ...emptyForm,
+      name: request.company_name,
+      org_type: childTypes.includes('customer') ? 'customer' : (childTypes[0] || ''),
+      parent_id: profile?.org_id || '',
+      country: request.region || '',
+    })
     setError(null)
     setShowModal(true)
   }
@@ -79,11 +110,29 @@ export default function Organizations({ profile }) {
       currency: form.org_type === 'distributor' ? (form.currency || null) : null,
       fx_rate_to_usd: form.org_type === 'distributor' && form.fx_rate_to_usd ? Number(form.fx_rate_to_usd) : null,
     }
-    const { error } = await supabase.from('organizations').insert(payload)
+    const { data: newOrg, error } = await supabase.from('organizations').insert(payload).select().single()
+    if (error) { setSaving(false); setError(error.message); return }
+
+    if (convertingRequest) {
+      const { error: reqError } = await supabase.from('organization_access_requests').update({
+        status: 'approved', resulting_org_id: newOrg.id,
+        reviewed_by: profile.id, reviewed_at: new Date().toISOString(),
+      }).eq('id', convertingRequest.id)
+      if (reqError) console.error(reqError)
+    }
+
     setSaving(false)
-    if (error) { setError(error.message); return }
     setShowModal(false)
-    await loadOrgs()
+    setConvertingRequest(null)
+    await Promise.all([loadOrgs(), loadRequests()])
+  }
+
+  const rejectRequest = async (request) => {
+    const { error } = await supabase.from('organization_access_requests').update({
+      status: 'rejected', reviewed_by: profile.id, reviewed_at: new Date().toISOString(),
+    }).eq('id', request.id)
+    if (error) { console.error(error); return }
+    await loadRequests()
   }
 
   const activateOrg = async (id) => {
@@ -93,6 +142,45 @@ export default function Organizations({ profile }) {
   }
 
   return (
+    <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+      {requests.length > 0 && childTypes.length > 0 && (
+        <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+          <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5'}}>
+            <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>📥 Solicitudes de acceso pendientes</span>
+            <div style={{fontSize:'11px', color:'#888', marginTop:'2px'}}>
+              Empresas que pidieron acceso desde "Solicitar acceso — nueva empresa". Asignalas a tu árbol o rechazalas.
+            </div>
+          </div>
+          <div style={{padding:'12px 20px', display:'flex', flexDirection:'column', gap:'10px'}}>
+            {requests.map(r => (
+              <div key={r.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', background:'#f5f5ee', borderRadius:'8px', padding:'10px 14px', flexWrap:'wrap'}}>
+                <div>
+                  <div style={{fontWeight:700, color:'#0b4358', fontSize:'13px'}}>{r.company_name}</div>
+                  <div style={{fontSize:'11px', color:'#6b6b6b', marginTop:'2px'}}>
+                    {[r.tax_id, r.tax_status, r.region].filter(Boolean).join(' · ')}
+                  </div>
+                  <div style={{fontSize:'11px', color:'#6b6b6b'}}>{r.contact_email}{r.contact_phone ? ` · ${r.contact_phone}` : ''}</div>
+                </div>
+                <div style={{display:'flex', gap:'6px'}}>
+                  <button
+                    style={{background:'#e8f4fc', color:'#0c447c', border:'0.5px solid #b8dcf5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                    onClick={() => openModalForRequest(r)}
+                  >
+                    Asignar organización
+                  </button>
+                  <button
+                    style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f0c7c7', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                    onClick={() => rejectRequest(r)}
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
       <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
         <div>
@@ -166,12 +254,12 @@ export default function Organizations({ profile }) {
 
       {showModal && (
         <div
-          onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
+          onClick={(e) => e.target === e.currentTarget && (setShowModal(false), setConvertingRequest(null))}
           style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}
         >
           <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
             <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'16px'}}>
-              Nueva organización
+              {convertingRequest ? `Asignar organización — ${convertingRequest.company_name}` : 'Nueva organización'}
             </div>
 
             <div style={{display:'flex', flexDirection:'column', gap:'12px', marginBottom:'8px'}}>
@@ -242,7 +330,7 @@ export default function Organizations({ profile }) {
               <button className="btn-primary" disabled={saving} onClick={handleCreate}>
                 {saving ? 'Creando…' : 'Crear organización'}
               </button>
-              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setShowModal(false)}>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => { setShowModal(false); setConvertingRequest(null) }}>
                 Cancelar
               </button>
             </div>
@@ -253,6 +341,7 @@ export default function Organizations({ profile }) {
       {pricingCustomer && (
         <CustomerPricingModal customer={pricingCustomer} profile={profile} onClose={() => setPricingCustomer(null)} />
       )}
+    </div>
     </div>
   )
 }

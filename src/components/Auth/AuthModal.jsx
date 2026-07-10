@@ -19,6 +19,16 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
   const [resetError,   setResetError]   = useState('')
   const [resetSent,    setResetSent]    = useState(false)
 
+  const [companyName, setCompanyName] = useState('')
+  const [taxId,        setTaxId]        = useState('')
+  const [taxStatus,    setTaxStatus]    = useState('Responsable Inscripto')
+  const [region,       setRegion]       = useState('Río Negro')
+  const [companyEmail, setCompanyEmail] = useState('')
+  const [companyPhone, setCompanyPhone] = useState('')
+  const [registerError,   setRegisterError]   = useState('')
+  const [registerLoading, setRegisterLoading] = useState(false)
+  const [registerDone,    setRegisterDone]    = useState(false)
+
   const handleLogin = async () => {
     setError('')
     setLoading(true)
@@ -69,6 +79,27 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
     setSignupDone(true)
   }
 
+  // No account needed yet — this is a public intake form (anon insert,
+  // see migration 0011). A Distributor/Sub-distributor/Global staff member
+  // reviews it later from Organizaciones and creates the real Organization.
+  const handleRegister = async () => {
+    setRegisterError('')
+    if (!companyName.trim()) { setRegisterError('Completá la Razón Social.'); return }
+    if (!companyEmail.trim()) { setRegisterError('Completá un email de contacto.'); return }
+    setRegisterLoading(true)
+    const { error: insertError } = await supabase.from('organization_access_requests').insert({
+      company_name: companyName.trim(),
+      tax_id: taxId.trim() || null,
+      tax_status: taxStatus,
+      region,
+      contact_email: companyEmail.trim(),
+      contact_phone: companyPhone.trim() || null,
+    })
+    setRegisterLoading(false)
+    if (insertError) { setRegisterError(insertError.message); return }
+    setRegisterDone(true)
+  }
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -103,7 +134,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
                 marginBottom:'-2px', cursor:'pointer'
               }}
             >
-              {t === 'login' ? 'Ingresar' : t === 'signup' ? 'Crear cuenta' : 'Nueva empresa'}
+              {t === 'login' ? 'Ingresar' : t === 'signup' ? 'Crear usuario' : 'Nueva empresa'}
             </button>
           ))}
         </div>
@@ -171,7 +202,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
         {tab === 'signup' && (
           <div>
             <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
-              Crear cuenta
+              Crear usuario
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
               Creá tu login personal. Después, quien administre tu empresa en el portal te va a asignar a la cuenta correspondiente.
@@ -179,8 +210,8 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
             {signupDone ? (
               <div style={{fontSize:'13px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'14px'}}>
                 {pendingConfirm
-                  ? '✓ Cuenta creada. Revisá tu email para confirmarla antes de ingresar.'
-                  : '✓ Cuenta creada. Ya podés ingresar.'}
+                  ? '✓ Usuario creado. Revisá tu email para confirmarlo antes de ingresar.'
+                  : '✓ Usuario creado. Ya podés ingresar.'}
               </div>
             ) : (
               <>
@@ -211,7 +242,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
                   className="btn-primary"
                   style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: signupLoading ? .6 : 1}}
                 >
-                  {signupLoading ? 'Creando…' : 'Crear cuenta'}
+                  {signupLoading ? 'Creando…' : 'Crear usuario'}
                 </button>
               </>
             )}
@@ -225,57 +256,69 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
               Solicitar acceso — nueva empresa
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
-              Completá tus datos. Wassington validará tu cuenta en 24 hs.
+              Completá tus datos. Tu distribuidor validará tu cuenta.
             </p>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
-              {[['Razón Social','Empresa S.A.'],['CUIT','XX-XXXXXXXX-X']].map(([label,ph]) => (
-                <div key={label}>
-                  <label style={{display:'block', fontSize:'12px', fontWeight:700,
-                    color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
-                    letterSpacing:'.04em'}}>{label}</label>
-                  <input placeholder={ph} style={{
-                    width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
-                    borderRadius:'7px', fontSize:'14px', color:'#0b4358'
-                  }}/>
-                </div>
-              ))}
-            </div>
-            {[['Situación Fiscal',['Responsable Inscripto','Monotributista','Exento']],
-              ['Provincia / región',['Río Negro','Neuquén','Mendoza','Buenos Aires','Otra']]
-            ].map(([label, opts]) => (
-              <div key={label} style={{marginBottom:'14px', marginTop:'14px'}}>
-                <label style={{display:'block', fontSize:'12px', fontWeight:700,
-                  color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
-                  letterSpacing:'.04em'}}>{label}</label>
-                <select style={{width:'100%', padding:'11px 14px',
-                  border:'1.5px solid #dde0d5', borderRadius:'7px',
-                  fontSize:'14px', color:'#0b4358'}}>
-                  {opts.map(o => <option key={o}>{o}</option>)}
-                </select>
+            {registerDone ? (
+              <div style={{fontSize:'13px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'14px'}}>
+                ✓ Solicitud enviada. Te van a contactar por email cuando tu cuenta esté habilitada.
               </div>
-            ))}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px'}}>
-              {[['Email','email','email@empresa.com'],['Teléfono','tel','+54 XXX XXXX']].map(([label,type,ph]) => (
-                <div key={label}>
-                  <label style={{display:'block', fontSize:'12px', fontWeight:700,
-                    color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
-                    letterSpacing:'.04em'}}>{label}</label>
-                  <input type={type} placeholder={ph} style={{
-                    width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
-                    borderRadius:'7px', fontSize:'14px', color:'#0b4358'
-                  }}/>
+            ) : (
+              <>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+                  {[['Razón Social','text','Empresa S.A.', companyName, setCompanyName],
+                    ['CUIT','text','XX-XXXXXXXX-X', taxId, setTaxId]].map(([label,type,ph,value,setValue]) => (
+                    <div key={label}>
+                      <label style={{display:'block', fontSize:'12px', fontWeight:700,
+                        color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
+                        letterSpacing:'.04em'}}>{label}</label>
+                      <input type={type} placeholder={ph} value={value} onChange={e => setValue(e.target.value)} style={{
+                        width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
+                        borderRadius:'7px', fontSize:'14px', color:'#0b4358'
+                      }}/>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <button
-              className="btn-primary"
-              style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px'}}
-            >
-              Enviar solicitud
-            </button>
-            <p style={{fontSize:'13px', color:'#6b7280', textAlign:'center', marginTop:'16px'}}>
-              Recibirás un email cuando tu cuenta sea aprobada.
-            </p>
+                {[['Situación Fiscal',['Responsable Inscripto','Monotributista','Exento'], taxStatus, setTaxStatus],
+                  ['Provincia / región',['Río Negro','Neuquén','Mendoza','Buenos Aires','Otra'], region, setRegion]
+                ].map(([label, opts, value, setValue]) => (
+                  <div key={label} style={{marginBottom:'14px', marginTop:'14px'}}>
+                    <label style={{display:'block', fontSize:'12px', fontWeight:700,
+                      color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
+                      letterSpacing:'.04em'}}>{label}</label>
+                    <select value={value} onChange={e => setValue(e.target.value)} style={{width:'100%', padding:'11px 14px',
+                      border:'1.5px solid #dde0d5', borderRadius:'7px',
+                      fontSize:'14px', color:'#0b4358'}}>
+                      {opts.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                ))}
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px'}}>
+                  {[['Email','email','email@empresa.com', companyEmail, setCompanyEmail],
+                    ['Teléfono','tel','+54 XXX XXXX', companyPhone, setCompanyPhone]].map(([label,type,ph,value,setValue]) => (
+                    <div key={label}>
+                      <label style={{display:'block', fontSize:'12px', fontWeight:700,
+                        color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
+                        letterSpacing:'.04em'}}>{label}</label>
+                      <input type={type} placeholder={ph} value={value} onChange={e => setValue(e.target.value)} style={{
+                        width:'100%', padding:'11px 14px', border:'1.5px solid #dde0d5',
+                        borderRadius:'7px', fontSize:'14px', color:'#0b4358'
+                      }}/>
+                    </div>
+                  ))}
+                </div>
+                {registerError && (
+                  <div style={{fontSize:'12px', color:'#8b2020', marginBottom:'12px'}}>{registerError}</div>
+                )}
+                <button
+                  onClick={handleRegister}
+                  disabled={registerLoading}
+                  className="btn-primary"
+                  style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: registerLoading ? .6 : 1}}
+                >
+                  {registerLoading ? 'Enviando…' : 'Enviar solicitud'}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
