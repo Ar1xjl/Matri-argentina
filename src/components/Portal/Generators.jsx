@@ -19,6 +19,18 @@ const FLEET_COLUMNS = [
   { header: 'Notas',            get: g => g.notes || '' },
 ]
 
+// Compras en tanda traen unidades con ID/N° de serie correlativos (ej: GEN-001
+// a GEN-010) — a partir de un valor "base" con un número al final, genera la
+// secuencia manteniendo el prefijo/sufijo y el ancho del número (ceros a la izq).
+function generateSequence(base, count) {
+  const match = base.match(/^(.*?)(\d+)(\D*)$/)
+  if (!match) return Array.from({ length: count }, (_, i) => (count > 1 ? `${base}-${i + 1}` : base))
+  const [, prefix, digits, suffix] = match
+  const width = digits.length
+  const start = parseInt(digits, 10)
+  return Array.from({ length: count }, (_, i) => `${prefix}${String(start + i).padStart(width, '0')}${suffix}`)
+}
+
 export default function Generators({ orgId, seasonPlanLines = [], coldRooms = [], profile }) {
   const [pricing,      setPricing]      = useState({ brackets: [], product: [], serviceFee: [], generator: [] })
   const [myGenerators, setMyGenerators] = useState([])
@@ -35,10 +47,14 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const [usedPlanData, setUsedPlanData] = useState(false)
 
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newGen, setNewGen] = useState({ unit_code: '', serial_number: '', purchase_date: '', notes: '' })
+  const [newGen, setNewGen] = useState({ quantity: '1', unit_code: '', serial_number: '', purchase_date: '', notes: '' })
   const [addError, setAddError] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [transferTarget, setTransferTarget] = useState(null) // generator row being transferred, or null
+  const [editingId, setEditingId] = useState(null) // generator id being edited, or null
+  const [editBuffer, setEditBuffer] = useState({ unit_code: '', serial_number: '', purchase_date: '', notes: '' })
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
 
@@ -52,22 +68,59 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
 
   const handleAddGenerator = async () => {
     setAddError('')
+    const quantity = Number(newGen.quantity)
     if (!newGen.unit_code.trim()) { setAddError('Completá el ID de unidad.'); return }
+    if (!quantity || quantity < 1) { setAddError('La cantidad tiene que ser al menos 1.'); return }
     setAddSaving(true)
-    const { error } = await supabase.from('generators').insert({
+
+    const unitCodes = generateSequence(newGen.unit_code.trim(), quantity)
+    const serialBase = newGen.serial_number.trim()
+    const serials = serialBase ? generateSequence(serialBase, quantity) : []
+
+    const rows = unitCodes.map((unit_code, i) => ({
       org_id: orgId,
-      unit_code: newGen.unit_code.trim(),
-      serial_number: newGen.serial_number.trim() || null,
+      unit_code,
+      serial_number: serials[i] || null,
       purchase_date: newGen.purchase_date || null,
       notes: newGen.notes.trim() || null,
-    })
+    }))
+
+    const { error } = await supabase.from('generators').insert(rows)
     setAddSaving(false)
     if (error) {
-      setAddError(error.code === '23505' ? 'Ya existe un generador con ese ID de unidad.' : error.message)
+      setAddError(error.code === '23505' ? 'Uno de los ID de unidad generados ya existe — probá con otro código o número inicial.' : error.message)
       return
     }
-    setNewGen({ unit_code: '', serial_number: '', purchase_date: '', notes: '' })
+    setNewGen({ quantity: '1', unit_code: '', serial_number: '', purchase_date: '', notes: '' })
     setShowAddForm(false)
+    loadGenerators()
+  }
+
+  const startEdit = (g) => {
+    setEditingId(g.id)
+    setEditBuffer({
+      unit_code: g.unit_code || '', serial_number: g.serial_number || '',
+      purchase_date: g.purchase_date || '', notes: g.notes || '',
+    })
+    setEditError('')
+  }
+
+  const handleSaveEdit = async () => {
+    setEditError('')
+    if (!editBuffer.unit_code.trim()) { setEditError('El ID de unidad no puede quedar vacío.'); return }
+    setEditSaving(true)
+    const { error } = await supabase.from('generators').update({
+      unit_code: editBuffer.unit_code.trim(),
+      serial_number: editBuffer.serial_number.trim() || null,
+      purchase_date: editBuffer.purchase_date || null,
+      notes: editBuffer.notes.trim() || null,
+    }).eq('id', editingId)
+    setEditSaving(false)
+    if (error) {
+      setEditError(error.code === '23505' ? 'Ya existe un generador con ese ID de unidad.' : error.message)
+      return
+    }
+    setEditingId(null)
     loadGenerators()
   }
 
@@ -167,13 +220,17 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
 
       {showAddForm && (
         <div style={{padding:'16px 20px', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>
-          <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+          <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'0.7fr 1.3fr 1.3fr 1fr 1fr', gap:'10px', marginBottom:'10px'}}>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>ID de unidad</label>
-              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.unit_code} onChange={e => setNewGen(prev => ({ ...prev, unit_code: e.target.value }))} placeholder="Ej: GEN-011"/>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Cantidad</label>
+              <input type="number" min="1" style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.quantity} onChange={e => setNewGen(prev => ({ ...prev, quantity: e.target.value }))}/>
             </div>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>N° de serie</label>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>ID de unidad {Number(newGen.quantity) > 1 ? '(primero de la tanda)' : ''}</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.unit_code} onChange={e => setNewGen(prev => ({ ...prev, unit_code: e.target.value }))} placeholder="Ej: GEN-001"/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>N° de serie {Number(newGen.quantity) > 1 ? '(primero de la tanda)' : ''}</label>
               <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.serial_number} onChange={e => setNewGen(prev => ({ ...prev, serial_number: e.target.value }))} placeholder="Opcional"/>
             </div>
             <div>
@@ -182,11 +239,18 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
             </div>
             <div>
               <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Notas</label>
-              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.notes} onChange={e => setNewGen(prev => ({ ...prev, notes: e.target.value }))} placeholder="Opcional"/>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.notes} onChange={e => setNewGen(prev => ({ ...prev, notes: e.target.value }))} placeholder="Opcional, aplica a toda la tanda"/>
             </div>
           </div>
+          {Number(newGen.quantity) > 1 && newGen.unit_code.trim() && (
+            <div style={{fontSize:'12px', color:'#0b4358', marginBottom:'10px'}}>
+              Se van a crear {Number(newGen.quantity)} unidades: <strong>{generateSequence(newGen.unit_code.trim(), Number(newGen.quantity))[0]}</strong> a{' '}
+              <strong>{generateSequence(newGen.unit_code.trim(), Number(newGen.quantity)).slice(-1)[0]}</strong>
+              {newGen.serial_number.trim() && <> — N° de serie <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity))[0]}</strong> a <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity)).slice(-1)[0]}</strong></>}
+            </div>
+          )}
           {addError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'10px'}}>{addError}</div>}
-          <button className="btn-primary btn-sm" disabled={addSaving} onClick={handleAddGenerator}>{addSaving ? 'Guardando…' : 'Guardar generador'}</button>
+          <button className="btn-primary btn-sm" disabled={addSaving} onClick={handleAddGenerator}>{addSaving ? 'Guardando…' : 'Guardar generador(es)'}</button>
         </div>
       )}
 
@@ -224,7 +288,24 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
               )}
             </thead>
             <tbody>
-              {filteredFleet.map(g => (
+              {filteredFleet.map(g => editingId === g.id ? (
+                <tr key={g.id} style={{background:'#f5f5ee'}}>
+                  <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.unit_code} onChange={e => setEditBuffer(prev => ({ ...prev, unit_code: e.target.value }))}/></td>
+                  <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.serial_number} onChange={e => setEditBuffer(prev => ({ ...prev, serial_number: e.target.value }))}/></td>
+                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
+                  <td><input type="date" style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.purchase_date} onChange={e => setEditBuffer(prev => ({ ...prev, purchase_date: e.target.value }))}/></td>
+                  <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.notes} onChange={e => setEditBuffer(prev => ({ ...prev, notes: e.target.value }))}/></td>
+                  {isDistributorView && (
+                    <td>
+                      <div style={{display:'flex', gap:'6px'}}>
+                        <button className="btn-primary btn-sm" disabled={editSaving} onClick={handleSaveEdit}>{editSaving ? 'Guardando…' : 'Guardar'}</button>
+                        <button className="btn-secondary btn-sm" onClick={() => setEditingId(null)}>Cancelar</button>
+                      </div>
+                      {editError && <div style={{color:'#8b2020', fontSize:'11px', marginTop:'4px'}}>{editError}</div>}
+                    </td>
+                  )}
+                </tr>
+              ) : (
                 <tr key={g.id}>
                   <td style={{fontWeight:700, fontFamily:'monospace'}}>{g.unit_code}</td>
                   <td style={{fontFamily:'monospace', color:'var(--gray)'}}>{g.serial_number || '—'}</td>
@@ -233,12 +314,15 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                   <td style={{color:'var(--gray)'}}>{g.notes || '—'}</td>
                   {isDistributorView && (
                     <td>
-                      {g.status === 'available' && (
-                        <button className="btn-secondary btn-sm" onClick={() => setTransferTarget(g)}>Transferir</button>
-                      )}
-                      {(g.status === 'dispatched' || g.status === 'on_rent') && (
-                        <button className="btn-secondary btn-sm" onClick={() => handleReturn(g.id)}>Marcar devuelto</button>
-                      )}
+                      <div style={{display:'flex', gap:'6px'}}>
+                        <button className="btn-secondary btn-sm" onClick={() => startEdit(g)}>Editar</button>
+                        {g.status === 'available' && (
+                          <button className="btn-secondary btn-sm" onClick={() => setTransferTarget(g)}>Transferir</button>
+                        )}
+                        {(g.status === 'dispatched' || g.status === 'on_rent') && (
+                          <button className="btn-secondary btn-sm" onClick={() => handleReturn(g.id)}>Marcar devuelto</button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
