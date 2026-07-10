@@ -27,7 +27,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
     <aside className={`sidebar${mobileOpen ? ' sidebar-open' : ''}`} style={{
       width:'230px', minWidth:'230px', background:'#0b4358',
       display:'flex', flexDirection:'column',
-      position:'fixed', top:0, left:0, bottom:0, zIndex:50
+      position:'fixed', top:0, left:0, bottom:0
     }}>
       {/* Logo */}
       <div style={{padding:'16px 20px 14px', borderBottom:'1px solid rgba(255,255,255,.1)'}}>
