@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react'
-import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
-import { fetchOrgPricing, fetchCustomerOverride, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
+import { POUCHES, DOSE_BASE, greedyCeiling, greedyFloor, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
+import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
 
-function greedyFloor(g) {
-  let rem = g, r = []
-  for (const s of POUCHES) { const q = Math.floor(rem/s); r.push({size:s, qty:q}); rem -= q*s }
-  return r
-}
 function fmtUSD(v) { return '$' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 function fmtNum(v, d=1) { return Number(v).toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}) }
 
@@ -23,6 +18,7 @@ const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0 }) {
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [override,   setOverride]   = useState(null)
+  const [pouchSizes, setPouchSizes] = useState(POUCHES) // real catalog replaces this fallback once loaded
   const [roomIdx,    setRoomIdx]    = useState(0)
   const [roomName,   setRoomName]   = useState('')
   const [ppb,        setPpb]        = useState('1000')
@@ -36,6 +32,11 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   // tables are visible — see SYSTEM_ARCHITECTURE.md's pricing-visibility note).
   useEffect(() => {
     fetchOrgPricing().then(setPricing)
+  }, [])
+
+  // This Distributor's own editable pouch-size catalog (Fase E, 2026-07-12).
+  useEffect(() => {
+    fetchPouchCatalog().then(sizes => { if (sizes.length > 0) setPouchSizes(sizes) })
   }, [])
 
   // A negotiated price for this Customer, if one was set by their Distributor
@@ -89,14 +90,14 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
     const grams = vol * DOSE_BASE * (ppbVal / 1000)
 
     // Powder exact
-    const exactC  = greedyCeiling(grams)
+    const exactC  = greedyCeiling(grams, pouchSizes)
     const exactG  = comboGrams(exactC)
     const exactPpb = actualPpb(exactG, vol)
     const powderPrice = resolveProductPrice(pricing, 'MatriPowder', vol, override)
     const exactCost = vol * powderPrice * (exactPpb / 1000)
 
     // Powder adjusted (floor)
-    const adjC   = greedyFloor(grams)
+    const adjC   = greedyFloor(grams, pouchSizes)
     const adjG   = comboGrams(adjC)
     const adjPpb = adjG > 0 ? actualPpb(adjG, vol) : 0
     const adjCost = vol * powderPrice * (adjPpb / 1000)
@@ -342,7 +343,11 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
               <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
                 <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
                   <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta grande (5m³)</div>
-                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.count}</div>
+                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.large}</div>
+                </div>
+                <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
+                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta chica (2.5m³)</div>
+                  <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.small}</div>
                 </div>
               </div>
               <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(vol, 1)} m³ · No requiere generador</div>

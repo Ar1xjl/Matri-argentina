@@ -4,7 +4,7 @@ import sureImg  from '../../assets/images/MatriSure_Kit.png'
 import ApplicationForm from './ApplicationForm'
 import MatriSureCapture from './MatriSureCapture'
 import RoomHistory from './RoomHistory'
-import { pouchBreakdownLabel } from '../../lib/dosing'
+import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
 
 const statusLabel = (status) => ({
@@ -16,7 +16,7 @@ const statusLabel = (status) => ({
 const APPLOG_COLUMNS = [
   { header: 'Cámara',            get: t => t.cold_rooms?.name || '' },
   { header: 'Producto',          get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
-  { header: 'Dosis / sachets',   get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Dosis / sachets',   get: t => pouchBreakdownDisplay(t) },
   { header: 'Fecha aplicación',  get: t => t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '' },
   { header: 'MatriSure',         get: t => statusLabel(t.status)?.label || '' },
 ]
@@ -177,7 +177,7 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
                         }}>{t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'}</span>
                       </td>
                       <td style={{fontFamily:'monospace', fontSize:'12px'}}>
-                        {pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3)}
+                        {pouchBreakdownDisplay(t)}
                       </td>
                       <td style={{color:'var(--gray)'}}>{t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '—'}</td>
                       <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>

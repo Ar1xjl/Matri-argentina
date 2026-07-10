@@ -3,7 +3,9 @@ import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
 import Organizations from './Organizations'
 import Inventory from './Inventory'
-import { pouchBreakdownLabel } from '../../lib/dosing'
+import PouchCatalogPanel from './PouchCatalogPanel'
+import TabletCatalogPanel from './TabletCatalogPanel'
+import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 
 function matriSureOf(t) {
@@ -16,7 +18,7 @@ const PENDING_COLUMNS = [
   { header: 'Cliente',        get: t => t.organizations?.name || '' },
   { header: 'Cámara',         get: t => t.cold_rooms?.name || '' },
   { header: 'Producto',       get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
-  { header: 'Sachets',        get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Sachets',        get: t => pouchBreakdownDisplay(t) },
   { header: 'Precio',         get: t => t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '' },
   { header: 'Modelo',         get: t => t.service_fee_local != null ? 'Servicio' : 'Propio' },
   { header: 'Fecha',          get: t => new Date(t.created_at).toLocaleDateString('es-AR') },
@@ -85,6 +87,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
     { id:'treatments', label:'📦 Tratamientos y aprobación' },
     { id:'crm',        label:'👥 CRM — Clientes' },
     { id:'inventory',  label:'📦 Inventario' },
+    { id:'catalog',    label:'🏷️ Catálogo de SKU' },
     { id:'pricing',    label:'💲 Gestión de precios' },
   ]
 
@@ -227,7 +230,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                         <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
                         <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
                         <td style={{padding:'12px 16px'}}><span style={{background:t.product==='powder'?'#f0f7e0':'#eaf7ee', color:t.product==='powder'?'#3b6d11':'#1a6b30', fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{t.product==='powder' ? 'MatriPowder' : 'MatriTablets'}</span></td>
-                        <td style={{padding:'12px 16px', fontFamily:'monospace', fontSize:'12px'}}>{pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3)}</td>
+                        <td style={{padding:'12px 16px', fontFamily:'monospace', fontSize:'12px'}}>{pouchBreakdownDisplay(t)}</td>
                         <td style={{padding:'12px 16px', fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
                         <td style={{padding:'12px 16px'}}><span style={{background:'#f5f5ee', color:'#6b6b6b', fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'100px'}}>{model}</span></td>
                         <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{new Date(t.created_at).toLocaleDateString('es-AR')}</td>
@@ -319,6 +322,14 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
       {/* Inventory tab */}
       {tab === 'inventory' && <Inventory profile={profile} />}
+
+      {/* SKU Catalog tab */}
+      {tab === 'catalog' && (
+        <div>
+          <PouchCatalogPanel profile={profile} />
+          <TabletCatalogPanel profile={profile} />
+        </div>
+      )}
 
       {/* Approve/Reject Modal */}
       {modal && (

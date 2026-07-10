@@ -71,3 +71,12 @@ export function resolveServiceFee(pricing, vol, override) {
   const standard = getServiceFee(pricing, vol)
   return applyOverride(standard, override, 'service_fee_override', 'service_fee_discount_pct')
 }
+
+// ── Pouch catalog (Fase E — editable SKU catalog, 2026-07-12) ──────────────
+// Bidirectional visibility, same as pricing: a Customer reads its
+// Distributor's catalog, but only the Distributor can edit it. Returns
+// plain sizes sorted descending, ready to hand straight to greedyCeiling().
+export async function fetchPouchCatalog() {
+  const { data } = await supabase.from('pouch_catalog').select('*').eq('active', true).order('size_g', { ascending: false })
+  return (data || []).map(r => r.size_g)
+}

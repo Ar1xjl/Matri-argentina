@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { fetchOrgPricing, fetchAllCustomerOverrides, resolveProductPrice } from '../../lib/orgPricing'
-import { DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
+import { fetchOrgPricing, fetchAllCustomerOverrides, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
+import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
@@ -12,7 +12,7 @@ function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimu
 // `override` is that specific line's Customer's own negotiated price, if any
 // (DOMAIN_MODEL.md Rule 36) — different customers in this rollup can each
 // have a different override, unlike the single-customer Calculator/Season Plan.
-function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, override) {
+function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, override, pouchSizes) {
   if (!volumeM3 || !targetDosePpb || product === 'undecided') return null
   if (product === 'tablets') {
     const { ppb } = tabletCombo(targetDosePpb, volumeM3)
@@ -20,7 +20,7 @@ function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, overri
     return volumeM3 * price * (ppb / 1000)
   }
   const grams = volumeM3 * DOSE_BASE * (targetDosePpb / 1000)
-  const combo = greedyCeiling(grams)
+  const combo = greedyCeiling(grams, pouchSizes)
   const actualG = comboGrams(combo)
   const realPpb = actualPpb(actualG, volumeM3)
   const price = resolveProductPrice(pricing, 'MatriPowder', volumeM3, override)
@@ -34,12 +34,14 @@ export default function SeasonPlanRollup() {
   const [orgById, setOrgById] = useState(new Map())
   const [overrideByCustomerId, setOverrideByCustomerId] = useState(new Map())
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
+  const [pouchSizes, setPouchSizes] = useState(POUCHES)
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({})
 
   useEffect(() => {
     fetchOrgPricing().then(setPricing)
+    fetchPouchCatalog().then(sizes => { if (sizes.length > 0) setPouchSizes(sizes) })
     Promise.all([
       supabase.from('organizations').select('*'),
       supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
@@ -56,9 +58,9 @@ export default function SeasonPlanRollup() {
     const customer = orgById.get(l.season_plans?.org_id)
     const parent = customer ? orgById.get(customer.parent_id) : null
     const override = customer ? overrideByCustomerId.get(customer.id) : null
-    const cost = computeIndicativeCost(pricing, l.product_preference, l.planned_dose_ppb, l.cold_rooms?.volume_m3, override)
+    const cost = computeIndicativeCost(pricing, l.product_preference, l.planned_dose_ppb, l.cold_rooms?.volume_m3, override, pouchSizes)
     return { ...l, customer, parent, cost }
-  }), [lines, orgById, overrideByCustomerId, pricing])
+  }), [lines, orgById, overrideByCustomerId, pricing, pouchSizes])
 
   const totals = useMemo(() => {
     const uniqueCustomers = new Set(enriched.map(l => l.customer?.id).filter(Boolean))

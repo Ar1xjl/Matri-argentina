@@ -15,6 +15,7 @@ import SeasonPlanRollup from './SeasonPlanRollup'
 import { supabase } from '../../lib/supabaseClient'
 import { parsePlanFile } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
+import { fetchPouchCatalog } from '../../lib/orgPricing'
 
 const PANEL_TITLES = {
   dashboard:   'Dashboard',
@@ -390,10 +391,22 @@ export default function Portal({ onSignOut }) {
     return data.id
   }
 
+  // Freezes the sachet breakdown the same way price gets frozen (Rule 37) —
+  // computed once, here, from whatever the catalog looks like right now;
+  // never recomputed again even if the catalog changes later. Only
+  // meaningful for MatriPowder — MatriTablets dosing doesn't depend on the
+  // editable catalog at all.
   const approveTreatment = async (id, finalPrice) => {
+    const t = treatments.find(tr => tr.id === id)
+    let pouchBreakdown = null
+    if (t?.product === 'powder' && t.cold_rooms?.volume_m3) {
+      const pouchSizes = await fetchPouchCatalog()
+      const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (t.target_dose_ppb / 1000)
+      pouchBreakdown = greedyCeiling(grams, pouchSizes.length > 0 ? pouchSizes : undefined)
+    }
     const { error } = await supabase
       .from('treatments')
-      .update({ status: 'approved', price_local: finalPrice, approved_by: profile.id, approved_at: new Date().toISOString() })
+      .update({ status: 'approved', price_local: finalPrice, pouch_breakdown: pouchBreakdown, approved_by: profile.id, approved_at: new Date().toISOString() })
       .eq('id', id)
     if (error) { console.error(error); return }
     await loadTreatments()
@@ -419,15 +432,18 @@ export default function Portal({ onSignOut }) {
     try {
       if (t.product === 'powder') {
         const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (t.target_dose_ppb / 1000)
-        for (const { size, qty } of greedyCeiling(grams)) {
+        const pouchSizes = await fetchPouchCatalog()
+        for (const { size, qty } of greedyCeiling(grams, pouchSizes.length > 0 ? pouchSizes : undefined)) {
           if (qty > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriPowder', p_variant: `${size}g`, p_qty: qty })
         }
       } else if (t.product === 'tablets') {
-        // Consumes from the loose-tablet pool (opened envelopes), not the
+        // Consumes from the loose-tablet pools (opened envelopes), not the
         // unopened envelope counts — opening a sobre is a separate, manual
-        // Inventory action (see Inventory.jsx).
-        const { count } = tabletCombo(t.target_dose_ppb, t.cold_rooms.volume_m3)
-        if (count > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'suelta', p_qty: count })
+        // Inventory action (see Inventory.jsx). Grande and chica are
+        // tracked as two independent pools.
+        const { large, small } = tabletCombo(t.target_dose_ppb, t.cold_rooms.volume_m3)
+        if (large > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'suelta_grande', p_qty: large })
+        if (small > 0) await supabase.rpc('decrement_inventory', { p_sku: 'MatriTablets', p_variant: 'suelta_chica', p_qty: small })
       }
     } catch (err) {
       console.error('[decrementInventoryForTreatment]', err)

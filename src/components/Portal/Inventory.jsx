@@ -1,36 +1,43 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
-const SKU_LABEL = { MatriPowder: 'MatriPowder', MatriTablets: 'MatriTablets (grande, 5m³)' }
-// Tablets ship in non-splittable envelopes of 10/15/50 — tracked as unopened
-// envelope counts, separate from "suelta" (loose tablets from an opened
-// envelope, the pool Treatments actually consume from — see dosing.js).
-// "Chica" tablet is paused for now, see dosing.js's tabletCombo.
-const SKU_VARIANTS = {
-  MatriPowder: ['100g', '50g', '20g', '10g'],
-  MatriTablets: ['sobre_10', 'sobre_15', 'sobre_50', 'suelta'],
-}
-const VARIANT_LABEL = {
-  sobre_10: 'Sobre × 10 tabletas',
-  sobre_15: 'Sobre × 15 tabletas',
-  sobre_50: 'Sobre × 50 tabletas',
-  suelta: 'Sueltas (fuera de sobre)',
+const SKU_LABEL = { MatriPowder: 'MatriPowder', MatriTablets: 'MatriTablets' }
+// Both MatriPowder pouch sizes and MatriTablets envelope sizes come from
+// their editable per-Distributor catalogs now (Fase E, 2026-07-12) — see
+// powderVariants/tabletVariants state below. The two loose-tablet pools
+// (suelta_grande/suelta_chica) always exist regardless of the envelope
+// catalog, since that's what Treatments actually consume from.
+function tabletVariantLabel(variant) {
+  if (variant === 'suelta_grande') return 'Sueltas — grande (fuera de sobre)'
+  if (variant === 'suelta_chica') return 'Sueltas — chica (fuera de sobre)'
+  const m = variant.match(/^sobre_(\d+)_(grande|chica)$/)
+  return m ? `Sobre × ${m[1]} tabletas (${m[2]})` : variant
 }
 
 export default function Inventory({ profile }) {
   const [items, setItems] = useState([])
+  const [powderVariants, setPowderVariants] = useState([]) // ['100g','50g',...] from pouch_catalog
+  const [tabletVariants, setTabletVariants] = useState([]) // ['sobre_10_grande',...,'suelta_grande','suelta_chica']
   const [loading, setLoading] = useState(true)
   const [deltas, setDeltas] = useState({}) // `${sku}|${variant}` -> string input value
   const [saving, setSaving] = useState(null) // key currently being adjusted
   const [error, setError] = useState(null)
 
   const orgId = profile?.org_id
+  const skuVariants = { MatriPowder: powderVariants, MatriTablets: tabletVariants }
 
   useEffect(() => {
     if (!orgId) return
-    supabase.from('inventory_items').select('*').eq('org_id', orgId).then(({ data, error }) => {
+    Promise.all([
+      supabase.from('inventory_items').select('*').eq('org_id', orgId),
+      supabase.from('pouch_catalog').select('*').eq('org_id', orgId).eq('active', true).order('size_g', { ascending: false }),
+      supabase.from('tablet_catalog').select('*').eq('org_id', orgId).eq('active', true).order('envelope_count', { ascending: false }),
+    ]).then(([{ data: itemsData, error }, { data: pouches }, { data: envelopes }]) => {
       if (error) console.error(error)
-      setItems(data || [])
+      setItems(itemsData || [])
+      setPowderVariants((pouches || []).map(c => `${c.size_g}g`))
+      const envelopeVariants = (envelopes || []).map(e => `sobre_${e.envelope_count}_${e.tablet_size}`)
+      setTabletVariants([...envelopeVariants, 'suelta_grande', 'suelta_chica'])
       setLoading(false)
     })
   }, [orgId])
@@ -70,6 +77,11 @@ export default function Inventory({ profile }) {
       </div>
 
       {error && <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {error}</div>}
+      {!loading && powderVariants.length === 0 && (
+        <div style={{padding:'10px 20px', color:'#b06a00', fontSize:'12px', background:'#fff3cd'}}>
+          ⚠️ Todavía no cargaste tamaños de sachet en "Catálogo de SKU" — MatriPowder no va a aparecer acá hasta que agregues al menos uno.
+        </div>
+      )}
 
       {loading ? (
         <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>Cargando…</div>
@@ -83,7 +95,7 @@ export default function Inventory({ profile }) {
             </tr>
           </thead>
           <tbody>
-            {Object.entries(SKU_VARIANTS).map(([sku, variants]) => variants.map((variant, vi) => {
+            {Object.entries(skuVariants).map(([sku, variants]) => variants.map((variant, vi) => {
               const key = `${sku}|${variant}`
               const qty = quantityOf(sku, variant)
               return (
@@ -93,7 +105,7 @@ export default function Inventory({ profile }) {
                       {SKU_LABEL[sku]}
                     </td>
                   )}
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{VARIANT_LABEL[variant] || variant}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{sku === 'MatriPowder' ? variant : tabletVariantLabel(variant)}</td>
                   <td style={{padding:'12px 16px', fontWeight:700, color: qty < 0 ? '#8b2020' : '#0b4358'}}>{qty}</td>
                   <td style={{padding:'12px 16px'}}>
                     <input

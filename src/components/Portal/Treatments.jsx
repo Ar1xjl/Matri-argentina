@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { pouchBreakdownLabel } from '../../lib/dosing'
+import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
 
@@ -32,7 +32,7 @@ const COLUMNS = [
   { header: 'N° tratamiento', get: t => `#${t.id.slice(0,8)}` },
   { header: 'Cámara',         get: t => t.cold_rooms?.name || '' },
   { header: 'Producto',       get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
-  { header: 'Sachets',        get: t => pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3) },
+  { header: 'Sachets',        get: t => pouchBreakdownDisplay(t) },
   { header: 'Precio',         get: t => t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '' },
   { header: 'Modelo',         get: t => t.service_fee_local != null ? 'Servicio' : 'Propio' },
   { header: 'Estado',         get: t => statusLabel(t.status).label },
@@ -112,7 +112,7 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl,
                       <td>{t.cold_rooms?.name}</td>
                       <td>{productTag(t.product)}</td>
                       <td style={{fontFamily:'monospace', fontSize:'12px'}}>
-                        {pouchBreakdownLabel(t.product, t.target_dose_ppb, t.cold_rooms?.volume_m3)}
+                        {pouchBreakdownDisplay(t)}
                       </td>
                       <td style={{fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
                       <td>

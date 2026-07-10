@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { fetchOrgPricing, fetchCustomerOverride, resolveProductPrice } from '../../lib/orgPricing'
-import { DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
+import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
+import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { downloadPlanTemplate } from '../../lib/excelImport'
 import { exportToExcel } from '../../lib/tableTools'
 
@@ -21,7 +21,7 @@ const SEASON_PLAN_COLUMNS = [
 // Same "indicative cost" math as the Calculator — exact-dose Powder cost, or
 // scaled Tablets cost. Undecided product has no indicative cost yet. Applies
 // this Customer's negotiated price override, if any (DOMAIN_MODEL.md Rule 36).
-function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, override) {
+function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, override, pouchSizes) {
   if (!volumeM3 || !targetDosePpb || product === 'undecided') return null
   if (product === 'tablets') {
     const { ppb } = tabletCombo(targetDosePpb, volumeM3)
@@ -29,7 +29,7 @@ function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, overri
     return volumeM3 * price * (ppb / 1000)
   }
   const grams = volumeM3 * DOSE_BASE * (targetDosePpb / 1000)
-  const combo = greedyCeiling(grams)
+  const combo = greedyCeiling(grams, pouchSizes)
   const actualG = comboGrams(combo)
   const realPpb = actualPpb(actualG, volumeM3)
   const price = resolveProductPrice(pricing, 'MatriPowder', volumeM3, override)
@@ -46,6 +46,7 @@ export default function SeasonPlan({
 }) {
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [override, setOverride] = useState(null)
+  const [pouchSizes, setPouchSizes] = useState(POUCHES)
   const [selected, setSelected] = useState(new Set())
   const [bulkDate,    setBulkDate]    = useState('')
   const [bulkDose,    setBulkDose]    = useState('')
@@ -59,6 +60,8 @@ export default function SeasonPlan({
   useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
   // Negotiated price for this Customer, if any (DOMAIN_MODEL.md Rule 36).
   useEffect(() => { if (orgId) fetchCustomerOverride(orgId).then(setOverride) }, [orgId])
+  // This Distributor's own editable pouch-size catalog (Fase E, 2026-07-12).
+  useEffect(() => { fetchPouchCatalog().then(sizes => { if (sizes.length > 0) setPouchSizes(sizes) }) }, [])
 
   const handleImport = async (file) => {
     if (!file) return
@@ -91,9 +94,9 @@ export default function SeasonPlan({
 
   const enriched = useMemo(() => lines.map(l => {
     const room = coldRooms.find(r => r.id === l.cold_room_id)
-    const cost = computeIndicativeCost(pricing, l.product_preference, l.planned_dose_ppb, room?.volume_m3, override)
+    const cost = computeIndicativeCost(pricing, l.product_preference, l.planned_dose_ppb, room?.volume_m3, override, pouchSizes)
     return { ...l, room, cost }
-  }), [lines, coldRooms, pricing, override])
+  }), [lines, coldRooms, pricing, override, pouchSizes])
 
   const totals = useMemo(() => {
     const uniqueRooms = new Set(enriched.map(l => l.cold_room_id).filter(Boolean))
