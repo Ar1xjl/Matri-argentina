@@ -38,12 +38,11 @@ export default function Landing({ onOpenModal }) {
       </div>
 
       {/* Hero image section */}
-      <div style={{
-        position:'relative', minHeight:'360px',
-        background:'linear-gradient(to right, #f5f2eb 42%, #d0dba8 100%)',
-        display:'flex', alignItems:'center', overflow:'hidden'
+      <div className="hero-image-section" style={{
+        position:'relative',
+        background:'linear-gradient(to right, #f5f2eb 42%, #d0dba8 100%)'
       }}>
-        <div style={{padding:'48px', maxWidth:'480px', zIndex:2, position:'relative'}}>
+        <div className="hero-text" style={{zIndex:2, position:'relative'}}>
           <h2 style={{fontSize:'clamp(22px,3.5vw,36px)', fontWeight:900,
             color:'#0b4358', lineHeight:1.15, marginBottom:'14px'}}>
             Calculá con precisión.<br/>Decidí con confianza.
@@ -66,14 +65,7 @@ export default function Landing({ onOpenModal }) {
         </div>
 
         {/* Product grid */}
-        <div style={{
-          position:'absolute', right:0, top:0, bottom:0, width:'54%',
-          display:'flex', alignItems:'center', justifyContent:'center', padding:'20px 40px 20px 60px'
-        }}>
-          <div style={{
-            position:'absolute', left:0, top:0, bottom:0, width:'120px',
-            background:'linear-gradient(to right, #f5f2eb, transparent)', zIndex:1
-          }}/>
+        <div className="hero-product-grid-wrap" style={{display:'flex', alignItems:'center', justifyContent:'center'}}>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', width:'100%', maxWidth:'380px'}}>
             {PRODUCTS.map((p, i) => (
               <div key={i} style={{
@@ -90,7 +82,7 @@ export default function Landing({ onOpenModal }) {
       </div>
 
       {/* Badge + title */}
-      <div style={{padding:'56px 40px 20px', textAlign:'center'}}>
+      <div className="section-pad" style={{padding:'56px 40px 20px', textAlign:'center'}}>
         <div style={{
           display:'inline-block', border:'1.5px solid #a8c832', color:'#0b4358',
           fontSize:'11px', fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase',
@@ -109,8 +101,8 @@ export default function Landing({ onOpenModal }) {
       </div>
 
       {/* Products */}
-      <div style={{padding:'32px 40px'}}>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'20px', maxWidth:'1000px', margin:'0 auto'}}>
+      <div className="section-pad" style={{padding:'32px 40px'}}>
+        <div className="products-grid">
           {PRODUCTS.map((p, i) => (
             <div key={i} style={{
               background:'white', border:'1.5px solid #dde0d5', borderRadius:'10px',
@@ -132,7 +124,7 @@ export default function Landing({ onOpenModal }) {
       </div>
 
       {/* How it works */}
-      <div style={{background:'#ece8df', padding:'56px 40px', textAlign:'center'}}>
+      <div className="section-pad" style={{background:'#ece8df', padding:'56px 40px', textAlign:'center'}}>
         <div style={{
           display:'inline-block', border:'1.5px solid #a8c832', color:'#0b4358',
           fontSize:'11px', fontWeight:700, letterSpacing:'.12em', textTransform:'uppercase',
@@ -144,11 +136,11 @@ export default function Landing({ onOpenModal }) {
         <p style={{fontSize:'15px', color:'#6b7280', maxWidth:'540px', margin:'0 auto 36px'}}>
           Desde el registro hasta la confirmación de dosis — todo en línea, todo trazable.
         </p>
-        <div style={{display:'flex', maxWidth:'860px', margin:'0 auto'}}>
+        <div className="steps-row">
           {STEPS.map((s, i) => (
             <div key={i} style={{flex:1, textAlign:'center', padding:'24px 20px', position:'relative'}}>
               {i < STEPS.length - 1 && (
-                <div style={{position:'absolute', right:'-10px', top:'34px',
+                <div className="step-arrow" style={{position:'absolute', right:'-10px', top:'34px',
                   fontSize:'22px', color:'#a8c832', fontWeight:900}}>→</div>
               )}
               <div style={{
@@ -164,26 +156,28 @@ export default function Landing({ onOpenModal }) {
       </div>
 
       {/* CTA */}
-      <div style={{background:'#c8d84a', textAlign:'center', padding:'52px 40px'}}>
+      <div className="cta-pad" style={{background:'#c8d84a', textAlign:'center', padding:'52px 40px'}}>
         <h2 style={{fontSize:'clamp(20px,3vw,30px)', fontWeight:900, color:'#0b4358', marginBottom:'12px'}}>
           ¿Listo para empezar?
         </h2>
         <p style={{fontSize:'15px', color:'#0b4358', opacity:.75, marginBottom:'28px'}}>
           Solicitá acceso al portal y comenzá a gestionar tus tratamientos MaTri en minutos.
         </p>
-        <button onClick={() => onOpenModal('register')} style={{
-          background:'#e05a4e', color:'white', border:'none',
-          padding:'14px 36px', borderRadius:'8px', fontSize:'16px',
-          fontWeight:700, marginRight:'12px', cursor:'pointer'
-        }}>Solicitar acceso</button>
-        <button onClick={() => onOpenModal('login')} style={{
-          background:'transparent', color:'#0b4358', border:'2px solid #0b4358',
-          padding:'14px 36px', borderRadius:'8px', fontSize:'16px',
-          fontWeight:700, cursor:'pointer'
-        }}>Ya tengo cuenta</button>
+        <div style={{display:'flex', flexWrap:'wrap', gap:'12px', justifyContent:'center'}}>
+          <button onClick={() => onOpenModal('register')} style={{
+            background:'#e05a4e', color:'white', border:'none',
+            padding:'14px 36px', borderRadius:'8px', fontSize:'16px',
+            fontWeight:700, cursor:'pointer'
+          }}>Solicitar acceso</button>
+          <button onClick={() => onOpenModal('login')} style={{
+            background:'transparent', color:'#0b4358', border:'2px solid #0b4358',
+            padding:'14px 36px', borderRadius:'8px', fontSize:'16px',
+            fontWeight:700, cursor:'pointer'
+          }}>Ya tengo cuenta</button>
+        </div>
       </div>
 
-      <footer style={{background:'#072e3d', color:'#607080', textAlign:'center', padding:'24px 40px', fontSize:'12px'}}>
+      <footer className="section-pad" style={{background:'#072e3d', color:'#607080', textAlign:'center', padding:'24px 40px', fontSize:'12px'}}>
         © 2026 MaTri 1-MCP Solutions &nbsp;·&nbsp; Distribuidor exclusivo en Argentina: Wassington &nbsp;·&nbsp; info@ma-tri.com
       </footer>
     </div>
