@@ -367,6 +367,7 @@ FreshInset Global
 37. A Treatment's MatriPowder sachet breakdown is frozen at approval time, same as its price — it is never recomputed from a pouch-size catalog that may have changed since.
 38. A prospective Customer may submit a self-service access request before having any account; any non-Customer staff member (Distributor, Sub-distributor or Global) may review it and either reject it or assign it into the org tree, at which point Business Rule 13's normal activation approval still applies to the resulting Organization.
 39. Only FreshInset Global or a country Distributor may register a brand-new Generator unit into the system; a Sub-distributor only ever receives units via transfer. Transferring a unit to a Sub-distributor moves ownership directly with no checklist; renting or selling to a Customer both require the same pre-dispatch checklist, but only selling permanently changes ownership — renting never does (extends Rule 29).
+40. An Owner may pre-generate a shareable invite link for their own Organization (or one below it in the tree), fixing the target Organization and Business Roles in advance; whoever redeems it — creating an account or logging into an existing one — is assigned automatically, without the Owner ever needing to know the invitee's name or email beforehand (complements Rule 19's self-service assignment and Rule 17's one-Organization-per-User constraint).
 
 ---
 
