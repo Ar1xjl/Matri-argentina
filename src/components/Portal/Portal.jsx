@@ -30,6 +30,11 @@ const PANEL_TITLES = {
   profile:     'Mi perfil',
 }
 
+// "+ Nuevo tratamiento" only makes sense on screens actually related to
+// creating/tracking Treatments — hidden elsewhere (Usuarios, Generadores,
+// Documentos, Mi perfil, Panel Wassington).
+const SHOW_NEW_TREATMENT_BUTTON = new Set(['dashboard', 'rooms', 'seasonplan', 'calculator', 'treatments', 'applog'])
+
 export default function Portal({ onSignOut }) {
   const [activePanel, setActivePanel] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false) // mobile drawer only — desktop sidebar is always visible
@@ -624,9 +629,11 @@ export default function Portal({ onSignOut }) {
               <div style={{width:'7px', height:'7px', background:'#b5cc2e', borderRadius:'50%'}}/>
               {m}:{s}
             </div>
-            <button className="btn-primary btn-sm" onClick={() => navigate('calculator')}>
-              + Nuevo tratamiento
-            </button>
+            {SHOW_NEW_TREATMENT_BUTTON.has(activePanel) && (
+              <button className="btn-primary btn-sm" onClick={() => navigate('calculator')}>
+                + Nuevo tratamiento
+              </button>
+            )}
           </div>
         </div>
 
