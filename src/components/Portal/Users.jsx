@@ -57,6 +57,8 @@ export default function Users({ profile }) {
   const [removingId, setRemovingId] = useState(null)
   const [removeError, setRemoveError] = useState('')
   const [showRoleInfo, setShowRoleInfo] = useState(false)
+  const [pendingSignups, setPendingSignups] = useState([])
+  const [dismissingId, setDismissingId] = useState(null)
 
   const myOrgId = profile?.org_id
 
@@ -74,14 +76,37 @@ export default function Users({ profile }) {
     Promise.all([
       supabase.from('organizations').select('*'),
       supabase.from('user_roles').select('role').eq('profile_id', profile.id),
-    ]).then(([{ data: orgData, error: orgError }, { data: roleData }]) => {
+      supabase.from('pending_user_signups').select('*').order('created_at'),
+    ]).then(([{ data: orgData, error: orgError }, { data: roleData }, { data: pendingData }]) => {
       if (orgError) { console.error('[Users loadOrgs]', orgError); setLoadError(orgError.message) }
       setOrgs(orgData || [])
       setMyRoles((roleData || []).map(r => r.role))
+      setPendingSignups(pendingData || [])
       setExpanded(new Set([myOrgId]))
       setLoading(false)
     })
   }, [myOrgId, profile.id])
+
+  const loadPendingSignups = () => {
+    supabase.from('pending_user_signups').select('*').order('created_at').then(({ data, error }) => {
+      if (error) { console.error('[Users loadPendingSignups]', error); return }
+      setPendingSignups(data || [])
+    })
+  }
+
+  const claimSignup = (p) => {
+    setEmail(p.email)
+    setFullName(p.full_name || '')
+    setAddError('')
+  }
+
+  const handleDismissSignup = async (id) => {
+    setDismissingId(id)
+    const { error } = await supabase.from('pending_user_signups').delete().eq('id', id)
+    setDismissingId(null)
+    if (error) { console.error('[Users dismissSignup]', error); return }
+    loadPendingSignups()
+  }
 
   useEffect(() => {
     if (!selectedOrgId) return
@@ -155,6 +180,7 @@ export default function Users({ profile }) {
 
     setEmail(''); setFullName(''); setSelectedRoles([])
     await loadMembers(selectedOrgId)
+    loadPendingSignups()
   }
 
   const handleRemoveAccess = async (memberId) => {
@@ -180,6 +206,38 @@ export default function Users({ profile }) {
           ⚠️ {loadError}
         </div>
       )}
+
+      {pendingSignups.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">📥 Solicitudes de usuario pendientes de asignar</span>
+            <span style={{fontSize:'12px', color:'var(--gray)'}}>{pendingSignups.length}</span>
+          </div>
+          <div style={{padding:'12px 20px', display:'flex', flexDirection:'column', gap:'8px'}}>
+            {pendingSignups.map(p => (
+              <div key={p.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', background:'#f5f5ee', borderRadius:'8px', padding:'10px 14px', flexWrap:'wrap'}}>
+                <div>
+                  <div style={{fontWeight:700, color:'#0b4358', fontSize:'13px'}}>{p.full_name || '(sin nombre)'}</div>
+                  <div style={{fontSize:'12px', color:'#6b6b6b'}}>{p.email} · {new Date(p.created_at).toLocaleDateString('es-AR')}</div>
+                </div>
+                {isOwner && (
+                  <div style={{display:'flex', gap:'6px'}}>
+                    <button className="btn-secondary btn-sm" onClick={() => claimSignup(p)}>Asignar</button>
+                    <button
+                      style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f0c7c7', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                      disabled={dismissingId === p.id}
+                      onClick={() => handleDismissSignup(p.id)}
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="alert info" style={{marginBottom:'16px'}}>
         👥 Elegí una organización del árbol para ver y gestionar sus usuarios. Para agregar a alguien, primero tiene que crear su propia cuenta desde "Crear cuenta" en la pantalla de login.
       </div>
