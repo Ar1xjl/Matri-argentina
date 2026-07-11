@@ -59,6 +59,14 @@ export default function Users({ profile }) {
   const [showRoleInfo, setShowRoleInfo] = useState(false)
   const [pendingSignups, setPendingSignups] = useState([])
   const [dismissingId, setDismissingId] = useState(null)
+  const [showInviteForm, setShowInviteForm] = useState(false)
+  const [inviteRoles, setInviteRoles] = useState([])
+  const [inviteError, setInviteError] = useState('')
+  const [inviteSaving, setInviteSaving] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState('')
+  const [copiedLink, setCopiedLink] = useState(false)
+  const [orgInvites, setOrgInvites] = useState([])
+  const [revokingInviteId, setRevokingInviteId] = useState(null)
 
   const myOrgId = profile?.org_id
 
@@ -114,7 +122,57 @@ export default function Users({ profile }) {
       if (error) { console.error('[Users loadMembers]', error); setLoadError(error.message) }
       setMembers(data || [])
     })
+    supabase.from('user_invites').select('*').eq('org_id', selectedOrgId).is('used_at', null).order('created_at').then(({ data, error }) => {
+      if (error) { console.error('[Users loadInvites]', error); return }
+      setOrgInvites(data || [])
+    })
   }, [selectedOrgId])
+
+  const loadOrgInvites = () => {
+    supabase.from('user_invites').select('*').eq('org_id', selectedOrgId).is('used_at', null).order('created_at').then(({ data, error }) => {
+      if (error) { console.error('[Users loadInvites]', error); return }
+      setOrgInvites(data || [])
+    })
+  }
+
+  const inviteLinkFor = (token) => `${window.location.origin}/?invite=${token}`
+
+  const toggleInviteRole = (roleId) => {
+    setInviteRoles(prev => {
+      if (prev.includes(roleId)) return prev.filter(r => r !== roleId)
+      const next = [...prev, roleId]
+      if (roleId !== 'viewer' && !next.includes('viewer')) next.push('viewer')
+      return next
+    })
+  }
+
+  const handleGenerateInvite = async () => {
+    setInviteError('')
+    if (inviteRoles.length === 0) { setInviteError('Elegí al menos un rol.'); return }
+    setInviteSaving(true)
+    const { data, error } = await supabase.from('user_invites')
+      .insert({ org_id: selectedOrgId, roles: inviteRoles, created_by: profile.id })
+      .select().single()
+    setInviteSaving(false)
+    if (error) { setInviteError(error.message); return }
+    setGeneratedLink(inviteLinkFor(data.token))
+    setInviteRoles([])
+    loadOrgInvites()
+  }
+
+  const handleCopyLink = (link) => {
+    navigator.clipboard.writeText(link)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
+  }
+
+  const handleRevokeInvite = async (id) => {
+    setRevokingInviteId(id)
+    const { error } = await supabase.from('user_invites').delete().eq('id', id)
+    setRevokingInviteId(null)
+    if (error) { console.error('[Users revokeInvite]', error); return }
+    loadOrgInvites()
+  }
 
   const isOwner = myRoles.includes('owner')
   const orgById = useMemo(() => new Map(orgs.map(o => [o.id, o])), [orgs])
@@ -133,6 +191,7 @@ export default function Users({ profile }) {
   const selectOrg = (orgId) => {
     setSelectedOrgId(orgId)
     setEmail(''); setFullName(''); setSelectedRoles([]); setAddError(''); setRemoveError('')
+    setShowInviteForm(false); setInviteRoles([]); setInviteError(''); setGeneratedLink('')
   }
 
   // Roles are independent, not a hierarchy — an Owner assigns whatever
@@ -306,6 +365,76 @@ export default function Users({ profile }) {
                 <button className="btn-primary" disabled={adding} onClick={handleAdd}>
                   {adding ? 'Agregando…' : '+ Agregar usuario'}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {isOwner && (
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">🔗 Invitar por link a {selectedOrg?.name}</span>
+                <button className="btn-secondary btn-sm" onClick={() => setShowInviteForm(!showInviteForm)}>
+                  {showInviteForm ? '✕ Cerrar' : 'Generar link'}
+                </button>
+              </div>
+              <div className="card-body">
+                <div style={{fontSize:'12px', color:'var(--gray)', marginBottom:'14px'}}>
+                  Elegí los roles y generá un link — se lo compartís vos por WhatsApp o email. Quien lo abra y cree su cuenta (o inicie sesión) queda asignado automáticamente a {selectedOrg?.name}, sin que tengas que saber su email de antemano.
+                </div>
+
+                {showInviteForm && (
+                  <>
+                    <div style={{display:'flex', gap:'14px', flexWrap:'wrap', marginBottom:'14px'}}>
+                      {ROLES.map(r => (
+                        <label key={r.id} style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'13px', color:'#0b4358'}}>
+                          <input type="checkbox" checked={inviteRoles.includes(r.id)} onChange={() => toggleInviteRole(r.id)}/>
+                          {r.label}
+                        </label>
+                      ))}
+                    </div>
+                    {inviteError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'12px'}}>{inviteError}</div>}
+                    <button className="btn-primary" disabled={inviteSaving} onClick={handleGenerateInvite}>
+                      {inviteSaving ? 'Generando…' : 'Generar link'}
+                    </button>
+
+                    {generatedLink && (
+                      <div style={{marginTop:'14px', display:'flex', gap:'8px', alignItems:'center'}}>
+                        <input readOnly value={generatedLink} style={{flex:1, padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px', color:'#0b4358', background:'#f5f5ee'}}/>
+                        <button className="btn-secondary btn-sm" onClick={() => handleCopyLink(generatedLink)}>
+                          {copiedLink ? '✓ Copiado' : 'Copiar'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {orgInvites.length > 0 && (
+                  <div style={{marginTop: showInviteForm ? '20px' : 0}}>
+                    <div style={{fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'8px', textTransform:'uppercase'}}>
+                      Invitaciones sin usar
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                      {orgInvites.map(inv => (
+                        <div key={inv.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', background:'#f5f5ee', borderRadius:'8px', padding:'10px 14px', flexWrap:'wrap'}}>
+                          <div style={{fontSize:'12px', color:'#0b4358'}}>
+                            {inv.roles.map(r => ROLES.find(x => x.id === r)?.label || r).join(', ')}
+                            <span style={{color:'#888'}}> · {new Date(inv.created_at).toLocaleDateString('es-AR')}</span>
+                          </div>
+                          <div style={{display:'flex', gap:'6px'}}>
+                            <button className="btn-secondary btn-sm" onClick={() => handleCopyLink(inviteLinkFor(inv.token))}>Copiar link</button>
+                            <button
+                              style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f0c7c7', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                              disabled={revokingInviteId === inv.id}
+                              onClick={() => handleRevokeInvite(inv.id)}
+                            >
+                              Revocar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

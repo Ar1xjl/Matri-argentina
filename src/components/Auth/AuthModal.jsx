@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
-export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
+const ROLE_LABELS = { owner: 'Owner', approver: 'Aprobador', planner: 'Planificador', operator: 'Operador', viewer: 'Viewer' }
+
+export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteInfo }) {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
@@ -138,6 +140,13 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose }) {
             </button>
           ))}
         </div>
+
+        {inviteInfo && (tab === 'login' || tab === 'signup') && (
+          <div style={{fontSize:'12.5px', color:'#0b4358', background:'#eef3ea', border:'1px solid #d3e0c8', borderRadius:'8px', padding:'11px 14px', marginBottom:'20px'}}>
+            🔗 Te invitaron a unirte a <strong>{inviteInfo.org_name}</strong> como {inviteInfo.roles.map(r => ROLE_LABELS[r] || r).join(', ')}.
+            {tab === 'login' ? ' Ingresá para asignarte automáticamente.' : ' Creá tu usuario para asignarte automáticamente.'}
+          </div>
+        )}
 
         {/* Login */}
         {tab === 'login' && (
