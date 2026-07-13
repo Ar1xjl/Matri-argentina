@@ -12,6 +12,7 @@ import Users from './Users'
 import Wassington from './Wassington'
 import SeasonPlan from './SeasonPlan'
 import SeasonPlanRollup from './SeasonPlanRollup'
+import NotificationBell from '../Shared/NotificationBell'
 import { supabase } from '../../lib/supabaseClient'
 import { parsePlanFile } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
@@ -617,6 +618,7 @@ export default function Portal({ onSignOut }) {
             </h1>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'14px', flexShrink:0}}>
+            <NotificationBell profileId={profile?.id} onNavigate={navigate} />
             <div className="header-season-badge" style={{
               background:'#f0f7e0', color:'#3b6d11',
               fontSize:'11px', fontWeight:700, padding:'4px 12px',
