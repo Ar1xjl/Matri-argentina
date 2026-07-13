@@ -102,7 +102,13 @@ export default function Organizations({ profile }) {
     }
     setSaving(true)
     setError(null)
+    // id generated client-side (not via .select() after insert): Postgres's RLS
+    // check for RETURNING requires org_select's policy to pass on the brand-new
+    // row within the same statement, which fails a self-lookup inside
+    // is_in_subtree — see DEBUG_HANDOUT_ORG_INSERT.md. Plain insert sidesteps it.
+    const newOrgId = crypto.randomUUID()
     const payload = {
+      id: newOrgId,
       name: form.name.trim(),
       org_type: form.org_type,
       parent_id: form.parent_id,
@@ -110,12 +116,12 @@ export default function Organizations({ profile }) {
       currency: form.org_type === 'distributor' ? (form.currency || null) : null,
       fx_rate_to_usd: form.org_type === 'distributor' && form.fx_rate_to_usd ? Number(form.fx_rate_to_usd) : null,
     }
-    const { data: newOrg, error } = await supabase.from('organizations').insert(payload).select().single()
+    const { error } = await supabase.from('organizations').insert(payload)
     if (error) { setSaving(false); setError(error.message); return }
 
     if (convertingRequest) {
       const { error: reqError } = await supabase.from('organization_access_requests').update({
-        status: 'approved', resulting_org_id: newOrg.id,
+        status: 'approved', resulting_org_id: newOrgId,
         reviewed_by: profile.id, reviewed_at: new Date().toISOString(),
       }).eq('id', convertingRequest.id)
       if (reqError) console.error(reqError)
