@@ -1,17 +1,17 @@
 /* ── MaTri Argentina — Design System ─────────────────────── */
 :root {
-  --navy:       #0b4358;
-  --navy-dark:  #072e3d;
-  --navy-mid:   #0d3f54;
-  --lime:       #b5cc2e;
-  --lime-band:  #c8d84a;
-  --lime-pale:  #f0f7e0;
-  --coral:      #e8736a;
-  --coral-dark: #d4605a;
+  --navy:       #014358;
+  --navy-dark:  #012e3d;
+  --navy-mid:   #013f54;
+  --lime:       #bdd638;
+  --lime-band:  #cee16b;
+  --lime-pale:  #f5f9e1;
+  --coral:      #f0554b;
+  --coral-dark: #db4740;
   --cream:      #f5f5ee;
   --cream-dark: #ece8df;
   --white:      #ffffff;
-  --gray:       #6b6b6b;
+  --gray:       #545454;
   --gray-lt:    #f5f5ee;
   --border:     #ddddd5;
   --teal:       #1a6b30;

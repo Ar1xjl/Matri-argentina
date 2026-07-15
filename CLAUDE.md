@@ -41,9 +41,10 @@ Tres experiencias en un solo código base, según rol: landing pública, portal 
 ## Design system
 
 ```css
---navy: #0b4358        --lime: #b5cc2e        --lime-band: #c8d84a
---coral: #e8736a        --cream: #f5f5ee       --border: #ddddd5
+--navy: #014358        --lime: #bdd638        --lime-band: #cee16b
+--coral: #f0554b        --cream: #f5f5ee       --border: #ddddd5
 ```
+Valores exactos de la ficha de marca oficial (Deep Water / Electric Lime / Cara Cara / Garden Stone) — no aproximados.
 Cards: blancas, `border-radius: 12px`, borde `0.5px solid #ddddd5`, sombra suave. Tablas con el mismo borde. Badges de estado en pills redondeadas.
 
 ## Pendiente para producción (no asumir que ya existe)
