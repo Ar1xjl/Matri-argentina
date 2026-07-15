@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { fetchOrgPricing, fetchAllCustomerOverrides, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import SeasonPlanDraftModal from './SeasonPlanDraftModal'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 
@@ -38,6 +39,10 @@ export default function SeasonPlanRollup() {
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({})
+  const [allRooms, setAllRooms] = useState([])
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false)
+  const [pickedCustomerId, setPickedCustomerId] = useState('')
+  const [draftCustomer, setDraftCustomer] = useState(null) // { id, name } | null
 
   useEffect(() => {
     fetchOrgPricing().then(setPricing)
@@ -46,13 +51,32 @@ export default function SeasonPlanRollup() {
       supabase.from('organizations').select('*'),
       supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
       fetchAllCustomerOverrides(),
-    ]).then(([{ data: orgs }, { data: planLines }, overrides]) => {
+      supabase.from('cold_rooms').select('*'),
+    ]).then(([{ data: orgs }, { data: planLines }, overrides, { data: rooms }]) => {
       setOrgById(new Map((orgs || []).map(o => [o.id, o])))
       setOverrideByCustomerId(new Map(overrides.map(o => [o.customer_org_id, o])))
       setLines(planLines || [])
+      setAllRooms(rooms || [])
       setLoading(false)
     })
   }, [])
+
+  const customers = useMemo(
+    () => [...orgById.values()].filter(o => o.org_type === 'customer').sort((a, b) => a.name.localeCompare(b.name)),
+    [orgById]
+  )
+  const roomsForDraft = useMemo(
+    () => draftCustomer ? allRooms.filter(r => r.org_id === draftCustomer.id) : [],
+    [allRooms, draftCustomer]
+  )
+
+  const openDraftPicker = () => { setPickedCustomerId(''); setShowCustomerPicker(true) }
+  const confirmDraftCustomer = () => {
+    const customer = customers.find(c => c.id === pickedCustomerId)
+    if (!customer) return
+    setDraftCustomer(customer)
+    setShowCustomerPicker(false)
+  }
 
   const enriched = useMemo(() => lines.map(l => {
     const customer = orgById.get(l.season_plans?.org_id)
@@ -88,9 +112,31 @@ export default function SeasonPlanRollup() {
 
   return (
     <div>
-      <div className="alert info" style={{marginBottom:'16px'}}>
-        📋 Todo lo que tus clientes (y los de tus sub-distribuidores) planificaron para la temporada — pensado para ver dónde está el potencial de negocio. Es de solo lectura: cada cliente edita su propio plan.
+      {draftCustomer && (
+        <SeasonPlanDraftModal customerOrg={draftCustomer} rooms={roomsForDraft} onClose={() => setDraftCustomer(null)} />
+      )}
+
+      <div className="alert info" style={{marginBottom:'16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap'}}>
+        <span>📋 Todo lo que tus clientes (y los de tus sub-distribuidores) planificaron para la temporada — pensado para ver dónde está el potencial de negocio. Cada cliente edita su propio plan; vos podés armarle un borrador si todavía no cargó nada.</span>
+        <button className="btn-secondary btn-sm" style={{whiteSpace:'nowrap'}} onClick={openDraftPicker}>+ Crear borrador para un cliente</button>
       </div>
+
+      {showCustomerPicker && (
+        <div onClick={(e) => e.target === e.currentTarget && setShowCustomerPicker(false)} style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'}}>
+          <div style={{background:'#fff', borderRadius:'14px', padding:'24px', width:'100%', maxWidth:'380px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'15px', fontWeight:800, color:'#0b4358', marginBottom:'14px'}}>¿Para qué cliente?</div>
+            <select value={pickedCustomerId} onChange={e => setPickedCustomerId(e.target.value)}
+              style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', marginBottom:'16px'}}>
+              <option value="">Elegir cliente…</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <div style={{display:'flex', gap:'8px'}}>
+              <button className="btn-primary" disabled={!pickedCustomerId} onClick={confirmDraftCustomer} style={{flex:1}}>Crear borrador</button>
+              <button className="btn-secondary" onClick={() => setShowCustomerPicker(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
         {[
