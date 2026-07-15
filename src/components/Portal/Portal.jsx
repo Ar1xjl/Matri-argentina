@@ -54,7 +54,7 @@ export default function Portal({ onSignOut }) {
   const loadTreatments = useCallback(async () => {
     const { data, error } = await supabase
       .from('treatments')
-      .select('*, cold_rooms(name, volume_m3), organizations(name), matrisure_verifications(photo_url, result, reviewed_at, assistance_requested)')
+      .select('*, cold_rooms(name, volume_m3), organizations(name), matrisure_verifications(photo_url, result, reviewed_at, assistance_requested), firmness_evaluations(*)')
       .order('created_at', { ascending: false })
     if (error) { console.error(error); return }
     setTreatments(data)
@@ -533,6 +533,50 @@ export default function Portal({ onSignOut }) {
     return data.signedUrl
   }
 
+  // Firmness Evaluation — Wassington-side quality control, separate from
+  // MatriSure. Creates or updates the one evaluation per Treatment, and
+  // optionally uploads a signed PDF alongside it.
+  const submitFirmnessEvaluation = async (treatmentId, fields, pdfFile) => {
+    let pdf_url = fields.pdf_url || null
+    if (pdfFile) {
+      const path = `${profile.org_id}/${treatmentId}/${Date.now()}_${pdfFile.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('firmness-evaluations')
+        .upload(path, pdfFile, { contentType: 'application/pdf' })
+      if (uploadError) { console.error('[submitFirmnessEvaluation upload]', uploadError); return { error: uploadError.message } }
+      pdf_url = path
+    }
+
+    const payload = {
+      treatment_id: treatmentId,
+      declaration_number: fields.declaration_number || null,
+      variety: fields.variety || null,
+      lot_number: fields.lot_number || null,
+      cold_type: fields.cold_type || null,
+      harvest_date: fields.harvest_date || null,
+      room_fill_start: fields.room_fill_start || null,
+      room_fill_end: fields.room_fill_end || null,
+      room_exit_date: fields.room_exit_date || null,
+      evaluator_name: fields.evaluator_name || null,
+      samples: fields.samples || [],
+      pdf_url,
+      created_by: profile.id,
+      updated_at: new Date().toISOString(),
+    }
+    const { error } = await supabase.from('firmness_evaluations').upsert(payload, { onConflict: 'treatment_id' })
+    if (error) { console.error('[submitFirmnessEvaluation]', error); return { error: error.message } }
+    await loadTreatments()
+    return { error: null }
+  }
+
+  const getFirmnessEvaluationPdfUrl = async (path) => {
+    const { data, error } = await supabase.storage
+      .from('firmness-evaluations')
+      .createSignedUrl(path, 60 * 5)
+    if (error) { console.error(error); return null }
+    return data.signedUrl
+  }
+
   if (loading) {
     return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando...</div>
   }
@@ -566,7 +610,7 @@ export default function Portal({ onSignOut }) {
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
     rooms:      <Rooms coldRooms={allRooms} treatments={treatments} onAddRoom={addColdRoom} onDeleteRoom={deleteColdRoom} profile={profile} />,
-    treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} />,
+    treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={canSeeWassingtonPanel ? allRooms : coldRooms} orgId={profile?.org_id}
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
     seasonplan: canSeeWassingtonPanel
@@ -579,7 +623,7 @@ export default function Portal({ onSignOut }) {
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,
   }

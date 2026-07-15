@@ -2,12 +2,18 @@ import { useState } from 'react'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
+import FirmnessEvaluationModal from './FirmnessEvaluationModal'
 
 // Supabase may embed a to-one relation as an object or a single-item array
 // depending on FK inference — normalize to a plain object or null.
 function matriSureOf(t) {
   const m = t.matrisure_verifications
   return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
+}
+
+function firmnessOf(t) {
+  const f = t.firmness_evaluations
+  return Array.isArray(f) ? (f[0] ?? null) : (f ?? null)
 }
 
 const productTag = (product) => (
@@ -38,8 +44,9 @@ const COLUMNS = [
   { header: 'Estado',         get: t => statusLabel(t.status).label },
 ]
 
-export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl, onRepeat }) {
+export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl, onRepeat, onGetFirmnessPdfUrl }) {
   const [viewingPhoto, setViewingPhoto] = useState(null) // storage path, or null
+  const [viewingFirmness, setViewingFirmness] = useState(null) // treatment row, or null
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({})
 
@@ -50,6 +57,16 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl,
     <div>
       {viewingPhoto && (
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+
+      {viewingFirmness && (
+        <FirmnessEvaluationModal
+          treatment={viewingFirmness}
+          evaluation={firmnessOf(viewingFirmness)}
+          canEdit={false}
+          onGetPdfUrl={onGetFirmnessPdfUrl}
+          onClose={() => setViewingFirmness(null)}
+        />
       )}
       <div style={{display:'flex', gap:'10px', marginBottom:'16px'}}>
         <button className="btn-primary" onClick={() => onNavigate('calculator')}>
@@ -135,6 +152,11 @@ export default function Treatments({ onNavigate, treatments = [], onGetPhotoUrl,
                           {matriSure?.photo_url && (
                             <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>
                               📷 Ver foto
+                            </button>
+                          )}
+                          {firmnessOf(t) && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingFirmness(t)}>
+                              📊 Evaluación
                             </button>
                           )}
                           <button className="btn-secondary btn-sm" onClick={() => onRepeat(t)}>↺ Repetir</button>

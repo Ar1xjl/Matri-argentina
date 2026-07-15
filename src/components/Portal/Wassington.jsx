@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
+import FirmnessEvaluationModal from './FirmnessEvaluationModal'
 import Organizations from './Organizations'
 import Inventory from './Inventory'
 import PouchCatalogPanel from './PouchCatalogPanel'
@@ -11,6 +12,11 @@ import { exportToExcel, filterRows } from '../../lib/tableTools'
 function matriSureOf(t) {
   const m = t.matrisure_verifications
   return Array.isArray(m) ? (m[0] ?? null) : (m ?? null)
+}
+
+function firmnessOf(t) {
+  const f = t.firmness_evaluations
+  return Array.isArray(f) ? (f[0] ?? null) : (f ?? null)
 }
 
 const PENDING_COLUMNS = [
@@ -33,12 +39,13 @@ const PROCESSED_COLUMNS = [
   { header: 'Motivo',         get: t => t.rejection_reason || '' },
 ]
 
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, onSaveFirmnessEvaluation, onGetFirmnessPdfUrl }) {
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
   const [reason,    setReason]    = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
+  const [firmnessTreatment, setFirmnessTreatment] = useState(null) // treatment row currently being evaluated, or null
   const [resolving, setResolving] = useState(null) // treatment id currently being resolved
   const [resolveError, setResolveError] = useState('')
   const [showPendingFilters, setShowPendingFilters] = useState(false)
@@ -95,6 +102,18 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
     <div>
       {viewingPhoto && (
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+
+      {firmnessTreatment && (
+        <FirmnessEvaluationModal
+          treatment={firmnessTreatment}
+          evaluation={firmnessOf(firmnessTreatment)}
+          canEdit={true}
+          evaluatorName={profile?.full_name}
+          onSave={onSaveFirmnessEvaluation}
+          onGetPdfUrl={onGetFirmnessPdfUrl}
+          onClose={() => setFirmnessTreatment(null)}
+        />
       )}
 
       {/* Tab selector */}
@@ -302,9 +321,16 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                       <td style={{padding:'12px 16px'}}><span className={`status ${t.status}`}>{statusText}</span></td>
                       <td style={{padding:'12px 16px', color:'#888', fontSize:'12px'}}>{t.rejection_reason || '—'}</td>
                       <td style={{padding:'12px 16px'}}>
-                        {matriSure?.photo_url && (
-                          <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>📷 Ver foto</button>
-                        )}
+                        <div style={{display:'flex', gap:'6px'}}>
+                          {matriSure?.photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>📷 Ver foto</button>
+                          )}
+                          {(t.status === 'applied' || t.status === 'completed') && (
+                            <button className="btn-secondary btn-sm" onClick={() => setFirmnessTreatment(t)}>
+                              {firmnessOf(t) ? '📊 Evaluación' : '📊 + Evaluación'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     )
