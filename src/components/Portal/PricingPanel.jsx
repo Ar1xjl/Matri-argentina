@@ -16,7 +16,7 @@ function buildValues(brackets, product, serviceFee, generator) {
 const inputStyle = { width:'90px', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px', textAlign:'right', fontFamily:'monospace' }
 const thStyle = { padding:'10px 14px', textAlign:'right', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', background:'#f5f5ee', borderBottom:'0.5px solid #ddddd5' }
 
-export default function PricingPanel({ profile }) {
+export default function PricingPanel({ profile, readOnly = false }) {
   const [brackets, setBrackets] = useState([])
   const [product, setProduct] = useState([])
   const [serviceFee, setServiceFee] = useState([])
@@ -141,18 +141,20 @@ export default function PricingPanel({ profile }) {
         <div style={{background:'#fff', borderRadius:'10px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px'}}>
           <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'0.5px solid #ddddd5'}}>
             <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358'}}>Precios por bracket de volumen</div>
-            <div style={{display:'flex', gap:'8px'}}>
-              {editing ? (
-                <>
-                  <button onClick={handleSave} disabled={saving} style={{background:'#1a6b30', color:'#fff', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}>
-                    {saving ? 'Guardando…' : 'Guardar'}
-                  </button>
-                  <button onClick={handleCancel} className="btn-secondary btn-sm">Cancelar</button>
-                </>
-              ) : (
-                <button onClick={() => setEditing(true)} className="btn-secondary btn-sm">Editar precios</button>
-              )}
-            </div>
+            {!readOnly && (
+              <div style={{display:'flex', gap:'8px'}}>
+                {editing ? (
+                  <>
+                    <button onClick={handleSave} disabled={saving} style={{background:'#1a6b30', color:'#fff', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}>
+                      {saving ? 'Guardando…' : 'Guardar'}
+                    </button>
+                    <button onClick={handleCancel} className="btn-secondary btn-sm">Cancelar</button>
+                  </>
+                ) : (
+                  <button onClick={() => setEditing(true)} className="btn-secondary btn-sm">Editar precios</button>
+                )}
+              </div>
+            )}
           </div>
           <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
             <thead>
@@ -186,7 +188,7 @@ export default function PricingPanel({ profile }) {
                     </td>
                   ))}
                   <td style={{padding:'8px 14px', textAlign:'right'}}>
-                    {!editing && (
+                    {!editing && !readOnly && (
                       <button onClick={() => handleRemoveBracket(b.id)} style={{background:'none', border:'none', color:'#8b2020', cursor:'pointer', fontSize:'13px'}} title="Eliminar bracket">✕</button>
                     )}
                   </td>
@@ -197,24 +199,30 @@ export default function PricingPanel({ profile }) {
         </div>
       )}
 
-      <div style={{background:'#fff', borderRadius:'10px', border:'0.5px solid #ddddd5', padding:'16px'}}>
-        <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'10px'}}>+ Agregar bracket de volumen</div>
-        <div style={{display:'flex', gap:'10px', alignItems:'flex-end', flexWrap:'wrap'}}>
-          <div>
-            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Código</label>
-            <input style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'90px'}} value={newBracket.code} onChange={e => setNewBracket(prev => ({ ...prev, code: e.target.value }))} placeholder="Ej: xl"/>
-          </div>
-          <div>
-            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Desde (m³)</label>
-            <input type="number" style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'110px'}} value={newBracket.min_m3} onChange={e => setNewBracket(prev => ({ ...prev, min_m3: e.target.value }))} placeholder="Ej: 1800"/>
-          </div>
-          <div>
-            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Hasta (m³, vacío = sin límite)</label>
-            <input type="number" style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'110px'}} value={newBracket.max_m3} onChange={e => setNewBracket(prev => ({ ...prev, max_m3: e.target.value }))} placeholder="Vacío = +"/>
-          </div>
-          <button className="btn-primary" onClick={handleAddBracket}>+ Agregar</button>
+      {readOnly ? (
+        <div style={{fontSize:'11px', color:'#0c447c', fontWeight:600, padding:'12px 16px', background:'#e8f4fc', borderRadius:'8px'}}>
+          👁️ Vista de solo lectura — cada Distribuidor/Sub-distribuidor administra su propia lista de precios.
         </div>
-      </div>
+      ) : (
+        <div style={{background:'#fff', borderRadius:'10px', border:'0.5px solid #ddddd5', padding:'16px'}}>
+          <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'10px'}}>+ Agregar bracket de volumen</div>
+          <div style={{display:'flex', gap:'10px', alignItems:'flex-end', flexWrap:'wrap'}}>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Código</label>
+              <input style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'90px'}} value={newBracket.code} onChange={e => setNewBracket(prev => ({ ...prev, code: e.target.value }))} placeholder="Ej: xl"/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Desde (m³)</label>
+              <input type="number" style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'110px'}} value={newBracket.min_m3} onChange={e => setNewBracket(prev => ({ ...prev, min_m3: e.target.value }))} placeholder="Ej: 1800"/>
+            </div>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Hasta (m³, vacío = sin límite)</label>
+              <input type="number" style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'110px'}} value={newBracket.max_m3} onChange={e => setNewBracket(prev => ({ ...prev, max_m3: e.target.value }))} placeholder="Vacío = +"/>
+            </div>
+            <button className="btn-primary" onClick={handleAddBracket}>+ Agregar</button>
+          </div>
+        </div>
+      )}
 
       <div style={{background:'#f0f7e0', border:'0.5px solid #b5cc2e', borderRadius:'10px', padding:'14px 16px', fontSize:'12px', color:'#3b6d11', marginTop:'16px'}}>
         <strong>Nota:</strong> esto es el precio de lista estándar. El precio final de un Tratamiento siempre lo confirma el Aprobador al aprobarlo, y un Cliente puede tener un precio particular pactado (ver "Organizaciones" → 💲 Precio).

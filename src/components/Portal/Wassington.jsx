@@ -39,7 +39,21 @@ const PROCESSED_COLUMNS = [
   { header: 'Motivo',         get: t => t.rejection_reason || '' },
 ]
 
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, onSaveFirmnessEvaluation, onGetFirmnessPdfUrl }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, myRoles = [], onSaveFirmnessEvaluation, onGetFirmnessPdfUrl }) {
+  // Fase G: CRM/Inventario/Catálogo/Precios and the commercial decisions
+  // (approve/reject, MatriSure assistance review) are Owner/Aprobador
+  // territory — Planificador/Operador/Viewer only ever see Tratamientos.
+  // Read/write nuance per org_type on top of that (DOMAIN_MODEL.md, matrix
+  // agreed 2026-07-15): Global is read-only on Inventario/Precios but full
+  // on Catálogo (network-wide SKU governance); Sub-distribuidor is the
+  // mirror image — full on its own Inventario/Precios, read-only Catálogo.
+  const orgType = profile?.organizations?.org_type
+  const canManage = myRoles.includes('owner') || myRoles.includes('approver')
+  const isOperatorOnly = !canManage && myRoles.includes('operator')
+  const inventoryReadOnly = orgType === 'global'
+  const catalogReadOnly = orgType === 'subdistributor'
+  const pricingReadOnly = orgType === 'global'
+
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
@@ -55,8 +69,11 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
   const pending   = treatments.filter(t => t.status === 'submitted')
   const processed = treatments.filter(t => ['approved','applied','completed','rejected'].includes(t.status))
+  // An Operador-only viewer is here for Firmness Evaluation, not pricing —
+  // strip the price column from what they see/export.
+  const processedColumns = isOperatorOnly ? PROCESSED_COLUMNS.filter(c => c.header !== 'Precio final') : PROCESSED_COLUMNS
   const filteredPending   = filterRows(pending, PENDING_COLUMNS, pendingFilters)
-  const filteredProcessed = filterRows(processed, PROCESSED_COLUMNS, processedFilters)
+  const filteredProcessed = filterRows(processed, processedColumns, processedFilters)
   // Customer picked "no estoy seguro" during their own MatriSure capture —
   // the photo is already uploaded, this is Wassington confirming the result.
   const needsAssistance = treatments.filter(t => {
@@ -86,16 +103,22 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const STATS = [
     { icon:'⏳', label:'Tratamientos pendientes', value:String(pending.length), unit:'requieren aprobación', bg:'#fff3cd' },
     { icon:'✅', label:'Tratamientos aprobados',  value:String(treatments.filter(t => t.status==='approved'||t.status==='applied'||t.status==='completed').length), unit:'esta temporada', bg:'#eaf7ee' },
-    { icon:'👥', label:'Clientes activos',   value:'5',   unit:'en el portal',    bg:'#e8f4fc' },
-    { icon:'💰', label:'Facturación USD',    value:`$${totalUSD.toFixed(2)}`, unit:'esta temporada', bg:'#f0f7e0' },
+    // Revenue/CRM-flavored stats — not relevant to an Operador here only for
+    // Firmness Evaluation.
+    ...(isOperatorOnly ? [] : [
+      { icon:'👥', label:'Clientes activos',   value:'5',   unit:'en el portal',    bg:'#e8f4fc' },
+      { icon:'💰', label:'Facturación USD',    value:`$${totalUSD.toFixed(2)}`, unit:'esta temporada', bg:'#f0f7e0' },
+    ]),
   ]
 
   const TABS = [
     { id:'treatments', label:'📦 Tratamientos y aprobación' },
-    { id:'crm',        label:'👥 CRM — Clientes' },
-    { id:'inventory',  label:'📦 Inventario' },
-    { id:'catalog',    label:'🏷️ Catálogo de SKU' },
-    { id:'pricing',    label:'💲 Gestión de precios' },
+    ...(canManage ? [
+      { id:'crm',       label:'👥 CRM — Clientes' },
+      { id:'inventory', label:'📦 Inventario' },
+      { id:'catalog',   label:'🏷️ Catálogo de SKU' },
+      { id:'pricing',   label:'💲 Gestión de precios' },
+    ] : []),
   ]
 
   return (
@@ -134,7 +157,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       </div>
 
       {/* Pricing tab */}
-      {tab === 'pricing' && <PricingPanel profile={profile} />}
+      {tab === 'pricing' && <PricingPanel profile={profile} readOnly={pricingReadOnly} />}
 
       {/* Treatments tab */}
       {tab === 'treatments' && (
@@ -153,7 +176,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
           </div>
 
           {/* MatriSure assistance requests — Customer wasn't sure and asked for help */}
-          {needsAssistance.length > 0 && (
+          {canManage && needsAssistance.length > 0 && (
             <div style={{background:'#fff', borderRadius:'12px', border:'1px solid #f5c97a', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
               <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#fff8ea'}}>
                 <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>🙋 MatriSure — el cliente pidió ayuda para confirmar</span>
@@ -198,7 +221,8 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
             </div>
           )}
 
-          {/* Pending treatments */}
+          {/* Pending treatments — Owner/Aprobador only, it's an approval queue */}
+          {canManage && (
           <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', marginBottom:'16px', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
             <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
               <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Tratamientos pendientes de aprobación</span>
@@ -266,6 +290,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
               </table></div>
             )}
           </div>
+          )}
 
           {/* Recently processed */}
           {processed.length > 0 && (
@@ -275,7 +300,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                 <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                   <span style={{fontSize:'11px', color:'#6b6b6b'}}>{filteredProcessed.length} de {processed.length}</span>
                   <button className="btn-secondary btn-sm" onClick={() => setShowProcessedFilters(!showProcessedFilters)}>{showProcessedFilters ? '✕ Filtros' : 'Filtrar'}</button>
-                  <button className="btn-secondary btn-sm" onClick={() => exportToExcel('tratamientos_procesados.xlsx', PROCESSED_COLUMNS, filteredProcessed)}>⬇ Exportar</button>
+                  <button className="btn-secondary btn-sm" onClick={() => exportToExcel('tratamientos_procesados.xlsx', processedColumns, filteredProcessed)}>⬇ Exportar</button>
                 </div>
               </div>
               {filteredProcessed.length === 0 ? (
@@ -286,13 +311,13 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
               <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
-                    {['N° tratamiento','Cliente','Cámara','Precio final','Estado','Motivo',''].map(h => (
+                    {(isOperatorOnly ? ['N° tratamiento','Cliente','Cámara','Estado','Motivo',''] : ['N° tratamiento','Cliente','Cámara','Precio final','Estado','Motivo','']).map(h => (
                       <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                     ))}
                   </tr>
                   {showProcessedFilters && (
                     <tr>
-                      {PROCESSED_COLUMNS.map(c => (
+                      {processedColumns.map(c => (
                         <th key={c.header} style={{padding:'4px 8px'}}>
                           <input
                             value={processedFilters[c.header] || ''}
@@ -317,15 +342,17 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                       <td style={{padding:'12px 16px', fontWeight:700}}># {t.id.slice(0,8)}</td>
                       <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
                       <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
-                      <td style={{padding:'12px 16px', fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
+                      {!isOperatorOnly && (
+                        <td style={{padding:'12px 16px', fontWeight:700}}>{t.price_local != null ? `${t.price_currency || 'USD'} ${t.price_local}` : '—'}</td>
+                      )}
                       <td style={{padding:'12px 16px'}}><span className={`status ${t.status}`}>{statusText}</span></td>
                       <td style={{padding:'12px 16px', color:'#888', fontSize:'12px'}}>{t.rejection_reason || '—'}</td>
                       <td style={{padding:'12px 16px'}}>
                         <div style={{display:'flex', gap:'6px'}}>
-                          {matriSure?.photo_url && (
+                          {canManage && matriSure?.photo_url && (
                             <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>📷 Ver foto</button>
                           )}
-                          {(t.status === 'applied' || t.status === 'completed') && (
+                          {(canManage || myRoles.includes('operator')) && (t.status === 'applied' || t.status === 'completed') && (
                             <button className="btn-secondary btn-sm" onClick={() => setFirmnessTreatment(t)}>
                               {firmnessOf(t) ? '📊 Evaluación' : '📊 + Evaluación'}
                             </button>
@@ -347,13 +374,13 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       {tab === 'crm' && <Organizations profile={profile} />}
 
       {/* Inventory tab */}
-      {tab === 'inventory' && <Inventory profile={profile} />}
+      {tab === 'inventory' && <Inventory profile={profile} readOnly={inventoryReadOnly} />}
 
       {/* SKU Catalog tab */}
       {tab === 'catalog' && (
         <div>
-          <PouchCatalogPanel profile={profile} />
-          <TabletCatalogPanel profile={profile} />
+          <PouchCatalogPanel profile={profile} readOnly={catalogReadOnly} />
+          <TabletCatalogPanel profile={profile} readOnly={catalogReadOnly} />
         </div>
       )}
 

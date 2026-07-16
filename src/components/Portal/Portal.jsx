@@ -96,7 +96,7 @@ export default function Portal({ onSignOut }) {
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*, organizations(*)')
+        .select('*, organizations(*), user_roles(role)')
         .eq('id', user.id)
         .single()
       if (profileError) {
@@ -606,6 +606,7 @@ export default function Portal({ onSignOut }) {
   // Distributor/Sub-distributor/Global login should review MatriSure results
   // (see "wassington" panel), not record the application itself.
   const canApplyTreatments = profile?.organizations?.org_type === 'customer'
+  const myRoles = (profile?.user_roles || []).map(r => r.role)
 
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
@@ -623,7 +624,7 @@ export default function Portal({ onSignOut }) {
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,
   }

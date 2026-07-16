@@ -14,7 +14,7 @@ function tabletVariantLabel(variant) {
   return m ? `Sobre × ${m[1]} tabletas (${m[2]})` : variant
 }
 
-export default function Inventory({ profile }) {
+export default function Inventory({ profile, readOnly = false }) {
   const [items, setItems] = useState([])
   const [powderVariants, setPowderVariants] = useState([]) // ['100g','50g',...] from pouch_catalog
   const [tabletVariants, setTabletVariants] = useState([]) // ['sobre_10_grande',...,'suelta_grande','suelta_chica']
@@ -74,6 +74,11 @@ export default function Inventory({ profile }) {
         <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
           MatriTablets: los "Sobre × N" son paquetes cerrados, sin abrir — no se descuentan solos. Cuando abrís uno físicamente, restale 1 al sobre y sumale su cantidad a "Sueltas" a mano; los Tratamientos descuentan de ahí, y lo que sobra de un sobre abierto queda disponible para el siguiente.
         </div>
+        {readOnly && (
+          <div style={{fontSize:'11px', color:'#0c447c', marginTop:'6px', fontWeight:600}}>
+            👁️ Vista de solo lectura — el ajuste de stock lo hace cada Distribuidor/Sub-distribuidor sobre su propio inventario.
+          </div>
+        )}
       </div>
 
       {error && <div style={{padding:'10px 20px', color:'#8b2020', fontSize:'12px', background:'#fdeaea'}}>⚠️ {error}</div>}
@@ -89,7 +94,7 @@ export default function Inventory({ profile }) {
         <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
           <thead>
             <tr>
-              {['SKU','Variante','Stock actual','Ajustar (+/-)',''].map(h => (
+              {(readOnly ? ['SKU','Variante','Stock actual'] : ['SKU','Variante','Stock actual','Ajustar (+/-)','']).map(h => (
                 <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
               ))}
             </tr>
@@ -107,20 +112,24 @@ export default function Inventory({ profile }) {
                   )}
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{sku === 'MatriPowder' ? variant : tabletVariantLabel(variant)}</td>
                   <td style={{padding:'12px 16px', fontWeight:700, color: qty < 0 ? '#8b2020' : '#0b4358'}}>{qty}</td>
-                  <td style={{padding:'12px 16px'}}>
-                    <input
-                      type="number"
-                      placeholder="ej: 50 o -10"
-                      value={deltas[key] || ''}
-                      onChange={e => setDeltas(prev => ({ ...prev, [key]: e.target.value }))}
-                      style={{width:'110px', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}
-                    />
-                  </td>
-                  <td style={{padding:'12px 16px'}}>
-                    <button className="btn-secondary btn-sm" disabled={saving === key || !deltas[key]} onClick={() => adjust(sku, variant)}>
-                      Aplicar
-                    </button>
-                  </td>
+                  {!readOnly && (
+                    <>
+                      <td style={{padding:'12px 16px'}}>
+                        <input
+                          type="number"
+                          placeholder="ej: 50 o -10"
+                          value={deltas[key] || ''}
+                          onChange={e => setDeltas(prev => ({ ...prev, [key]: e.target.value }))}
+                          style={{width:'110px', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}
+                        />
+                      </td>
+                      <td style={{padding:'12px 16px'}}>
+                        <button className="btn-secondary btn-sm" disabled={saving === key || !deltas[key]} onClick={() => adjust(sku, variant)}>
+                          Aplicar
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               )
             }))}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
-export default function PouchCatalogPanel({ profile }) {
+export default function PouchCatalogPanel({ profile, readOnly = false }) {
   const [sizes, setSizes] = useState([])
   const [loading, setLoading] = useState(true)
   const [newSize, setNewSize] = useState('')
@@ -67,31 +67,39 @@ export default function PouchCatalogPanel({ profile }) {
           ) : sizes.map(s => (
             <div key={s.id} style={{display:'flex', alignItems:'center', gap:'8px', background:'#f5f5ee', borderRadius:'8px', padding:'8px 12px'}}>
               <span style={{fontSize:'14px', fontWeight:700, color:'#0b4358'}}>{s.size_g} g</span>
-              <button
-                onClick={() => handleRemove(s.id)}
-                style={{background:'none', border:'none', color:'#8b2020', cursor:'pointer', fontSize:'13px', padding:0}}
-                title="Eliminar tamaño"
-              >
-                ✕
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => handleRemove(s.id)}
+                  style={{background:'none', border:'none', color:'#8b2020', cursor:'pointer', fontSize:'13px', padding:0}}
+                  title="Eliminar tamaño"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        <div style={{display:'flex', gap:'8px', alignItems:'flex-end'}}>
-          <div>
-            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Nuevo tamaño (gramos)</label>
-            <input
-              type="number" step="1"
-              style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'140px'}}
-              value={newSize} onChange={e => setNewSize(e.target.value)} placeholder="Ej: 25"
-              onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            />
+        {readOnly ? (
+          <div style={{fontSize:'11px', color:'#0c447c', fontWeight:600}}>
+            👁️ Vista de solo lectura — el catálogo lo define el Distribuidor.
           </div>
-          <button className="btn-primary" disabled={saving} onClick={handleAdd}>
-            {saving ? 'Agregando…' : '+ Agregar tamaño'}
-          </button>
-        </div>
+        ) : (
+          <div style={{display:'flex', gap:'8px', alignItems:'flex-end'}}>
+            <div>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Nuevo tamaño (gramos)</label>
+              <input
+                type="number" step="1"
+                style={{padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', width:'140px'}}
+                value={newSize} onChange={e => setNewSize(e.target.value)} placeholder="Ej: 25"
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              />
+            </div>
+            <button className="btn-primary" disabled={saving} onClick={handleAdd}>
+              {saving ? 'Agregando…' : '+ Agregar tamaño'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
