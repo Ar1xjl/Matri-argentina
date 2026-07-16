@@ -2,16 +2,59 @@
 // costs are computed the same way in both places.
 import { supabase } from './supabaseClient'
 
-// RLS returns whatever ancestor Distributor's pricing tables are visible —
-// see SYSTEM_ARCHITECTURE.md's pricing-visibility note. No org filter needed.
-export async function fetchOrgPricing() {
-  const [{ data: brackets }, { data: product }, { data: serviceFee }, { data: generator }] = await Promise.all([
+// volume_brackets/pricing_* SELECT RLS is bidirectional (migration 0003) — a
+// Customer sees pricing from every ancestor at once, and a Distributor sees
+// pricing from every descendant Sub-distributor that's configured its own.
+// Fetching with no org filter and taking whatever `.find()` returns first
+// used to be undefined behavior whenever more than one org in the chain had
+// pricing configured (Fase H, 2026-07-16). `resolve_pricing_owner()` picks
+// ONE owner org — the nearest one at-or-above `targetOrgId` that actually
+// has brackets configured — and everything below filters down to just that
+// owner, so callers still get a single, self-consistent pricing set exactly
+// like before this fix, just no longer ambiguous when several exist.
+export async function fetchOrgPricing(targetOrgId = null) {
+  const [{ data: brackets }, { data: product }, { data: serviceFee }, { data: generator }, ownerResult] = await Promise.all([
     supabase.from('volume_brackets').select('*'),
     supabase.from('pricing_product').select('*'),
     supabase.from('pricing_service_fee').select('*'),
     supabase.from('pricing_generator').select('*'),
+    targetOrgId ? supabase.rpc('resolve_pricing_owner', { p_target_org: targetOrgId }) : Promise.resolve({ data: null }),
   ])
-  return { brackets: brackets || [], product: product || [], serviceFee: serviceFee || [], generator: generator || [] }
+  const owner = ownerResult.data
+  const toOwner = (rows) => owner ? (rows || []).filter(r => r.org_id === owner) : (rows || [])
+  return {
+    brackets: toOwner(brackets),
+    product: toOwner(product),
+    serviceFee: toOwner(serviceFee),
+    generator: toOwner(generator),
+  }
+}
+
+// Resolves the pricing-owner org for several target orgs at once (e.g. the
+// Season Plan rollup, which prices many different Customers in one screen)
+// — one RPC round-trip per distinct org, in parallel, returned as a Map for
+// synchronous lookup afterward.
+export async function fetchPricingOwnersForOrgs(orgIds) {
+  const uniqueIds = [...new Set(orgIds.filter(Boolean))]
+  const results = await Promise.all(
+    uniqueIds.map(id => supabase.rpc('resolve_pricing_owner', { p_target_org: id }))
+  )
+  return new Map(uniqueIds.map((id, i) => [id, results[i].data]))
+}
+
+// Given the raw (unfiltered, multi-org) pricing arrays and a single resolved
+// owner org id, narrows down to just that owner's rows — used by screens
+// pricing several different Customers at once (each against its own owner),
+// where fetchOrgPricing() itself is called with no targetOrgId to get the
+// full raw dataset up front.
+export function pricingForOwner(allPricing, ownerOrgId) {
+  const toOwner = (rows) => ownerOrgId ? rows.filter(r => r.org_id === ownerOrgId) : rows
+  return {
+    brackets: toOwner(allPricing.brackets),
+    product: toOwner(allPricing.product),
+    serviceFee: toOwner(allPricing.serviceFee),
+    generator: toOwner(allPricing.generator),
+  }
 }
 
 export function resolveBracket(brackets, vol) {

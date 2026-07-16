@@ -28,11 +28,16 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   const [serviceModel, setServiceModel] = useState('self') // 'service' | 'self'
   const [treatmentSent, setTreatmentSent] = useState(false)
 
-  // Load this Organization's pricing (RLS returns whatever ancestor Distributor's
-  // tables are visible — see SYSTEM_ARCHITECTURE.md's pricing-visibility note).
+  // Pricing applies to whoever actually owns the selected Cold Room — that's
+  // usually the caller's own org, but when a Distributor/Sub-distributor is
+  // creating a Treatment on behalf of a Customer (subtree-wide room list),
+  // it's that Customer instead. fetchOrgPricing resolves the nearest ancestor
+  // that has its own price list configured (Fase H, 2026-07-16 — fixes a real
+  // ambiguity when both a Distributor and a Sub-distributor have one).
+  const pricingOrgId = coldRooms[roomIdx]?.org_id || orgId
   useEffect(() => {
-    fetchOrgPricing().then(setPricing)
-  }, [])
+    fetchOrgPricing(pricingOrgId).then(setPricing)
+  }, [pricingOrgId])
 
   // This Distributor's own editable pouch-size catalog (Fase E, 2026-07-12).
   useEffect(() => {
@@ -43,9 +48,9 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   // (DOMAIN_MODEL.md Rule 36) — resolveProductPrice/resolveServiceFee below
   // fall back to standard list pricing automatically when this is null.
   useEffect(() => {
-    if (!orgId) return
-    fetchCustomerOverride(orgId).then(setOverride)
-  }, [orgId])
+    if (!pricingOrgId) return
+    fetchCustomerOverride(pricingOrgId).then(setOverride)
+  }, [pricingOrgId])
 
   // Coming from Season Plan conversion — pre-fill room/dose, let the customer
   // review and adjust before actually sending, same as any other Treatment.

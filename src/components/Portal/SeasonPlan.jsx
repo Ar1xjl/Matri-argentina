@@ -57,7 +57,8 @@ export default function SeasonPlan({
   const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
   const planFileInput = useRef(null)
 
-  useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
+  // Nearest ancestor with its own price list configured (Fase H, 2026-07-16).
+  useEffect(() => { fetchOrgPricing(orgId).then(setPricing) }, [orgId])
   // Negotiated price for this Customer, if any (DOMAIN_MODEL.md Rule 36).
   useEffect(() => { if (orgId) fetchCustomerOverride(orgId).then(setOverride) }, [orgId])
   // This Distributor's own editable pouch-size catalog (Fase E, 2026-07-12).

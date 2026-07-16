@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { fetchOrgPricing, fetchAllCustomerOverrides, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
+import { fetchOrgPricing, fetchPricingOwnersForOrgs, pricingForOwner, fetchAllCustomerOverrides, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 import SeasonPlanDraftModal from './SeasonPlanDraftModal'
@@ -34,7 +34,8 @@ export default function SeasonPlanRollup() {
   const [lines, setLines] = useState([])
   const [orgById, setOrgById] = useState(new Map())
   const [overrideByCustomerId, setOverrideByCustomerId] = useState(new Map())
-  const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
+  const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] }) // raw, unfiltered — see pricingOwnerByCustomerId
+  const [pricingOwnerByCustomerId, setPricingOwnerByCustomerId] = useState(new Map())
   const [pouchSizes, setPouchSizes] = useState(POUCHES)
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
@@ -45,6 +46,11 @@ export default function SeasonPlanRollup() {
   const [draftCustomer, setDraftCustomer] = useState(null) // { id, name } | null
 
   useEffect(() => {
+    // Raw/unfiltered — this rollup prices many different Customers at once,
+    // each possibly against a different nearest ancestor with its own price
+    // list (Fase H, 2026-07-16), so it can't resolve a single owner up front
+    // the way Calculator/SeasonPlan do. Narrowed per-line via pricingForOwner
+    // below, once we know each line's actual Customer.
     fetchOrgPricing().then(setPricing)
     fetchPouchCatalog().then(sizes => { if (sizes.length > 0) setPouchSizes(sizes) })
     Promise.all([
@@ -52,11 +58,13 @@ export default function SeasonPlanRollup() {
       supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
       fetchAllCustomerOverrides(),
       supabase.from('cold_rooms').select('*'),
-    ]).then(([{ data: orgs }, { data: planLines }, overrides, { data: rooms }]) => {
+    ]).then(async ([{ data: orgs }, { data: planLines }, overrides, { data: rooms }]) => {
       setOrgById(new Map((orgs || []).map(o => [o.id, o])))
       setOverrideByCustomerId(new Map(overrides.map(o => [o.customer_org_id, o])))
       setLines(planLines || [])
       setAllRooms(rooms || [])
+      const customerIds = (planLines || []).map(l => l.season_plans?.org_id)
+      setPricingOwnerByCustomerId(await fetchPricingOwnersForOrgs(customerIds))
       setLoading(false)
     })
   }, [])
@@ -82,9 +90,12 @@ export default function SeasonPlanRollup() {
     const customer = orgById.get(l.season_plans?.org_id)
     const parent = customer ? orgById.get(customer.parent_id) : null
     const override = customer ? overrideByCustomerId.get(customer.id) : null
-    const cost = computeIndicativeCost(pricing, l.product_preference, l.planned_dose_ppb, l.cold_rooms?.volume_m3, override, pouchSizes)
+    // Each Customer resolves against its OWN nearest pricing owner — never
+    // assume every line in this rollup shares the same list (Fase H).
+    const linePricing = pricingForOwner(pricing, customer ? pricingOwnerByCustomerId.get(customer.id) : null)
+    const cost = computeIndicativeCost(linePricing, l.product_preference, l.planned_dose_ppb, l.cold_rooms?.volume_m3, override, pouchSizes)
     return { ...l, customer, parent, cost }
-  }), [lines, orgById, overrideByCustomerId, pricing, pouchSizes])
+  }), [lines, orgById, overrideByCustomerId, pricing, pricingOwnerByCustomerId, pouchSizes])
 
   const totals = useMemo(() => {
     const uniqueCustomers = new Set(enriched.map(l => l.customer?.id).filter(Boolean))

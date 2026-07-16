@@ -20,7 +20,7 @@ export default function CustomerPricingModal({ customer, profile, onClose }) {
 
   useEffect(() => {
     Promise.all([
-      fetchOrgPricing(),
+      fetchOrgPricing(customer.id),
       fetchCustomerOverride(customer.id),
       supabase.from('season_plans').select('id').eq('org_id', customer.id).maybeSingle(),
       supabase.from('treatments').select('cold_rooms(volume_m3)').eq('org_id', customer.id).in('status', ['applied', 'completed']),

@@ -56,7 +56,11 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const [editError, setEditError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
-  useEffect(() => { fetchOrgPricing().then(setPricing) }, [])
+  // Nearest ancestor with its own price list configured (Fase H, 2026-07-16)
+  // — for the viewer's own org, so a Sub-distributor's own generator pricing
+  // (if it's set one) is never shadowed by a descendant Customer's, and vice
+  // versa never picks up an unrelated descendant Sub-distributor's rows.
+  useEffect(() => { fetchOrgPricing(orgId).then(setPricing) }, [orgId])
 
   const loadGenerators = () => {
     if (!orgId) return
