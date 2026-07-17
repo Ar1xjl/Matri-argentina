@@ -45,6 +45,21 @@ export default function SeasonPlanRollup() {
   const [pickedCustomerId, setPickedCustomerId] = useState('')
   const [draftCustomer, setDraftCustomer] = useState(null) // { id, name } | null
 
+  // Re-fetchable on its own — called again after a Distributor-authored
+  // draft gets shared (see SeasonPlanDraftModal's onShared), since sharing
+  // writes new season_plan_lines that this rollup would otherwise never
+  // find out about until a full page reload.
+  const reloadLines = async () => {
+    const [{ data: planLines }, overrides] = await Promise.all([
+      supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
+      fetchAllCustomerOverrides(),
+    ])
+    setOverrideByCustomerId(new Map(overrides.map(o => [o.customer_org_id, o])))
+    setLines(planLines || [])
+    const customerIds = (planLines || []).map(l => l.season_plans?.org_id)
+    setPricingOwnerByCustomerId(await fetchPricingOwnersForOrgs(customerIds))
+  }
+
   useEffect(() => {
     // Raw/unfiltered — this rollup prices many different Customers at once,
     // each possibly against a different nearest ancestor with its own price
@@ -55,14 +70,14 @@ export default function SeasonPlanRollup() {
     fetchPouchCatalog().then(sizes => { if (sizes.length > 0) setPouchSizes(sizes) })
     Promise.all([
       supabase.from('organizations').select('*'),
+      supabase.from('cold_rooms').select('*'),
       supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
       fetchAllCustomerOverrides(),
-      supabase.from('cold_rooms').select('*'),
-    ]).then(async ([{ data: orgs }, { data: planLines }, overrides, { data: rooms }]) => {
+    ]).then(async ([{ data: orgs }, { data: rooms }, { data: planLines }, overrides]) => {
       setOrgById(new Map((orgs || []).map(o => [o.id, o])))
+      setAllRooms(rooms || [])
       setOverrideByCustomerId(new Map(overrides.map(o => [o.customer_org_id, o])))
       setLines(planLines || [])
-      setAllRooms(rooms || [])
       const customerIds = (planLines || []).map(l => l.season_plans?.org_id)
       setPricingOwnerByCustomerId(await fetchPricingOwnersForOrgs(customerIds))
       setLoading(false)
@@ -124,7 +139,7 @@ export default function SeasonPlanRollup() {
   return (
     <div>
       {draftCustomer && (
-        <SeasonPlanDraftModal customerOrg={draftCustomer} rooms={roomsForDraft} onClose={() => setDraftCustomer(null)} />
+        <SeasonPlanDraftModal customerOrg={draftCustomer} rooms={roomsForDraft} onClose={() => setDraftCustomer(null)} onShared={reloadLines} />
       )}
 
       <div className="alert info" style={{marginBottom:'16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap'}}>

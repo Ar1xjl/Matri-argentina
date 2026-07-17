@@ -16,7 +16,7 @@ function emptyRow() {
 // that Customer until "Compartir con el Cliente" copies it into their real
 // plan (see migration 0021). Deliberately simpler than SeasonPlan.jsx: no
 // Excel import, no Treatment conversion — this is just a working estimate.
-export default function SeasonPlanDraftModal({ customerOrg, rooms, onClose }) {
+export default function SeasonPlanDraftModal({ customerOrg, rooms, onClose, onShared }) {
   const [draft, setDraft] = useState(null)
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -163,6 +163,7 @@ export default function SeasonPlanDraftModal({ customerOrg, rooms, onClose }) {
     setSharing(false)
     if (err) { setError(err.message); return }
     setShared(true)
+    onShared?.()
   }
 
   return (
@@ -170,7 +171,7 @@ export default function SeasonPlanDraftModal({ customerOrg, rooms, onClose }) {
       position: 'fixed', inset: 0, background: 'rgba(7,46,61,.6)', backdropFilter: 'blur(4px)',
       zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
     }}>
-      <div style={{ background: '#fff', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '760px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(11,67,88,.2)' }}>
+      <div style={{ background: '#fff', borderRadius: '14px', padding: '28px', width: '100%', maxWidth: '980px', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(11,67,88,.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
           <div style={{ fontSize: '17px', fontWeight: 800, color: '#0b4358' }}>
             🗓️ Borrador de Plan de Temporada — {customerOrg.name}
