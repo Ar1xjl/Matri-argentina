@@ -12,6 +12,8 @@ import Users from './Users'
 import Wassington from './Wassington'
 import SeasonPlan from './SeasonPlan'
 import SeasonPlanRollup from './SeasonPlanRollup'
+import AboutPortal from './AboutPortal'
+import { ABOUT_PAGES } from '../../lib/aboutPages'
 import NotificationBell from '../Shared/NotificationBell'
 import { supabase } from '../../lib/supabaseClient'
 import { parsePlanFile } from '../../lib/excelImport'
@@ -29,7 +31,16 @@ const PANEL_TITLES = {
   applog:      'Registro de aplicaciones',
   users:       'Usuarios',
   profile:     'Mi perfil',
+  ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, p.label])),
 }
+
+// A Customer never sees these in the Sidebar (see Sidebar.jsx's aboutItems
+// filter), but guard the content too — same defensive pattern already used
+// for "wassington"/"applog" below — in case a stale link/notification points
+// at one directly.
+const CUSTOMER_RESTRICTED_ABOUT = new Set(
+  ABOUT_PAGES.filter(p => !p.customerVisible).map(p => `about-${p.id}`)
+)
 
 // "+ Nuevo tratamiento" only makes sense on screens actually related to
 // creating/tracking Treatments — hidden elsewhere (Usuarios, Generadores,
@@ -627,6 +638,7 @@ export default function Portal({ onSignOut }) {
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,
+    ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} />])),
   }
 
   return (
@@ -688,6 +700,8 @@ export default function Portal({ onSignOut }) {
           {activePanel === 'wassington' && !canSeeWassingtonPanel
             ? <Dashboard onNavigate={navigate} treatments={treatments} />
             : activePanel === 'applog' && !canApplyTreatments
+            ? <Dashboard onNavigate={navigate} treatments={treatments} />
+            : CUSTOMER_RESTRICTED_ABOUT.has(activePanel) && !canSeeWassingtonPanel
             ? <Dashboard onNavigate={navigate} treatments={treatments} />
             : panels[activePanel]}
         </div>

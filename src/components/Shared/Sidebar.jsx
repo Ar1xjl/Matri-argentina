@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
+import { ABOUT_PAGES } from '../../lib/aboutPages'
 
 const NAV_ITEMS = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard',               section: 'Principal' },
@@ -22,6 +24,18 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
     (item.id !== 'wassington' || canSeeWassingtonPanel) &&
     (item.id !== 'applog' || canApplyTreatments)
   )
+
+  // "Acerca del Portal" — manual de uso. Visible a todos, pero el contenido
+  // que despliega está acotado: Global/Distribuidor/Sub-distribuidor ven las
+  // 13 secciones, un Cliente solo ve "Calculadora, DoseRight y Knowledge
+  // Base" (documenta su propia herramienta de uso diario).
+  const aboutItems = ABOUT_PAGES.filter(p => canSeeWassingtonPanel || p.customerVisible)
+  const [aboutOpen, setAboutOpen] = useState(activePanel.startsWith('about-'))
+  // Anchor the group right after "Panel {orgName}" when it's visible; a
+  // Customer never sees that item (filtered out above), so anchor to
+  // whatever now renders last in that same slot — Knowledge Base — instead,
+  // keeping the group in the same relative position either way.
+  const aboutAnchorId = canSeeWassingtonPanel ? 'wassington' : 'knowledge-base'
 
   return (
     <aside className={`sidebar${mobileOpen ? ' sidebar-open' : ''}`} style={{
@@ -78,6 +92,44 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
               >
                 <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
                 {item.label || `Panel ${orgName}`}
+              </div>
+            )}
+
+            {item.id === aboutAnchorId && (
+              <div>
+                <div
+                  onClick={() => setAboutOpen(v => !v)}
+                  style={{
+                    display:'flex', alignItems:'center', gap:'10px',
+                    padding:'10px 20px', fontSize:'13px', fontWeight:500,
+                    color: aboutOpen ? 'white' : '#90b8c8',
+                    cursor:'pointer', transition:'.15s'
+                  }}
+                >
+                  <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>📘</span>
+                  <span style={{flex:1}}>Acerca del Portal</span>
+                  <span style={{fontSize:'10px', transform: aboutOpen ? 'rotate(180deg)' : 'none', transition:'.15s'}}>▾</span>
+                </div>
+                {aboutOpen && aboutItems.map(page => {
+                  const panelId = `about-${page.id}`
+                  return (
+                    <div
+                      key={page.id}
+                      onClick={() => onNavigate(panelId)}
+                      style={{
+                        display:'flex', alignItems:'center', gap:'10px',
+                        padding:'8px 20px 8px 40px', fontSize:'12.5px', fontWeight:500,
+                        color: activePanel === panelId ? 'white' : '#7fa3ac',
+                        background: activePanel === panelId ? 'rgba(181,204,46,.15)' : 'transparent',
+                        borderLeft: activePanel === panelId ? '3px solid #b5cc2e' : '3px solid transparent',
+                        cursor:'pointer', transition:'.15s'
+                      }}
+                    >
+                      <span style={{fontSize:'13px', width:'16px', textAlign:'center'}}>{page.icon}</span>
+                      {page.label}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
