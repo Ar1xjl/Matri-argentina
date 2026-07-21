@@ -99,6 +99,42 @@ function Link({ to, onNavigate, children }) {
   )
 }
 
+function OrgTree() {
+  const levels = [
+    { label: '🌐 FreshInset Global', bg: COLOR.navy, color: '#fff', indent: 0 },
+    { label: '📦 Distribuidor — ej. Wassington (Argentina)', bg: '#eef3d4', color: COLOR.navy, indent: 26 },
+    { label: '🏬 Sub-distribuidor — ej. Podlesh (Río Negro)', bg: COLOR.infoBg, color: COLOR.navy, indent: 52 },
+    { label: '🧊 Cliente — ej. Kleppe S.A.', bg: COLOR.cream, color: COLOR.navy, indent: 78, border: `0.5px solid ${COLOR.border}` },
+  ]
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '14px 0' }}>
+      {levels.map(l => (
+        <div key={l.label} style={{
+          background: l.bg, color: l.color, border: l.border, marginLeft: `${l.indent}px`,
+          padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+        }}>{l.label}</div>
+      ))}
+    </div>
+  )
+}
+
+function LinkCard({ icon, title, desc, to, onNavigate }) {
+  return (
+    <button
+      onClick={() => onNavigate(`about-${to}`)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', cursor: 'pointer',
+        background: '#fff', border: `0.5px solid ${COLOR.border}`, borderRadius: '10px', padding: '14px 16px',
+        fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.06)',
+      }}
+    >
+      <div style={{ fontSize: '16px' }}>{icon}</div>
+      <div style={{ fontSize: '13px', fontWeight: 800, color: COLOR.navy }}>{title}</div>
+      <div style={{ fontSize: '11.5px', color: COLOR.muted, lineHeight: 1.4 }}>{desc}</div>
+    </button>
+  )
+}
+
 function PageHeader({ eyebrow, title, intro }) {
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -111,6 +147,59 @@ function PageHeader({ eyebrow, title, intro }) {
 
 // ── Per-section content ─────────────────────────────────────────────────
 const SECTIONS = {
+
+  arquitectura: ({ onNavigate }) => (
+    <>
+      <PageHeader eyebrow="Visión general" title="Arquitectura del Portal"
+        intro="Un pantallazo de las tres piezas que sostienen todo lo demás: la jerarquía de Organizaciones, los perfiles de Usuario dentro de cada una, y los flujos de proceso que las conectan. Las páginas siguientes entran en el detalle de cada pieza — esta es la vista de conjunto." />
+
+      <Card title="🌳 Las Organizaciones, como árbol">
+        <p style={pMuted}>Todo lo que existe en el portal — usuarios, precios, cámaras, tratamientos — cuelga de una Organización, y cada Organización tiene un lugar fijo en un árbol de cuatro niveles:</p>
+        <OrgTree />
+        <p style={pMuted}>La regla de visibilidad es siempre la misma en los cuatro niveles: <strong>cada Organización ve su propio nivel y todo lo que cuelga debajo</strong> — nunca lo que está al costado o arriba. Un Sub-distribuidor ve a sus propios Clientes, pero no a los de otro Sub-distribuidor ni a los de su Distribuidor hermano. Cómo entra una Organización nueva a este árbol está en <Link to="altas" onNavigate={onNavigate}>Alta de organizaciones y usuarios</Link>.</p>
+      </Card>
+
+      <Card title="👤 Los usuarios de cada Organización">
+        <p style={pMuted}>Dentro de su Organización, cada persona tiene uno o varios <strong>Roles de Negocio</strong> — son independientes entre sí, no una escalera:</p>
+        <Table headers={['Rol', 'Qué puede hacer']} rows={[
+          [<RoleTag>Owner</RoleTag>, 'Acceso total a su organización y a todo lo que cuelga debajo. Único rol que administra usuarios.'],
+          [<RoleTag>Aprobador</RoleTag>, 'Revisa, fija el precio final y aprueba o rechaza Tratamientos de las organizaciones de abajo.'],
+          [<RoleTag>Planificador</RoleTag>, 'Crea, edita y envía Tratamientos — usa la Calculadora y carga el Plan de Temporada.'],
+          [<RoleTag>Operador</RoleTag>, 'Registra la aplicación física del tratamiento y sube la verificación MatriSure.'],
+          [<RoleTag>Viewer</RoleTag>, 'Solo lectura de Tratamientos e historial.'],
+        ]} />
+        <p style={{ ...pMuted, marginTop: '10px' }}>Lo que un Rol puede hacer <em>además</em> varía según el tipo de Organización en la que está — Global, Distribuidor y Sub-distribuidor tienen matices distintos sobre Inventario, Catálogo y Precios. El detalle completo, combinación por combinación, está en <Link to="roles" onNavigate={onNavigate}>Roles y permisos</Link>.</p>
+      </Card>
+
+      <div style={{ fontWeight: 800, color: COLOR.navy, margin: '22px 0 4px' }}>🔄 Los flujos que le dan vida al Portal</div>
+      <p style={{ ...pMuted, marginBottom: '12px' }}>La Organización decide <strong>qué ves</strong>; el Rol decide <strong>qué podés hacer</strong> con lo que ves. Todo lo que realmente hacés en el portal día a día pasa por estos flujos:</p>
+
+      <div style={{ fontSize: '11px', fontWeight: 700, color: COLOR.muted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '14px 0 8px' }}>Flujos críticos</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        <LinkCard icon="🏢" title="Alta de organizaciones y usuarios" desc="Cómo entra una Organización o una persona nueva." to="altas" onNavigate={onNavigate} />
+        <LinkCard icon="🗓️" title="Planificación de campaña" desc="Bosquejar la temporada antes de comprometerse." to="plan" onNavigate={onNavigate} />
+        <LinkCard icon="🧮" title="Calculadora, DoseRight y KB" desc="Decidir y calcular una dosis." to="calculadora" onNavigate={onNavigate} />
+        <LinkCard icon="📦" title="Ciclo de un Tratamiento" desc="De Enviado a Completado." to="tratamientos" onNavigate={onNavigate} />
+        <LinkCard icon="💲" title="Manejo de precios" desc="Listas por Distribuidor y precios negociados." to="precios" onNavigate={onNavigate} />
+      </div>
+
+      <div style={{ fontSize: '11px', fontWeight: 700, color: COLOR.muted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '14px 0 8px' }}>Operación y calidad</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        <LinkCard icon="📸" title="MatriSure" desc="Verificación visual de que la dosis se alcanzó." to="matrisure" onNavigate={onNavigate} />
+        <LinkCard icon="📊" title="Evaluación de Firmeza" desc="Efecto del tratamiento sobre la fruta." to="firmeza" onNavigate={onNavigate} />
+        <LinkCard icon="⚡" title="Generadores" desc="Ciclo de vida de cada unidad física." to="generadores" onNavigate={onNavigate} />
+        <LinkCard icon="🏷️" title="Inventario y Catálogo" desc="Stock y tamaños de SKU del Distribuidor." to="inventario" onNavigate={onNavigate} />
+      </div>
+
+      <div style={{ fontSize: '11px', fontWeight: 700, color: COLOR.muted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '14px 0 8px' }}>Soporte y referencia</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+        <LinkCard icon="📄" title="Documentos" desc="Documentación de la Organización." to="documentos" onNavigate={onNavigate} />
+        <LinkCard icon="🔔" title="Notificaciones" desc="Qué avisa la campanita hoy." to="notificaciones" onNavigate={onNavigate} />
+        <LinkCard icon="🔐" title="Roles y permisos" desc="La matriz completa, pantalla por pantalla." to="roles" onNavigate={onNavigate} />
+        <LinkCard icon="📚" title="Glosario" desc="Los términos del negocio, en una línea." to="glosario" onNavigate={onNavigate} />
+      </div>
+    </>
+  ),
 
   altas: () => (
     <>

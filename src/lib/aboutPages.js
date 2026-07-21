@@ -5,6 +5,7 @@
 // Visible only to Global/Distribuidor/Sub-distribuidor — except
 // `calculadora`, which is also shown to Cliente (see Sidebar.jsx).
 export const ABOUT_PAGES = [
+  { id: 'arquitectura',    icon: '🗺️', label: 'Arquitectura del Portal',            group: 'Visión general', customerVisible: false },
   { id: 'altas',           icon: '🏢', label: 'Alta de organizaciones y usuarios', group: 'Flujos críticos', customerVisible: false },
   { id: 'plan',             icon: '🗓️', label: 'Planificación de campaña',          group: 'Flujos críticos', customerVisible: true },
   { id: 'calculadora',      icon: '🧮', label: 'Calculadora, DoseRight y Knowledge Base', group: 'Flujos críticos', customerVisible: true },
