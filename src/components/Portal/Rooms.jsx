@@ -75,8 +75,8 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
 
   const COLUMNS = [
     ...(isDistributorView ? [{ header: 'Cliente', get: r => r.organizations?.name || '' }] : []),
-    { header: 'Cámara',    get: r => r.name || '' },
     { header: 'Ubicación', get: r => r.location || '' },
+    { header: 'Cámara',    get: r => r.name || '' },
     { header: 'Volumen (m³)', get: r => r.volume_m3 ?? '' },
     { header: 'Cultivo',   get: r => r.primary_crop || '' },
     { header: 'Último trat.', get: r => { const last = lastTreatmentByRoom[r.id]; return last ? new Date(last.created_at).toLocaleDateString('es-AR') : '' } },
@@ -159,7 +159,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
               <thead>
                 <tr>
                   {isDistributorView && <th>Cliente</th>}
-                  <th>Cámara</th><th>Ubicación</th><th>Volumen (m³)</th>
+                  <th>Ubicación</th><th>Cámara</th><th>Volumen (m³)</th>
                   <th>Cultivo</th><th>Último trat.</th><th>Estado</th><th></th>
                 </tr>
                 {showFilters && (
@@ -185,8 +185,8 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
                   return (
                     <tr key={r.id}>
                       {isDistributorView && <td style={{color:'var(--gray)'}}>{r.organizations?.name || '—'}</td>}
-                      <td style={{fontWeight:700}}>{r.name}</td>
                       <td style={{color:'var(--gray)'}}>{r.location || '—'}</td>
+                      <td style={{fontWeight:700}}>{r.name}</td>
                       <td>{r.volume_m3} m³</td>
                       <td>{r.primary_crop || '—'}</td>
                       <td style={{color:'var(--gray)'}}>{last ? new Date(last.created_at).toLocaleDateString('es-AR') : '—'}</td>
