@@ -638,7 +638,7 @@ export default function Portal({ onSignOut }) {
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,
-    ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} />])),
+    ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} isCustomer={!canSeeWassingtonPanel} />])),
   }
 
   return (

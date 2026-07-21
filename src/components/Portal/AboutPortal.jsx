@@ -227,34 +227,34 @@ const SECTIONS = {
   calculadora: ({ onNavigate }) => (
     <>
       <PageHeader eyebrow="Flujo crítico · Decisión de dosis" title="Calculadora, DoseRight y Knowledge Base"
-        intro='Las tres herramientas que un Cliente (o un Distribuidor/Global cargando en su nombre) usa para decidir y calcular una dosis antes de crear un Tratamiento.' />
+        intro='Las tres herramientas para decidir y calcular una dosis antes de crear un Tratamiento.' />
 
       <Card title="🧮 Calculadora de dosis">
-        <p style={pMuted}>Campos: Cámara, Nombre personalizado (opcional) y Dosis objetivo en ppb — con un atajo <strong>“Estándar (1.000 ppb)”</strong> (1.000 ppb = 0,067 g de MatriPowder 3,3% por m³).</p>
-        <p style={pMuted}>Una barra superior indica si el cálculo usa el <strong>precio pactado</strong> de ese Cliente o la <strong>lista estándar</strong>. “Calcular y comparar alternativas” muestra siempre las 3 opciones (Powder exacto, Powder ajustado, Tablets) con precio real. Elegir una y confirmar crea el Tratamiento — ver <Link to="tratamientos" onNavigate={onNavigate}>Ciclo de un Tratamiento</Link>.</p>
+        <p style={pMuted}>Elegí tu <strong>Cámara</strong> y, si querés, ponele un <strong>Nombre personalizado</strong> para identificarla mejor. En <strong>Dosis objetivo (ppb)</strong> ingresá la dosis que querés aplicar en esa cámara — si no estás seguro de cuál usar, el atajo <strong>“Estándar (1.000 ppb)”</strong> carga el valor de referencia habitual (1.000 ppb = 0,067 g de MatriPowder 3,3% por m³), o podés consultar DoseRight (ver abajo) para que te sugiera una dosis según tu fruta y tu cámara.</p>
+        <p style={pMuted}>Una barra superior te muestra si el cálculo está usando tu <strong>precio pactado</strong> con tu Distribuidor o la <strong>lista estándar</strong>. Al tocar “Calcular y comparar alternativas” siempre vas a ver las 3 opciones lado a lado (Powder exacto, Powder ajustado, Tablets) con precio real, para que compares antes de decidir. Elegir una y confirmar crea el Tratamiento — ver <Link to="tratamientos" onNavigate={onNavigate}>Ciclo de un Tratamiento</Link>.</p>
       </Card>
 
-      <div style={{ fontWeight: 800, color: COLOR.navy, margin: '20px 0 6px' }}>🔬 DoseRight — soporte científico de dosis</div>
-      <p style={{ ...pMuted, marginBottom: '10px' }}>Un callout dentro de la propia Calculadora (“¿No sabés qué dosis usar?”) abre DoseRight en una ventana aparte.</p>
+      <div style={{ fontWeight: 800, color: COLOR.navy, margin: '20px 0 6px' }}>🔬 ¿Qué es DoseRight?</div>
+      <p style={{ ...pMuted, marginBottom: '10px' }}>DoseRight es una herramienta de consulta científica: revisa la información bibliográfica publicada sobre 1-MCP (madurez de cosecha, condiciones de guarda, tiempo desde cosecha) y, a partir de eso, te sugiere una dosis para tu caso puntual. No decide por vos — es un asistente para tomar una decisión más informada. <strong>La decisión final de qué dosis aplicar siempre es tuya.</strong> Se abre desde el callout “¿No sabés qué dosis usar?” dentro de la propia Calculadora.</p>
       <Flow>
-        <FlowStep n={1} state="Abrir DoseRight" who="Ventana emergente">Se abre en un popup, no incrustado — necesario para devolver la dosis a la Calculadora.</FlowStep>
+        <FlowStep n={1} state="Abrir DoseRight" who="Ventana emergente">Se abre en una ventana aparte, no incrustada — necesario para poder devolver la dosis sugerida a la Calculadora.</FlowStep>
         <FlowArrow />
-        <FlowStep n={2} state="Ajustar parámetros" who="Cliente">Madurez de cosecha, condiciones de guarda y horas desde cosecha.</FlowStep>
+        <FlowStep n={2} state="Ajustar parámetros" who="Vos">Cargás madurez de cosecha, condiciones de guarda y horas desde cosecha — los datos reales de tu fruta.</FlowStep>
         <FlowArrow />
-        <FlowStep n={3} state='"Usar esta dosis"' who="Cliente">La dosis vuelve a precargar el campo ppb — sigue siendo editable.</FlowStep>
+        <FlowStep n={3} state='"Usar esta dosis"' who="Vos">La dosis sugerida vuelve a precargar el campo ppb de la Calculadora — la podés ajustar igual antes de confirmar.</FlowStep>
       </Flow>
 
       <Callout label="DoseRight sugiere, no prescribe">
-        La responsabilidad final de la dosis siempre es del usuario. El Tratamiento guarda de dónde vino (<code>manual</code> o <code>doseright</code>) para trazabilidad, aunque hoy no se muestra como etiqueta visible.
+        DoseRight te asiste revisando la evidencia científica disponible — pero la responsabilidad final de elegir la dosis siempre es tuya, no de la herramienta. El Tratamiento guarda internamente de dónde vino la dosis (<code>manual</code> o <code>doseright</code>) para trazabilidad, aunque hoy no se muestra como etiqueta visible en pantalla.
       </Callout>
 
       <Card title="📚 MaTri Knowledge Base" style={{ marginTop: '18px' }}>
-        <p style={pMuted}>Ítem fijo del menú lateral que abre en pestaña nueva un sitio de referencias científicas — evidencia que respalda las recomendaciones de DoseRight. Visible sin restricción por rol ni tipo de organización.</p>
+        <p style={pMuted}>Es una colección de trabajos científicos publicados sobre el efecto de distintos parámetros fisiológicos (madurez, firmeza, atmósfera de guarda, temperatura, tiempo desde cosecha, etc.) en el uso de 1-MCP — la misma evidencia en la que se apoya DoseRight para sus sugerencias. Es un ítem fijo del menú lateral (“📚 MaTri Knowledge Base”) que abre ese material en una pestaña nueva, disponible para cualquier usuario del portal.</p>
       </Card>
     </>
   ),
 
-  tratamientos: ({ onNavigate }) => (
+  tratamientos: ({ onNavigate, isCustomer }) => (
     <>
       <PageHeader eyebrow="Flujo crítico · Operación" title="Ciclo de vida de un Tratamiento"
         intro="El Tratamiento es la entidad central del negocio: guarda dosis, precio congelado, historial y evidencia científica de principio a fin." />
@@ -287,7 +287,7 @@ const SECTIONS = {
       </ol>
 
       <Callout label="Quién ve la cola de aprobación">
-        Solo Owner y Aprobador ven “Tratamientos pendientes de aprobación”. Más detalle en <Link to="roles" onNavigate={onNavigate}>Roles y permisos</Link>.
+        Solo Owner y Aprobador (del lado de tu Distribuidor) ven “Tratamientos pendientes de aprobación”.{!isCustomer && <> Más detalle en <Link to="roles" onNavigate={onNavigate}>Roles y permisos</Link>.</>}
       </Callout>
     </>
   ),
@@ -329,48 +329,72 @@ const SECTIONS = {
   matrisure: () => (
     <>
       <PageHeader eyebrow="Operación y calidad" title="MatriSure — verificación de dosis"
-        intro="El paso que confirma, con una tira de color, que la dosis realmente se alcanzó dentro de la cámara." />
+        intro="El Kit MaTriSure es tu confirmación visual de que el tratamiento 1-MCP alcanzó la concentración correcta dentro de la cámara — un “testigo silencioso” que responde solo cuando la dosis realmente llegó." />
 
-      <Card title="Regla de oro: solo cámara en vivo">
-        <p style={pMuted}>La foto se toma en vivo desde la cámara del dispositivo — no existe botón para subir desde la galería. Evita cargar una foto vieja para adulterar la verificación.</p>
+      <Card title="🔬 Cómo funciona">
+        <p style={pMuted}>Dentro del Kit hay una tira indicadora con un tinte patentado que reacciona específicamente con el gas 1-MCP — no se ha observado ninguna reacción detectable frente a otros gases presentes en la cámara, como el etileno. A medida que el 1-MCP se acumula en la cámara sellada, el tinte va cambiando de color hasta confirmar que se alcanzó la dosis.</p>
+        <ul style={{ ...pMuted, margin: '10px 0 0', paddingLeft: '20px' }}>
+          <li>La respuesta es <strong>acumulativa</strong> durante todo el tratamiento — no es una reacción instantánea.</li>
+          <li>Un cambio de color notable puede empezar <strong>antes</strong> de llegar a la dosis objetivo final.</li>
+          <li>El indicador cambia <strong>completamente</strong> de color en, o por encima de, la concentración correcta.</li>
+          <li>El color final confirma que la cámara recibió la dosis de 1-MCP prevista.</li>
+        </ul>
+      </Card>
+
+      <Card title="⏱️ Tiempos y buenas prácticas">
+        <p style={pMuted}>Las Tabletas o el Polvo MaTri liberan el 1-MCP en la cámara en aproximadamente <strong>1 hora</strong>. Sin embargo, un tratamiento efectivo de la fruta necesita un período de exposición completo de <strong>24 horas</strong>, con la cámara sellada todo ese tiempo.</p>
+        <p style={pMuted}>Pasadas las 24 horas, retirá el kit y evaluá el color final: si cambió de color al terminar el tratamiento, la dosis correcta se alcanzó y tu fruta recibió la protección prevista.</p>
+      </Card>
+
+      <div style={{ fontWeight: 800, color: COLOR.navy, margin: '20px 0 6px' }}>Cómo se sube la verificación en el portal</div>
+      <Card>
+        <p style={pMuted}>La foto se toma en vivo desde la cámara del dispositivo — no existe botón para subir desde la galería. Es intencional: evita cargar una foto vieja para adulterar la verificación.</p>
       </Card>
 
       <div style={grid2}>
         <Card title="✓ Autoconfirmación (el caso más común)">
-          <p style={pMuted}>El propio Cliente sube la foto y marca <Pill kind="ok">✓ Dosis alcanzada</Pill> o <Pill kind="bad">✗ No alcanzada</Pill>.</p>
+          <p style={pMuted}>Subís la foto vos mismo y marcás <Pill kind="ok">✓ Dosis alcanzada</Pill> o <Pill kind="bad">✗ No alcanzada</Pill> según el color que ves.</p>
         </Card>
-        <Card title="🙋 Pedir ayuda (escalamiento opcional)">
-          <p style={pMuted}>Aparece como “🙋 MatriSure — el cliente pidió ayuda” y un Aprobador de arriba confirma el resultado.</p>
+        <Card title="🙋 Pedir ayuda (si no estás seguro)">
+          <p style={pMuted}>Si no estás seguro de cómo leer la tira, marcá “pedir ayuda” al subir la foto — tu Distribuidor confirma el resultado por vos.</p>
         </Card>
       </div>
 
       <Callout label="“No alcanzada” no bloquea el cierre">
-        Igual lleva el Tratamiento a Completado — queda registrado como alerta en el dashboard, pero nunca impide cerrarlo.
+        Un resultado “No alcanzada” igual lleva el Tratamiento a Completado — queda registrado como alerta, pero nunca impide cerrarlo.
       </Callout>
 
       <Callout kind="real" label="🔧 Estado real / a futuro">
-        La clasificación automática por color de la tira es un ítem de roadmap futuro. La alerta de “foto subida pero nadie confirmó el resultado” está documentada pero tampoco construida todavía.
+        La clasificación automática por color de la tira es un ítem de roadmap futuro — hoy la lectura la hacés vos (o tu Distribuidor, si pediste ayuda). La guía ilustrada completa del Kit todavía no está cargada en Documentos — mientras tanto, cualquier duda sobre el procedimiento la podés consultar directamente con tu Distribuidor.
       </Callout>
     </>
   ),
 
-  firmeza: () => (
+  firmeza: ({ isCustomer }) => (
     <>
       <PageHeader eyebrow="Operación y calidad" title="Evaluación de Firmeza"
         intro="Distinta de MatriSure: MatriSure confirma la concentración dentro de la cámara; la Evaluación de Firmeza confirma el efecto sobre la fruta (Testigo vs. Matri)." />
 
-      <Card title="Quién puede cargarla">
-        <p style={pMuted}>Solo staff no-Cliente en la cadena de ancestros del Tratamiento, con rol Owner, Aprobador u Operador. El Cliente y el resto de la cadena solo pueden ver y descargar el PDF firmado.</p>
-      </Card>
+      {isCustomer ? (
+        <Card title="🍐 Un servicio adicional opcional">
+          <p style={pMuted}>La Evaluación de Firmeza es un servicio adicional que podés contratar con tu Distribuidor — no es parte automática del Tratamiento. Si lo contratás, acá vas a ver el reporte de seguimiento de las muestras (Testigo sin tratar vs. Matri tratada) a lo largo de los días de post-cosecha, incluyendo el gráfico de pérdida de firmeza y, si está disponible, el PDF firmado.</p>
+        </Card>
+      ) : (
+        <>
+          <Card title="Quién puede cargarla">
+            <p style={pMuted}>Solo staff no-Cliente en la cadena de ancestros del Tratamiento, con rol Owner, Aprobador u Operador. El Cliente y el resto de la cadena solo pueden ver y descargar el PDF firmado.</p>
+          </Card>
 
-      <div style={grid2}>
-        <Card title="Dónde se carga">
-          <p style={pMuted}>Panel del Distribuidor → pestaña Tratamientos → botón “📊 + Evaluación”, sobre un Tratamiento Aplicado o Completado.</p>
-        </Card>
-        <Card title="Qué calcula solo">
-          <p style={pMuted}>La tasa de pérdida de firmeza y su gráfico se derivan automáticamente de las muestras cargadas.</p>
-        </Card>
-      </div>
+          <div style={grid2}>
+            <Card title="Dónde se carga">
+              <p style={pMuted}>Panel del Distribuidor → pestaña Tratamientos → botón “📊 + Evaluación”, sobre un Tratamiento Aplicado o Completado.</p>
+            </Card>
+            <Card title="Qué calcula solo">
+              <p style={pMuted}>La tasa de pérdida de firmeza y su gráfico se derivan automáticamente de las muestras cargadas.</p>
+            </Card>
+          </div>
+        </>
+      )}
     </>
   ),
 
@@ -405,6 +429,10 @@ const SECTIONS = {
       <Card title="Calculadora Comprar vs. Alquilar vs. Servicio gestionado" style={{ marginTop: '18px' }}>
         <p style={pMuted}>Vista del Cliente — puede alimentarse con datos reales del Plan de Temporada. Un Distribuidor o Global ve directamente el estado de su propia flota.</p>
       </Card>
+
+      <Callout kind="real" label="📄 Guía de uso — en preparación">
+        Todavía no hay una guía de uso del generador cargada en el portal. En cuanto esté lista, vas a poder abrirla directamente desde acá.
+      </Callout>
     </>
   ),
 
@@ -494,36 +522,41 @@ const SECTIONS = {
     </>
   ),
 
-  glosario: () => (
-    <>
-      <PageHeader eyebrow="Referencia" title="Glosario" intro="" />
-      <Card>
-        {[
-          ['Organización', 'Nodo del árbol comercial: FreshInset Global, Distribuidor, Sub-distribuidor o Cliente.'],
-          ['Tratamiento', 'El ciclo completo de una aplicación de MaTri, de la creación a la verificación confirmada.'],
-          ['Plan de Temporada', 'Tabla no vinculante para bosquejar una campaña antes de comprometerse a Tratamientos reales.'],
-          ['Línea de plan', 'Una fila del Plan de Temporada — cámara + fecha + dosis, convertible en Tratamiento.'],
-          ['Cámara', 'Ubicación física donde se aplica el tratamiento; historial completo entre temporadas.'],
-          ['Generador', 'Equipo profesional para aplicaciones con MatriPowder, con ID individual propio.'],
-          ['MatriSure', 'Kit de tiras que confirma con foto en vivo si la dosis se alcanzó.'],
-          ['Evaluación de Firmeza', 'Comparación Testigo vs. Matri de firmeza de la fruta a lo largo de los días de post-cosecha.'],
-          ['Bracket de volumen', 'Rango de m³ usado para segmentar precios.'],
-          ['Precio negociado', 'Acuerdo propio de un Cliente puntual que reemplaza la lista general.'],
-          ['Snapshot de precio', 'Precio y desglose de sachets congelados al momento de aprobar un Tratamiento.'],
-          ['TC a USD', 'Tipo de cambio propio de cada Distribuidor, usado para consolidar el dashboard de FreshInset Global.'],
-        ].map(([term, def]) => (
-          <div key={term} style={{ marginTop: '14px' }}>
-            <div style={{ fontWeight: 800, color: COLOR.navy, fontSize: '13.5px' }}>{term}</div>
-            <div style={{ fontSize: '13.5px', color: COLOR.muted, lineHeight: 1.55 }}>{def}</div>
-          </div>
-        ))}
-      </Card>
-    </>
-  ),
+  glosario: ({ isCustomer }) => {
+    const terms = [
+      ['Organización', 'Nodo del árbol comercial: FreshInset Global, Distribuidor, Sub-distribuidor o Cliente.'],
+      ['Tratamiento', 'El ciclo completo de una aplicación de MaTri, de la creación a la verificación confirmada.'],
+      ['Plan de Temporada', 'Tabla no vinculante para bosquejar una campaña antes de comprometerse a Tratamientos reales.'],
+      ['Línea de plan', 'Una fila del Plan de Temporada — cámara + fecha + dosis, convertible en Tratamiento.'],
+      ['Cámara', 'Ubicación física donde se aplica el tratamiento; historial completo entre temporadas.'],
+      ['Generador', 'Equipo profesional para aplicaciones con MatriPowder, con ID individual propio.'],
+      ['MatriSure', 'Kit de tiras que confirma con foto en vivo si la dosis se alcanzó.'],
+      ['Evaluación de Firmeza', 'Comparación Testigo vs. Matri de firmeza de la fruta a lo largo de los días de post-cosecha.'],
+      ...(isCustomer ? [] : [
+        ['Bracket de volumen', 'Rango de m³ usado para segmentar precios.'],
+        ['Precio negociado', 'Acuerdo propio de un Cliente puntual que reemplaza la lista general.'],
+        ['Snapshot de precio', 'Precio y desglose de sachets congelados al momento de aprobar un Tratamiento.'],
+        ['TC a USD', 'Tipo de cambio propio de cada Distribuidor, usado para consolidar el dashboard de FreshInset Global.'],
+      ]),
+    ]
+    return (
+      <>
+        <PageHeader eyebrow="Referencia" title="Glosario" intro="" />
+        <Card>
+          {terms.map(([term, def]) => (
+            <div key={term} style={{ marginTop: '14px' }}>
+              <div style={{ fontWeight: 800, color: COLOR.navy, fontSize: '13.5px' }}>{term}</div>
+              <div style={{ fontSize: '13.5px', color: COLOR.muted, lineHeight: 1.55 }}>{def}</div>
+            </div>
+          ))}
+        </Card>
+      </>
+    )
+  },
 }
 
-export default function AboutPortal({ section, onNavigate }) {
+export default function AboutPortal({ section, onNavigate, isCustomer = false }) {
   const Content = SECTIONS[section]
   if (!Content) return null
-  return <div style={{ maxWidth: '860px' }}><Content onNavigate={onNavigate} /></div>
+  return <div style={{ maxWidth: '860px' }}><Content onNavigate={onNavigate} isCustomer={isCustomer} /></div>
 }
