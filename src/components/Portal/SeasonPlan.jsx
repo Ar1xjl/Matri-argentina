@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { downloadPlanTemplate } from '../../lib/excelImport'
-import { exportToExcel } from '../../lib/tableTools'
+import { exportToExcel, filterRows } from '../../lib/tableTools'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 
@@ -10,10 +10,12 @@ const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecide
 const SEASON_PLAN_COLUMNS = [
   { header: 'Cámara',           get: l => l.room?.name || '' },
   { header: 'Cultivo',          get: l => l.room?.primary_crop || '' },
+  { header: 'Volumen (m³)',     get: l => l.room?.volume_m3 ?? '' },
   { header: 'Fecha estimada',   get: l => l.planned_date || '' },
   { header: 'Dosis (ppb)',      get: l => l.planned_dose_ppb ?? '' },
   { header: 'Producto',         get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
   { header: 'Costo indicativo', get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+  { header: '$/m³',             get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
   { header: 'Notas',            get: l => l.notes || '' },
   { header: 'Estado',           get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
 ]
@@ -48,6 +50,8 @@ export default function SeasonPlan({
   const [override, setOverride] = useState(null)
   const [pouchSizes, setPouchSizes] = useState(POUCHES)
   const [selected, setSelected] = useState(new Set())
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({})
   const [bulkDate,    setBulkDate]    = useState('')
   const [bulkDose,    setBulkDose]    = useState('')
   const [bulkCrop,    setBulkCrop]    = useState('')
@@ -99,18 +103,21 @@ export default function SeasonPlan({
     return { ...l, room, cost }
   }), [lines, coldRooms, pricing, override, pouchSizes])
 
+  const filtered = useMemo(() => filterRows(enriched, SEASON_PLAN_COLUMNS, filters), [enriched, filters])
+  const setFilter = (header, value) => setFilters(prev => ({ ...prev, [header]: value }))
+
   const totals = useMemo(() => {
-    const uniqueRooms = new Set(enriched.map(l => l.cold_room_id).filter(Boolean))
-    const totalM3 = enriched.reduce((s, l) => s + (l.room?.volume_m3 || 0), 0)
-    const totalCost = enriched.reduce((s, l) => s + (l.cost || 0), 0)
+    const uniqueRooms = new Set(filtered.map(l => l.cold_room_id).filter(Boolean))
+    const totalM3 = filtered.reduce((s, l) => s + (l.room?.volume_m3 || 0), 0)
+    const totalCost = filtered.reduce((s, l) => s + (l.cost || 0), 0)
     return {
       rooms: uniqueRooms.size,
-      applications: enriched.length,
+      applications: filtered.length,
       m3: totalM3,
       cost: totalCost,
       avgPerM3: totalM3 > 0 ? totalCost / totalM3 : 0,
     }
-  }, [enriched])
+  }, [filtered])
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -120,7 +127,7 @@ export default function SeasonPlan({
     })
   }
 
-  const plannedIds = enriched.filter(l => l.status === 'planned').map(l => l.id)
+  const plannedIds = filtered.filter(l => l.status === 'planned').map(l => l.id)
   const allSelected = plannedIds.length > 0 && plannedIds.every(id => selected.has(id))
   const toggleSelectAll = () => setSelected(allSelected ? new Set() : new Set(plannedIds))
 
@@ -241,7 +248,8 @@ export default function SeasonPlan({
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || 'Temporada'}</span>
           <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
             <button className="btn-secondary btn-sm" onClick={onAddLine}>+ Agregar línea</button>
-            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, enriched)}>⬇ Exportar a Excel</button>
+            <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? '✕ Filtros' : 'Filtrar'}</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, filtered)}>⬇ Exportar a Excel</button>
             <button
               className="btn-primary btn-sm"
               disabled={selectedPlannedLines.length === 0}
@@ -290,6 +298,10 @@ export default function SeasonPlan({
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
             No hay líneas planificadas todavía. Hacé click en "+ Agregar línea" para empezar.
           </div>
+        ) : filtered.length === 0 ? (
+          <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+            Ninguna línea coincide con los filtros aplicados.
+          </div>
         ) : (
           <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse'}}>
             <thead>
@@ -297,13 +309,29 @@ export default function SeasonPlan({
                 <th style={{...cell, background:'#f5f5ee'}}>
                   <input type="checkbox" checked={allSelected} disabled={plannedIds.length === 0} onChange={toggleSelectAll}/>
                 </th>
-                {['Cámara', 'Cultivo', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo indicativo', 'Notas', 'Estado', ''].map(h => (
+                {['Cámara', 'Cultivo', 'Volumen (m³)', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo indicativo', '$/m³', 'Notas', 'Estado', ''].map(h => (
                   <th key={h} style={{...cell, background:'#f5f5ee', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase'}}>{h}</th>
                 ))}
               </tr>
+              {showFilters && (
+                <tr>
+                  <th style={cell}></th>
+                  {SEASON_PLAN_COLUMNS.map(c => (
+                    <th key={c.header} style={{padding:'4px 8px'}}>
+                      <input
+                        value={filters[c.header] || ''}
+                        onChange={e => setFilter(c.header, e.target.value)}
+                        placeholder="Filtrar..."
+                        style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
+                      />
+                    </th>
+                  ))}
+                  <th style={cell}></th>
+                </tr>
+              )}
             </thead>
             <tbody>
-              {enriched.map(l => (
+              {filtered.map(l => (
                 <tr key={l.id}>
                   <td style={cell}>
                     <input type="checkbox" disabled={l.status !== 'planned'}
@@ -318,6 +346,9 @@ export default function SeasonPlan({
                   </td>
                   <td style={{...cell, color:'#6b6b6b'}}>
                     {l.room?.primary_crop || '—'}
+                  </td>
+                  <td style={{...cell, color:'#6b6b6b'}}>
+                    {l.room?.volume_m3 != null ? `${l.room.volume_m3} m³` : '—'}
                   </td>
                   <td style={cell}>
                     <input style={inp} type="date" value={l.planned_date || ''} disabled={l.status !== 'planned'}
@@ -337,6 +368,9 @@ export default function SeasonPlan({
                   </td>
                   <td style={{...cell, fontWeight:700, color:'#0b4358', whiteSpace:'nowrap'}}>
                     {l.cost != null ? fmtUSD(l.cost) : '—'}
+                  </td>
+                  <td style={{...cell, color:'#6b6b6b', whiteSpace:'nowrap'}}>
+                    {(l.cost != null && l.room?.volume_m3) ? fmtUSD(l.cost / l.room.volume_m3) : '—'}
                   </td>
                   <td style={cell}>
                     <input style={inp} type="text" defaultValue={l.notes || ''} disabled={l.status !== 'planned'}

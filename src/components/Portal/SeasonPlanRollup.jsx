@@ -112,27 +112,35 @@ export default function SeasonPlanRollup() {
     return { ...l, customer, parent, cost }
   }), [lines, orgById, overrideByCustomerId, pricing, pricingOwnerByCustomerId, pouchSizes])
 
-  const totals = useMemo(() => {
-    const uniqueCustomers = new Set(enriched.map(l => l.customer?.id).filter(Boolean))
-    const totalM3 = enriched.reduce((s, l) => s + (l.cold_rooms?.volume_m3 || 0), 0)
-    const totalCost = enriched.reduce((s, l) => s + (l.cost || 0), 0)
-    return { customers: uniqueCustomers.size, applications: enriched.length, m3: totalM3, cost: totalCost }
-  }, [enriched])
-
   const COLUMNS = [
     { header: 'Distribuidor / Sub-distribuidor', get: l => l.parent?.name || '' },
     { header: 'Cliente',           get: l => l.customer?.name || '' },
     { header: 'Cámara',            get: l => l.cold_rooms?.name || '' },
     { header: 'Cultivo',           get: l => l.cold_rooms?.primary_crop || '' },
+    { header: 'Volumen (m³)',      get: l => l.cold_rooms?.volume_m3 ?? '' },
     { header: 'Fecha estimada',    get: l => l.planned_date || '' },
     { header: 'Dosis (ppb)',       get: l => l.planned_dose_ppb ?? '' },
     { header: 'Producto',          get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
     { header: 'Costo indicativo',  get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+    { header: '$/m³',              get: l => (l.cost != null && l.cold_rooms?.volume_m3) ? (l.cost / l.cold_rooms.volume_m3).toFixed(2) : '' },
     { header: 'Estado',            get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
   ]
 
   const filtered = filterRows(enriched, COLUMNS, filters)
   const setFilter = (header, value) => setFilters(prev => ({ ...prev, [header]: value }))
+
+  const totals = useMemo(() => {
+    const uniqueCustomers = new Set(filtered.map(l => l.customer?.id).filter(Boolean))
+    const totalM3 = filtered.reduce((s, l) => s + (l.cold_rooms?.volume_m3 || 0), 0)
+    const totalCost = filtered.reduce((s, l) => s + (l.cost || 0), 0)
+    return {
+      customers: uniqueCustomers.size,
+      applications: filtered.length,
+      m3: totalM3,
+      cost: totalCost,
+      avgPerM3: totalM3 > 0 ? totalCost / totalM3 : 0,
+    }
+  }, [filtered])
 
   if (loading) return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando...</div>
 
@@ -164,12 +172,13 @@ export default function SeasonPlanRollup() {
         </div>
       )}
 
-      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'14px', marginBottom:'16px'}}>
         {[
           ['Clientes con plan cargado', totals.customers],
           ['Total aplicaciones', totals.applications],
           ['Total m³', totals.m3.toLocaleString('es-AR')],
           ['Costo potencial total', fmtUSD(totals.cost)],
+          ['Costo promedio $/m³', fmtUSD(totals.avgPerM3)],
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
@@ -221,10 +230,12 @@ export default function SeasonPlanRollup() {
                   <td style={{padding:'12px 16px', fontWeight:600}}>{l.customer?.name || '—'}</td>
                   <td style={{padding:'12px 16px'}}>{l.cold_rooms?.name || '—'}</td>
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.cold_rooms?.primary_crop || '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.cold_rooms?.volume_m3 != null ? `${l.cold_rooms.volume_m3} m³` : '—'}</td>
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.planned_date || '—'}</td>
                   <td style={{padding:'12px 16px'}}>{l.planned_dose_ppb ?? '—'}</td>
                   <td style={{padding:'12px 16px'}}>{PRODUCT_LABEL[l.product_preference] || l.product_preference}</td>
                   <td style={{padding:'12px 16px', fontWeight:700, color:'#0b4358'}}>{l.cost != null ? fmtUSD(l.cost) : '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{(l.cost != null && l.cold_rooms?.volume_m3) ? fmtUSD(l.cost / l.cold_rooms.volume_m3) : '—'}</td>
                   <td style={{padding:'12px 16px'}}>
                     <span className={`status ${l.status === 'converted' ? 'approved' : 'pending'}`}>
                       {l.status === 'converted' ? '✓ Convertida' : '⏳ Planificada'}
