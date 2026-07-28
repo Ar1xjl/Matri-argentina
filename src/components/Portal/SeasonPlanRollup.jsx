@@ -121,8 +121,8 @@ export default function SeasonPlanRollup() {
     { header: 'Fecha estimada',    get: l => l.planned_date || '' },
     { header: 'Dosis (ppb)',       get: l => l.planned_dose_ppb ?? '' },
     { header: 'Producto',          get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-    { header: 'Costo indicativo',  get: l => l.cost != null ? l.cost.toFixed(2) : '' },
-    { header: '$/m³',              get: l => (l.cost != null && l.cold_rooms?.volume_m3) ? (l.cost / l.cold_rooms.volume_m3).toFixed(2) : '' },
+    { header: 'Costo (producto)',  get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+    { header: '$/m³ (producto)',   get: l => (l.cost != null && l.cold_rooms?.volume_m3) ? (l.cost / l.cold_rooms.volume_m3).toFixed(2) : '' },
     { header: 'Estado',            get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
   ]
 
@@ -177,14 +177,17 @@ export default function SeasonPlanRollup() {
           ['Clientes con plan cargado', totals.customers],
           ['Total aplicaciones', totals.applications],
           ['Total m³', totals.m3.toLocaleString('es-AR')],
-          ['Costo potencial total', fmtUSD(totals.cost)],
-          ['Costo promedio $/m³', fmtUSD(totals.avgPerM3)],
+          ['Costo potencial total (producto)', fmtUSD(totals.cost)],
+          ['Costo prom. $/m³ (producto)', fmtUSD(totals.avgPerM3)],
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
             <div style={{fontSize:'18px', fontWeight:800, color:'#fff'}}>{value}</div>
           </div>
         ))}
+      </div>
+      <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
+        Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional.
       </div>
 
       <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>

@@ -3,6 +3,7 @@ import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProdu
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { downloadPlanTemplate } from '../../lib/excelImport'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import CampaignCostSimulator from './CampaignCostSimulator'
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
 
@@ -14,8 +15,8 @@ const SEASON_PLAN_COLUMNS = [
   { header: 'Fecha estimada',   get: l => l.planned_date || '' },
   { header: 'Dosis (ppb)',      get: l => l.planned_dose_ppb ?? '' },
   { header: 'Producto',         get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-  { header: 'Costo indicativo', get: l => l.cost != null ? l.cost.toFixed(2) : '' },
-  { header: '$/m³',             get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
+  { header: 'Costo (producto)', get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+  { header: '$/m³ (producto)',  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
   { header: 'Notas',            get: l => l.notes || '' },
   { header: 'Estado',           get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
 ]
@@ -52,6 +53,7 @@ export default function SeasonPlan({
   const [selected, setSelected] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({})
+  const [showSimulator, setShowSimulator] = useState(false)
   const [bulkDate,    setBulkDate]    = useState('')
   const [bulkDose,    setBulkDose]    = useState('')
   const [bulkCrop,    setBulkCrop]    = useState('')
@@ -210,8 +212,8 @@ export default function SeasonPlan({
           ['Total cámaras', totals.rooms],
           ['Total aplicaciones', totals.applications],
           ['Total m³', totals.m3.toLocaleString('es-AR')],
-          ['Costo total', fmtUSD(totals.cost)],
-          ['Costo promedio $/m³', fmtUSD(totals.avgPerM3)],
+          ['Costo total (producto)', fmtUSD(totals.cost)],
+          ['Costo prom. $/m³ (producto)', fmtUSD(totals.avgPerM3)],
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
@@ -221,25 +223,39 @@ export default function SeasonPlan({
       </div>
       <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
         Pagás por la dosis real que usás — no una tarifa fija que asume 1.000 ppb para todos los cultivos.
+        <br/>Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional.
       </div>
 
-      {lines.some(l => l.product_preference === 'powder') && (
+      {enriched.some(l => l.product_preference !== 'undecided') && (
         <div style={{
           ...card, background:'#0b4358', display:'flex', alignItems:'center',
           justifyContent:'space-between', flexWrap:'wrap', gap:'12px',
         }}>
           <div>
             <div style={{fontSize:'14px', fontWeight:700, color:'#fff', marginBottom:'2px'}}>
-              ¿Querés optimizar el costo de tus aplicaciones?
+              🧮 Simulador del costo total por campaña
             </div>
             <div style={{fontSize:'12px', color:'rgba(255,255,255,.7)'}}>
-              Con tu Plan de Temporada podés ver si conviene comprar, alquilar o usar el servicio gestionado para tus generadores.
+              {selected.size > 0
+                ? `Elegí redondeo de dosis y modelo de aplicación para las ${selected.size} cámaras seleccionadas, y mirá el costo final $ y $/m³.`
+                : 'Elegí redondeo de dosis y modelo de aplicación para todo tu plan, y mirá el costo final $ y $/m³.'}
             </div>
           </div>
-          <button className="btn-lime btn-sm" onClick={() => onNavigate?.('generators')}>
-            Ir a Generadores →
+          <button className="btn-lime btn-sm" onClick={() => setShowSimulator(true)}>
+            Abrir simulador →
           </button>
         </div>
+      )}
+
+      {showSimulator && (
+        <CampaignCostSimulator
+          lines={selected.size > 0 ? enriched.filter(l => selected.has(l.id)) : enriched}
+          pricing={pricing}
+          override={override}
+          pouchSizes={pouchSizes}
+          onClose={() => setShowSimulator(false)}
+          onNavigate={onNavigate}
+        />
       )}
 
       {/* Table */}
@@ -309,7 +325,7 @@ export default function SeasonPlan({
                 <th style={{...cell, background:'#f5f5ee'}}>
                   <input type="checkbox" checked={allSelected} disabled={plannedIds.length === 0} onChange={toggleSelectAll}/>
                 </th>
-                {['Cámara', 'Cultivo', 'Volumen (m³)', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo indicativo', '$/m³', 'Notas', 'Estado', ''].map(h => (
+                {['Cámara', 'Cultivo', 'Volumen (m³)', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo (producto)', '$/m³ (producto)', 'Notas', 'Estado', ''].map(h => (
                   <th key={h} style={{...cell, background:'#f5f5ee', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase'}}>{h}</th>
                 ))}
               </tr>
