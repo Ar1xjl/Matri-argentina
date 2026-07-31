@@ -506,41 +506,55 @@ export default function Portal({ onSignOut }) {
   // must be able to tell the user something went wrong instead of silently
   // acting as if it succeeded.
   //
-  // startBlob/endBlob are the two chain-of-custody photos (Juan, 2026-07-31)
-  // coincident with startTime/endTime — live camera only, same anti-fraud
-  // requirement as the MatriSure photo. Uploaded to the same matrisure-photos
-  // bucket MatriSure verification already uses. The DB-level
+  // Split into two separate saves (Juan, 2026-07-31): a real application can
+  // run 12-30h between Inicio and Fin, so it can't be one atomic form/save
+  // like the original single-step design assumed. Approved → "en curso" is
+  // deliberately NOT a stored status — see the derived label in AppLog.jsx —
+  // the Treatment just sits at 'approved' with start_photo_url set until
+  // finishApplication closes it out. startBlob/endBlob are the two
+  // chain-of-custody photos, live camera only (same anti-fraud requirement
+  // as the MatriSure photo), uploaded to the same matrisure-photos bucket
+  // MatriSure verification already uses. The DB-level
   // treatment_applied_requires_photos CHECK constraint
-  // (0024_treatment_application_photos.sql) backs this up server-side.
-  const applyTreatment = async (id, { startTime, endTime, startBlob, endBlob }) => {
+  // (0024_treatment_application_photos.sql) still backs up the final
+  // Applied transition server-side.
+  const startApplication = async (id, { startTime, startBlob }) => {
     const startPath = `${profile.org_id}/${id}/start-${Date.now()}.jpg`
-    const { error: startUploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(startPath, startBlob, { contentType: 'image/jpeg' })
-    if (startUploadError) { console.error('[applyTreatment start upload]', startUploadError); return { error: startUploadError.message } }
+    if (uploadError) { console.error('[startApplication upload]', uploadError); return { error: uploadError.message } }
 
+    const { error } = await supabase
+      .from('treatments')
+      .update({
+        operator_id: profile.id,
+        application_start_time: startTime || null,
+        start_photo_url: startPath,
+      })
+      .eq('id', id)
+    if (error) { console.error('[startApplication]', error); return { error: error.message } }
+    await loadTreatments()
+    return { error: null }
+  }
+
+  const finishApplication = async (id, { endTime, endBlob }) => {
     const endPath = `${profile.org_id}/${id}/end-${Date.now()}.jpg`
-    const { error: endUploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(endPath, endBlob, { contentType: 'image/jpeg' })
-    if (endUploadError) { console.error('[applyTreatment end upload]', endUploadError); return { error: endUploadError.message } }
+    if (uploadError) { console.error('[finishApplication upload]', uploadError); return { error: uploadError.message } }
 
-    // startTime/endTime come from <input type="datetime-local"> as full
-    // "YYYY-MM-DDTHH:MM" values — each carries its own date, since many
-    // treatments start one afternoon and finish the next day.
     const { error } = await supabase
       .from('treatments')
       .update({
         status: 'applied',
-        operator_id: profile.id,
         applied_at: new Date().toISOString(),
-        application_start_time: startTime || null,
         application_end_time: endTime || null,
-        start_photo_url: startPath,
         end_photo_url: endPath,
       })
       .eq('id', id)
-    if (error) { console.error('[applyTreatment]', error); return { error: error.message } }
+    if (error) { console.error('[finishApplication]', error); return { error: error.message } }
     await decrementInventoryForTreatment(id)
     await loadTreatments()
     return { error: null }
@@ -689,7 +703,7 @@ export default function Portal({ onSignOut }) {
                       onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
-    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,

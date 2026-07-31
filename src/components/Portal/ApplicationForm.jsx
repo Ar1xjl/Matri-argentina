@@ -12,18 +12,25 @@ function nowLocal() {
   return d.toISOString().slice(0, 16)
 }
 
-export default function ApplicationForm({ treatment, operatorName, onSave, onCancel }) {
-  const [startTime, setStartTime] = useState(nowLocal())
-  const [endTime,   setEndTime]   = useState('')
-  const [saving,    setSaving]    = useState(false)
+// mode='start': just the Inicio time, shown when the operator places the kit
+// in the Cold Room. mode='end': just the Fin time, shown separately later —
+// often 12-30h afterward — when they come back to close out the
+// application. A single combined start+end form doesn't match how long a
+// real application actually takes (Juan, 2026-07-31).
+export default function ApplicationForm({ treatment, operatorName, mode, onSave, onCancel }) {
+  const [time,   setTime]   = useState(nowLocal())
+  const [saving, setSaving] = useState(false)
 
   const card  = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'24px', marginBottom:'16px'}
   const label = {display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}
   const inp   = {width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit'}
 
+  const timeLabel = mode === 'start' ? 'Fecha y hora de inicio' : 'Fecha y hora de fin'
+  const heading   = mode === 'start' ? 'Iniciar aplicación' : 'Finalizar aplicación'
+
   const handleSave = async () => {
     setSaving(true)
-    await onSave({ startTime, endTime })
+    await onSave(mode === 'start' ? { startTime: time } : { endTime: time })
     setSaving(false)
   }
 
@@ -32,7 +39,7 @@ export default function ApplicationForm({ treatment, operatorName, onSave, onCan
 
       {treatment && (
         <div className="alert info">
-          📋 Registrando aplicación para <strong>{treatment.cold_rooms?.name}</strong> · {treatment.product === 'powder' ? 'MatriPowder' : 'MatriTablets'} · Tratamiento #{treatment.id.slice(0,8)}
+          📋 {heading} para <strong>{treatment.cold_rooms?.name}</strong> · {treatment.product === 'powder' ? 'MatriPowder' : 'MatriTablets'} · Tratamiento #{treatment.id.slice(0,8)}
         </div>
       )}
 
@@ -57,28 +64,21 @@ export default function ApplicationForm({ treatment, operatorName, onSave, onCan
           </div>
         </div>
 
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
-          <div>
-            <label style={label}>Fecha y hora de inicio</label>
-            <input style={inp} type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)}/>
-          </div>
-          <div>
-            <label style={label}>Fecha y hora de fin</label>
-            <input style={inp} type="datetime-local" value={endTime} onChange={e => setEndTime(e.target.value)}/>
-          </div>
-        </div>
-        <div style={{fontSize:'11px', color:'#888', marginTop:'6px'}}>
-          Incluí la fecha de cada horario — muchos tratamientos empiezan a la tarde y terminan al día siguiente.
+        <div>
+          <label style={label}>{timeLabel}</label>
+          <input style={inp} type="datetime-local" value={time} onChange={e => setTime(e.target.value)}/>
         </div>
 
-        <div style={{fontSize:'11px', color:'#b06a00', marginTop:'12px'}}>
-          ⚠️ Selección de generador todavía no disponible — la gestión real de generadores está pendiente.
-        </div>
+        {mode === 'start' && (
+          <div style={{fontSize:'11px', color:'#b06a00', marginTop:'12px'}}>
+            ⚠️ Selección de generador todavía no disponible — la gestión real de generadores está pendiente.
+          </div>
+        )}
       </div>
 
       <div style={{display:'flex', gap:'10px'}}>
         <button className="btn-primary" style={{flex:1, opacity: saving ? .6 : 1}} onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando…' : 'Guardar registro de aplicación'}
+          {saving ? 'Guardando…' : 'Continuar a la foto'}
         </button>
         <button className="btn-secondary" onClick={onCancel}>
           Cancelar

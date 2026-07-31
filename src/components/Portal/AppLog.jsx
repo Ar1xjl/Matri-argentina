@@ -8,61 +8,74 @@ import RoomHistory from './RoomHistory'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
 
-const statusLabel = (status) => ({
-  approved:  { cls:'pending',   label:'⏳ Listo para aplicar' },
-  applied:   { cls:'pending',   label:'🔧 Aplicado — falta MatriSure' },
-  completed: { cls:'confirmed', label:'📸 Confirmado' },
-}[status] || null)
+// "En curso" isn't a stored status (see Portal.jsx's startApplication/
+// finishApplication) — a real application can run 12-30h between Inicio and
+// Fin, so the Treatment stays 'approved' the whole time and this is derived
+// purely from which photos already exist (Juan, 2026-07-31).
+const statusLabel = (t) => {
+  if (t.status === 'approved' && t.start_photo_url && !t.end_photo_url) {
+    return { cls:'pending', label:'🔧 En curso — falta finalizar' }
+  }
+  return ({
+    approved:  { cls:'pending',   label:'⏳ Listo para aplicar' },
+    applied:   { cls:'pending',   label:'🔧 Aplicado — falta MatriSure' },
+    completed: { cls:'confirmed', label:'📸 Confirmado' },
+  })[t.status] || null
+}
 
 const APPLOG_COLUMNS = [
   { header: 'Cámara',            get: t => t.cold_rooms?.name || '' },
   { header: 'Producto',          get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
   { header: 'Dosis / sachets',   get: t => pouchBreakdownDisplay(t) },
   { header: 'Fecha aplicación',  get: t => t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '' },
-  { header: 'MatriSure',         get: t => statusLabel(t.status)?.label || '' },
+  { header: 'MatriSure',         get: t => statusLabel(t)?.label || '' },
 ]
 
-export default function AppLog({ treatments = [], operatorName, onApply, onSubmitMatriSure, onGetPhotoUrl }) {
-  const [view, setView] = useState('list') // 'list' | 'form' | 'applystart' | 'applyend' | 'capture' | 'review' | 'history'
+export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl }) {
+  const [view, setView] = useState('list') // 'list' | 'startform' | 'applystart' | 'endform' | 'applyend' | 'capture' | 'review' | 'history'
   const [selected, setSelected] = useState(null)
   const [historyRoom, setHistoryRoom] = useState(null)
   const [pendingPhoto, setPendingPhoto] = useState(null)
-  const [pendingApply, setPendingApply] = useState(null) // { startTime, endTime, startBlob } while walking the applystart/applyend steps
+  const [pendingTime, setPendingTime] = useState(null) // { startTime } or { endTime } while walking to the photo step
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
 
   const relevant = treatments.filter(t => ['approved','applied','completed'].includes(t.status))
 
-  const openForm = (t) => { setActionError(''); setSelected(t); setView('form') }
-  const openHistory = (room) => { setHistoryRoom(room); setView('history') }
-  const openCapture = (t) => { setActionError(''); setSelected(t); setView('capture') }
+  const openStartForm = (t) => { setActionError(''); setSelected(t); setView('startform') }
+  const openEndForm   = (t) => { setActionError(''); setSelected(t); setView('endform') }
+  const openHistory   = (room) => { setHistoryRoom(room); setView('history') }
+  const openCapture   = (t) => { setActionError(''); setSelected(t); setView('capture') }
 
-  // Times are only held in memory here — nothing is saved to Supabase until
-  // both the start and end photos are captured too, right after this step.
-  const handleApplyTimes = ({ startTime, endTime }) => {
-    setPendingApply({ startTime, endTime })
-    setView('applystart')
-  }
+  const handleStartTime = ({ startTime }) => { setPendingTime({ startTime }); setView('applystart') }
+  const handleEndTime   = ({ endTime })   => { setPendingTime({ endTime });   setView('applyend') }
 
-  const handleApplyStartPhoto = (blob) => {
-    setPendingApply(prev => ({ ...prev, startBlob: blob }))
-    setView('applyend')
-  }
+  const cancelFlow = () => { setPendingTime(null); setSelected(null); setView('list') }
 
-  const cancelApplyFlow = () => { setPendingApply(null); setSelected(null); setView('list') }
-
-  const handleApplyEndPhoto = async (endBlob) => {
+  const handleStartPhoto = async (startBlob) => {
     setSubmitting(true)
-    const res = await onApply(selected.id, { ...pendingApply, endBlob })
+    const res = await onStartApplication(selected.id, { ...pendingTime, startBlob })
     setSubmitting(false)
     if (res?.error) {
-      // Stay on this step — the end photo is still held by MatriSureCapture's
+      // Stay on this step — MatriSureCapture keeps the captured blob in its
       // own local state, so the user can just retry without retaking it.
-      setActionError('No se pudo guardar el registro de aplicación: ' + res.error)
+      setActionError('No se pudo guardar el inicio de la aplicación: ' + res.error)
       return
     }
-    setPendingApply(null)
+    setPendingTime(null)
+    setView('list')
+  }
+
+  const handleEndPhoto = async (endBlob) => {
+    setSubmitting(true)
+    const res = await onFinishApplication(selected.id, { ...pendingTime, endBlob })
+    setSubmitting(false)
+    if (res?.error) {
+      setActionError('No se pudo guardar el fin de la aplicación: ' + res.error)
+      return
+    }
+    setPendingTime(null)
     setView('list')
   }
 
@@ -89,14 +102,15 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
     </div>
   )
 
-  if (view === 'form') {
+  if (view === 'startform') {
     return (
       <div>
         {errorBanner}
         <ApplicationForm
           treatment={selected}
           operatorName={operatorName}
-          onSave={handleApplyTimes}
+          mode="start"
+          onSave={handleStartTime}
           onCancel={() => setView('list')}
         />
       </div>
@@ -108,14 +122,29 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
       <div>
         {errorBanner}
         <div className="alert info" style={{marginBottom:'16px'}}>
-          📋 Paso 1 de 2 — foto al colocar el kit en la cámara, coincidente con la hora de inicio registrada.
+          📋 Foto al colocar el kit en la cámara, coincidente con la hora de inicio registrada. El tratamiento queda "En curso" hasta que vuelvas a cerrarlo con la foto de Fin.
         </div>
         <MatriSureCapture
-          onCapture={handleApplyStartPhoto}
-          onCancel={cancelApplyFlow}
+          onCapture={handleStartPhoto}
+          onCancel={cancelFlow}
           bannerText="Foto de INICIO de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
-          confirmLabel="✓ Usar como foto de inicio"
+          confirmLabel={submitting ? 'Guardando…' : '✓ Usar como foto de inicio'}
           previewAlt="Foto de inicio de aplicación"
+        />
+      </div>
+    )
+  }
+
+  if (view === 'endform') {
+    return (
+      <div>
+        {errorBanner}
+        <ApplicationForm
+          treatment={selected}
+          operatorName={operatorName}
+          mode="end"
+          onSave={handleEndTime}
+          onCancel={() => setView('list')}
         />
       </div>
     )
@@ -126,13 +155,13 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
       <div>
         {errorBanner}
         <div className="alert info" style={{marginBottom:'16px'}}>
-          📋 Paso 2 de 2 — foto al finalizar la aplicación, coincidente con la hora de fin registrada.
+          📋 Foto al finalizar la aplicación, coincidente con la hora de fin registrada.
         </div>
         <MatriSureCapture
-          onCapture={handleApplyEndPhoto}
-          onCancel={cancelApplyFlow}
+          onCapture={handleEndPhoto}
+          onCancel={cancelFlow}
           bannerText="Foto de FIN de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
-          confirmLabel="✓ Usar como foto de fin y guardar"
+          confirmLabel={submitting ? 'Guardando…' : '✓ Usar como foto de fin y guardar'}
           previewAlt="Foto de fin de aplicación"
         />
       </div>
@@ -227,7 +256,8 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
               </thead>
               <tbody>
                 {relevant.map(t => {
-                  const s = statusLabel(t.status)
+                  const s = statusLabel(t)
+                  const inProgress = t.status === 'approved' && t.start_photo_url && !t.end_photo_url
                   return (
                     <tr key={t.id}>
                       <td style={{fontWeight:600}}>{t.cold_rooms?.name}</td>
@@ -245,9 +275,14 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
                       <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>
                       <td>
                         <div style={{display:'flex', gap:'6px'}}>
-                          {t.status === 'approved' && (
-                            <button className="btn-lime btn-sm" onClick={() => openForm(t)}>
-                              📝 Registrar
+                          {t.status === 'approved' && !t.start_photo_url && (
+                            <button className="btn-lime btn-sm" onClick={() => openStartForm(t)}>
+                              ▶️ Iniciar aplicación
+                            </button>
+                          )}
+                          {inProgress && (
+                            <button className="btn-lime btn-sm" onClick={() => openEndForm(t)}>
+                              ⏹ Finalizar aplicación
                             </button>
                           )}
                           {t.status === 'applied' && (
