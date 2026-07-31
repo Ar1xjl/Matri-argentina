@@ -92,6 +92,8 @@ Draft → Submitted → Approved → Applied → Completed
 
 > **Applied** is a critical intermediate state. It records that the physical treatment was performed (dose, operator, generator, start/end time) but dose verification via MatriSure is still pending. A Treatment cannot move to Completed without a MatriSure Verification record.
 
+> **Application photos (Juan, 2026-07-31):** the recorded `application_start_time`/`application_end_time` are backed by two live-camera photos — one taken when the MatriSure kit is placed in the Cold Room (Inicio), one taken at the end of the application (Fin) — same anti-fraud requirement as the MatriSure Verification photo below (no gallery upload). A Treatment cannot move to Applied without both.
+
 > **Rejected → Draft (2026-07-03):** a Rejected Treatment is not a dead end. It returns to Draft, editable by the Planner, keeping the same record and its full history (including the Approver's rejection reason) — it does not need to be recreated from scratch.
 
 > **Cancellation window extended (2026-07-03):** Cancellation is available not only before Approval, but also **Approved → Cancelled** — a customer can still back out after approval, up until the Operator records the physical application (Applied). Once Applied, the Treatment can no longer be cancelled.
@@ -167,6 +169,8 @@ Tracks on-hand quantity of each Product SKU variant held by a Distributor-level 
 **Decrement:** automatic, at the moment a Treatment moves to Applied. For MatriPowder, the same pouch breakdown already computed for display is subtracted from the owning Distributor's stock. For MatriTablets, only the `suelta` (loose) variant is decremented by the tablet count needed — envelope counts are never touched automatically. Stock can go negative; this is a visible signal that more was applied than was on hand, not hidden by clamping to zero.
 
 **Manual adjustment:** the Distributor (or FreshInset Global, per the usual subtree visibility) can add/subtract quantity directly — for receiving new stock, opening an envelope, or correcting a physical count.
+
+**MatriSure Kit Lot (added 2026-07-31):** a receipt-level record — SKU, variant, lot/batch number (matching the "Lot/Batch No." printed on the MatriSure card), quantity, and `received_at` date — additive alongside the aggregate quantity above, not a replacement for it. Exists because the aggregate counter alone can't answer "how old is this stock," which the QA directive "a lot aging past 30 days must be destroyed and replaced with new cards" requires. Registering a lot bumps the aggregate quantity by the same amount; destroying a lot (recording `destroyed_at`/`destroyed_by`/`destroyed_reason`) subtracts it back out and leaves an audit trail. This is receipt tracking only — there is no FIFO link from a specific Treatment to the specific lot it consumed; the Treatment Dispatch Checklist's `lot_age_verified` item stays a manual attestation, informed by (but not computed from) which lots are currently past 30 days.
 
 ### Pricing
 
@@ -253,6 +257,26 @@ Sub-entity of Treatment. Records the physical dose confirmation step that must o
 - A Treatment with result `not_reached` **still reaches Completed** — it is not blocked. `not_reached` is recorded and surfaced as a historical/dashboard alert, not a hard gate on closing the Treatment.
 - **Fourth time-based alert (2026-07-03):** a MatriSure photo sitting in `pending_review` for too long (uploaded, but nobody — Customer or Distributor — has confirmed a result) is flagged visually on the dashboard, same style as the other three alerts defined under Treatment.
 - Future roadmap: automated AI color classification of strip image (removes manual review step).
+
+### Treatment Dispatch Checklist
+
+Added 2026-07-31, per Juan's MatriSure QA directives. Sub-entity of Treatment, one row per Treatment — a pre-shipment attestation the Distributor/Sub-distributor's Owner or Approver completes at the moment they approve a Treatment (Submitted → Approved), confirming the MatriSure kit was handled correctly up to that point in the chain of custody. Same shape as the Generator's pre-dispatch checklist (see Business Rule 31), applied to the MatriSure kit itself rather than to equipment.
+
+**Attributes:**
+
+| Field | Description |
+|---|---|
+| training_completed | Protocol and MatriSure QA handling training executed |
+| kept_vacuum_sealed | Kit kept in its vacuum-sealed plastic until ready for use |
+| refrigerated_2_6c | Refrigerated storage on site, 2–6°C |
+| lot_age_verified | Approver attests the lot being shipped does not exceed the 30-day aging threshold (see MatriSure Kit Lot, under Inventory) |
+| followed_card_instructions | Directions on the MatriSure card were followed |
+| completed_by / completed_at | Who completed the checklist, and when |
+
+**Rules:**
+- All five items must be checked before the checklist can be saved — there is no partial/pending state, unlike the Generator checklist which can sit incomplete before a dispatch.
+- **Blocking gate:** a Treatment cannot move into Approved without a completed checklist already existing for it, enforced at the database level (same principle as Business Rule 43's role enforcement — not just hidden in the UI).
+- The Approver sees a warning if the Distributor's own inventory has any MatriSure Kit Lot of the relevant SKU past the 30-day threshold, but the `lot_age_verified` item is still a manual attestation, not auto-derived — the app doesn't (yet) link a specific Treatment to a specific lot.
 
 ### DoseRight Decision Support Tool
 
@@ -372,6 +396,9 @@ FreshInset Global
 42. A non-Customer Organization (Distributor, Sub-distributor, or Global) may prepare a Season Plan draft on behalf of one of its descendant Customers who hasn't loaded their own — invisible to that Customer, and to anyone else, until explicitly shared. Sharing copies the draft's lines into that Customer's real Season Plan (creating one if it doesn't have one yet) and notifies that Customer's Owner and Planificador; the Customer then owns and edits those lines exactly as if they'd entered them themselves.
 43. Within a non-Customer Organization's own admin panel, CRM/Inventory/SKU Catalog/Pricing are Owner-and-Aprobador-only — Planificador/Operador/Viewer only ever see the Treatments view there (and, for Operador, only enough of it to record a Firmness Evaluation, with commercial figures like price hidden). Approving or rejecting a Treatment likewise requires Owner or Aprobador, enforced at the database level, not just hidden in the UI. On top of that role gate, read/write access to Inventory/Catalog/Pricing also varies by org_type: Global is read-only on Inventory and Pricing but full access on Catalog (network-wide SKU governance, independent of any single Distributor's commercial decisions); a Sub-distributor is the mirror image — full access to its own allocated Inventory and its own Pricing, but read-only on Catalog (which the Distributor defines). Recording a Firmness Evaluation requires Owner, Aprobador, or Operador specifically (Rule 41 still governs who's in scope: any non-Customer Organization in the Treatment's own ancestor chain). Within a Customer Organization, Aprobador is not a distinct action from Owner — there is no Customer-side screen where the two roles currently behave differently.
 44. When resolving which Organization's price list applies to a given Treatment/Season Plan line, exactly one owner is used — the nearest Organization at or above the line's own Customer (inclusive) that has actually configured its own volume brackets — never a mix of several. This is what lets a Sub-distributor maintain its own price list distinct from its parent Distributor's (extends Rule 14): if the Sub-distributor has configured one, it wins outright for its own Customers; if not, resolution continues up to the Distributor that has.
+45. A Treatment cannot move to Applied without both an Inicio and a Fin application photo, taken live from the device camera — same anti-fraud requirement as Rule 11's MatriSure photo, enforced at the database level.
+46. A Treatment cannot move to Approved without a completed Treatment Dispatch Checklist (all five items attested) already recorded for it — a blocking gate enforced at the database level, mirroring Rule 31's Generator pre-dispatch checklist.
+47. A MatriSure Kit Lot older than 30 days from its `received_at` date must be destroyed (recorded, not just discarded) and replaced with newly ordered cards — the Distributor is warned of any such lot when approving a Treatment for the same SKU, but marking a lot destroyed and the checklist's `lot_age_verified` attestation are both manual actions, not automatic.
 
 ---
 

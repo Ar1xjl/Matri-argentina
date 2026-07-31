@@ -39,7 +39,21 @@ const PROCESSED_COLUMNS = [
   { header: 'Motivo',         get: t => t.rejection_reason || '' },
 ]
 
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, myRoles = [], onSaveFirmnessEvaluation, onGetFirmnessPdfUrl }) {
+// Pre-shipment QA checklist, requested by Juan 2026-07-31 — Wassington's
+// side of DOMAIN_MODEL.md's Treatment Dispatch Checklist, gating Approve the
+// same way GeneratorTransferModal.jsx gates a generator dispatch, but here
+// the actual per-item state the user ticks is what gets persisted (see
+// approveTreatment in Portal.jsx).
+const CHECKLIST_ITEMS = [
+  { key: 'training_completed',         label: 'Protocolo y capacitación en manejo de calidad de MatriSure realizada.' },
+  { key: 'kept_vacuum_sealed',         label: 'El kit se mantuvo en su envoltorio plástico sellado al vacío hasta el momento de uso.' },
+  { key: 'refrigerated_2_6c',          label: 'Almacenamiento refrigerado in situ a 2–6°C.' },
+  { key: 'lot_age_verified',           label: 'Verifiqué que el lote no supera los 30 días de antigüedad.' },
+  { key: 'followed_card_instructions', label: 'Se siguieron las instrucciones de la tarjeta MatriSure.' },
+]
+const EMPTY_CHECKLIST = Object.fromEntries(CHECKLIST_ITEMS.map(i => [i.key, false]))
+
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, myRoles = [], onSaveFirmnessEvaluation, onGetFirmnessPdfUrl, onFetchExpiredLots }) {
   // Fase G: CRM/Inventario/Catálogo/Precios and the commercial decisions
   // (approve/reject, MatriSure assistance review) are Owner/Aprobador
   // territory — Planificador/Operador/Viewer only ever see Tratamientos.
@@ -58,6 +72,10 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
   const [reason,    setReason]    = useState('')
+  const [checklist, setChecklist] = useState(EMPTY_CHECKLIST)
+  const [expiredLots, setExpiredLots] = useState([])
+  const [approveError, setApproveError] = useState('')
+  const [approving, setApproving] = useState(false)
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [firmnessTreatment, setFirmnessTreatment] = useState(null) // treatment row currently being evaluated, or null
   const [resolving, setResolving] = useState(null) // treatment id currently being resolved
@@ -81,11 +99,29 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
     return t.status === 'applied' && m?.assistance_requested && m?.result === 'pending_review' && !m?.reviewed_at
   })
 
-  const openApprove = (t) => { setEditPrice(t.price_local ?? ''); setModal({ treatment: t, action:'approve' }) }
+  const openApprove = (t) => {
+    setEditPrice(t.price_local ?? '')
+    setChecklist(EMPTY_CHECKLIST)
+    setApproveError('')
+    setExpiredLots([])
+    setModal({ treatment: t, action:'approve' })
+    const sku = t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'
+    onFetchExpiredLots?.(profile?.org_id, sku).then(setExpiredLots)
+  }
   const openReject  = (t) => { setReason(''); setModal({ treatment: t, action:'reject' }) }
   const closeModal  = () => setModal(null)
 
-  const confirmApprove = () => { onApprove(modal.treatment.id, editPrice); closeModal() }
+  const checklistComplete = CHECKLIST_ITEMS.every(i => checklist[i.key])
+  const toggleChecklistItem = (key) => setChecklist(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const confirmApprove = async () => {
+    setApproving(true)
+    setApproveError('')
+    const res = await onApprove(modal.treatment.id, editPrice, checklist)
+    setApproving(false)
+    if (res?.error) { setApproveError('No se pudo aprobar: ' + res.error); return }
+    closeModal()
+  }
   const confirmReject  = () => { onReject(modal.treatment.id, reason);     closeModal() }
 
   const resolveAssistance = async (treatmentId, result) => {
@@ -352,6 +388,12 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                           {canManage && matriSure?.photo_url && (
                             <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(matriSure.photo_url)}>📷 Ver foto</button>
                           )}
+                          {canManage && t.start_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.start_photo_url)}>📷 Inicio</button>
+                          )}
+                          {canManage && t.end_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.end_photo_url)}>📷 Fin</button>
+                          )}
                           {(canManage || myRoles.includes('operator')) && (t.status === 'applied' || t.status === 'completed') && (
                             <button className="btn-secondary btn-sm" onClick={() => setFirmnessTreatment(t)}>
                               {firmnessOf(t) ? '📊 Evaluación' : '📊 + Evaluación'}
@@ -387,7 +429,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       {/* Approve/Reject Modal */}
       {modal && (
         <div onClick={(e) => e.target === e.currentTarget && closeModal()} style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'420px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth: modal.action === 'approve' ? '480px' : '420px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
             {modal.action === 'approve' ? (
               <>
                 <div style={{fontSize:'18px', fontWeight:800, color:'#0b4358', marginBottom:'4px'}}>Aprobar tratamiento</div>
@@ -397,8 +439,32 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                   <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8'}}/>
                   <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Precio indicativo: {modal.treatment.price_local}. Podés confirmarlo o ajustarlo.</div>
                 </div>
+
+                <div style={{marginBottom:'14px', paddingTop:'14px', borderTop:'0.5px solid #ddddd5'}}>
+                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'8px'}}>Checklist de pre-envío — manejo del kit MatriSure</div>
+                  <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                    {CHECKLIST_ITEMS.map(item => (
+                      <label key={item.key} style={{display:'flex', alignItems:'flex-start', gap:'8px', fontSize:'12px', color:'#0b4358', cursor:'pointer'}}>
+                        <input type="checkbox" checked={checklist[item.key]} onChange={() => toggleChecklistItem(item.key)} style={{marginTop:'2px'}}/>
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {expiredLots.length > 0 && (
+                    <div style={{marginTop:'10px', padding:'8px 10px', background:'#fdeaea', color:'#8b2020', borderRadius:'6px', fontSize:'11px'}}>
+                      ⚠️ {expiredLots.length} {expiredLots.length === 1 ? 'lote' : 'lotes'} de {modal.treatment.product === 'powder' ? 'MatriPowder' : 'MatriTablets'} con más de 30 días de antigüedad en tu inventario — revisalo en Inventario → Lotes antes de confirmar.
+                    </div>
+                  )}
+                </div>
+
+                {approveError && (
+                  <div style={{marginBottom:'14px', padding:'8px 10px', background:'#fdeaea', color:'#8b2020', borderRadius:'6px', fontSize:'12px'}}>⚠️ {approveError}</div>
+                )}
+
                 <div style={{display:'flex', gap:'10px'}}>
-                  <button onClick={confirmApprove} className="btn-primary" style={{flex:1, background:'#1a6b30'}}>✓ Confirmar aprobación</button>
+                  <button onClick={confirmApprove} className="btn-primary" style={{flex:1, background:'#1a6b30', opacity: (!checklistComplete || approving) ? .5 : 1}} disabled={!checklistComplete || approving}>
+                    {approving ? 'Aprobando…' : '✓ Confirmar aprobación'}
+                  </button>
                   <button onClick={closeModal} className="btn-secondary">Cancelar</button>
                 </div>
               </>

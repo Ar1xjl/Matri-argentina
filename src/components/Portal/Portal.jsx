@@ -414,7 +414,12 @@ export default function Portal({ onSignOut }) {
   // never recomputed again even if the catalog changes later. Only
   // meaningful for MatriPowder — MatriTablets dosing doesn't depend on the
   // editable catalog at all.
-  const approveTreatment = async (id, finalPrice) => {
+  // Approving now requires a completed pre-shipment QA checklist (Treatment
+  // Dispatch Checklist, DOMAIN_MODEL.md) — inserted first, before the status
+  // flips to 'approved'. The require_dispatch_checklist() DB trigger
+  // (0025_treatment_dispatch_checklist.sql) blocks the update if this row
+  // doesn't exist, so this insert order isn't just cosmetic.
+  const approveTreatment = async (id, finalPrice, checklist) => {
     const t = treatments.find(tr => tr.id === id)
     let pouchBreakdown = null
     if (t?.product === 'powder' && t.cold_rooms?.volume_m3) {
@@ -422,12 +427,41 @@ export default function Portal({ onSignOut }) {
       const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (t.target_dose_ppb / 1000)
       pouchBreakdown = greedyCeiling(grams, pouchSizes.length > 0 ? pouchSizes : undefined)
     }
+
+    const { error: checklistError } = await supabase.from('treatment_dispatch_checklists').insert({
+      treatment_id: id,
+      training_completed: checklist.training_completed,
+      kept_vacuum_sealed: checklist.kept_vacuum_sealed,
+      refrigerated_2_6c: checklist.refrigerated_2_6c,
+      lot_age_verified: checklist.lot_age_verified,
+      followed_card_instructions: checklist.followed_card_instructions,
+      completed_by: profile.id,
+    })
+    if (checklistError) { console.error('[approveTreatment checklist]', checklistError); return { error: checklistError.message } }
+
     const { error } = await supabase
       .from('treatments')
       .update({ status: 'approved', price_local: finalPrice, pouch_breakdown: pouchBreakdown, approved_by: profile.id, approved_at: new Date().toISOString() })
       .eq('id', id)
-    if (error) { console.error(error); return }
+    if (error) { console.error(error); return { error: error.message } }
     await loadTreatments()
+    return { error: null }
+  }
+
+  // Any active MatriSure kit lot for this org+SKU past the 30-day aging
+  // threshold — used to warn the Approver at the "lote no supera 30 días"
+  // checklist item, without auto-ticking it (they still have to attest it).
+  const fetchExpiredLots = async (orgId, sku) => {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const { data, error } = await supabase
+      .from('matrisure_kit_lots')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('sku', sku)
+      .eq('status', 'active')
+      .lte('received_at', cutoff)
+    if (error) { console.error('[fetchExpiredLots]', error); return [] }
+    return data || []
   }
 
   const rejectTreatment = async (id, reason) => {
@@ -471,7 +505,26 @@ export default function Portal({ onSignOut }) {
   // Returns { error: string|null } instead of swallowing failures — the UI
   // must be able to tell the user something went wrong instead of silently
   // acting as if it succeeded.
-  const applyTreatment = async (id, { startTime, endTime }) => {
+  //
+  // startBlob/endBlob are the two chain-of-custody photos (Juan, 2026-07-31)
+  // coincident with startTime/endTime — live camera only, same anti-fraud
+  // requirement as the MatriSure photo. Uploaded to the same matrisure-photos
+  // bucket MatriSure verification already uses. The DB-level
+  // treatment_applied_requires_photos CHECK constraint
+  // (0024_treatment_application_photos.sql) backs this up server-side.
+  const applyTreatment = async (id, { startTime, endTime, startBlob, endBlob }) => {
+    const startPath = `${profile.org_id}/${id}/start-${Date.now()}.jpg`
+    const { error: startUploadError } = await supabase.storage
+      .from('matrisure-photos')
+      .upload(startPath, startBlob, { contentType: 'image/jpeg' })
+    if (startUploadError) { console.error('[applyTreatment start upload]', startUploadError); return { error: startUploadError.message } }
+
+    const endPath = `${profile.org_id}/${id}/end-${Date.now()}.jpg`
+    const { error: endUploadError } = await supabase.storage
+      .from('matrisure-photos')
+      .upload(endPath, endBlob, { contentType: 'image/jpeg' })
+    if (endUploadError) { console.error('[applyTreatment end upload]', endUploadError); return { error: endUploadError.message } }
+
     // startTime/endTime come from <input type="datetime-local"> as full
     // "YYYY-MM-DDTHH:MM" values — each carries its own date, since many
     // treatments start one afternoon and finish the next day.
@@ -483,6 +536,8 @@ export default function Portal({ onSignOut }) {
         applied_at: new Date().toISOString(),
         application_start_time: startTime || null,
         application_end_time: endTime || null,
+        start_photo_url: startPath,
+        end_photo_url: endPath,
       })
       .eq('id', id)
     if (error) { console.error('[applyTreatment]', error); return { error: error.message } }
@@ -634,8 +689,8 @@ export default function Portal({ onSignOut }) {
                       onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
-    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
+    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onApply={applyTreatment} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} />,
     users:      <Users profile={profile} />,
     profile:    <Profile />,
     ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} isCustomer={!canSeeWassingtonPanel} />])),

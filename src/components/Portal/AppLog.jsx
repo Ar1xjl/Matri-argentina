@@ -3,6 +3,7 @@ import sureLogo from '../../assets/logos/MatriSure_Logo.png'
 import sureImg  from '../../assets/images/MatriSure_Kit.png'
 import ApplicationForm from './ApplicationForm'
 import MatriSureCapture from './MatriSureCapture'
+import MatriSurePhotoModal from './MatriSurePhotoModal'
 import RoomHistory from './RoomHistory'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
@@ -21,13 +22,15 @@ const APPLOG_COLUMNS = [
   { header: 'MatriSure',         get: t => statusLabel(t.status)?.label || '' },
 ]
 
-export default function AppLog({ treatments = [], operatorName, onApply, onSubmitMatriSure }) {
-  const [view, setView] = useState('list') // 'list' | 'form' | 'capture' | 'review' | 'history'
+export default function AppLog({ treatments = [], operatorName, onApply, onSubmitMatriSure, onGetPhotoUrl }) {
+  const [view, setView] = useState('list') // 'list' | 'form' | 'applystart' | 'applyend' | 'capture' | 'review' | 'history'
   const [selected, setSelected] = useState(null)
   const [historyRoom, setHistoryRoom] = useState(null)
   const [pendingPhoto, setPendingPhoto] = useState(null)
+  const [pendingApply, setPendingApply] = useState(null) // { startTime, endTime, startBlob } while walking the applystart/applyend steps
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [viewingPhoto, setViewingPhoto] = useState(null)
 
   const relevant = treatments.filter(t => ['approved','applied','completed'].includes(t.status))
 
@@ -35,12 +38,31 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
   const openHistory = (room) => { setHistoryRoom(room); setView('history') }
   const openCapture = (t) => { setActionError(''); setSelected(t); setView('capture') }
 
-  const handleApplySave = async ({ startTime, endTime }) => {
-    const res = await onApply(selected.id, { startTime, endTime })
+  // Times are only held in memory here — nothing is saved to Supabase until
+  // both the start and end photos are captured too, right after this step.
+  const handleApplyTimes = ({ startTime, endTime }) => {
+    setPendingApply({ startTime, endTime })
+    setView('applystart')
+  }
+
+  const handleApplyStartPhoto = (blob) => {
+    setPendingApply(prev => ({ ...prev, startBlob: blob }))
+    setView('applyend')
+  }
+
+  const cancelApplyFlow = () => { setPendingApply(null); setSelected(null); setView('list') }
+
+  const handleApplyEndPhoto = async (endBlob) => {
+    setSubmitting(true)
+    const res = await onApply(selected.id, { ...pendingApply, endBlob })
+    setSubmitting(false)
     if (res?.error) {
+      // Stay on this step — the end photo is still held by MatriSureCapture's
+      // own local state, so the user can just retry without retaking it.
       setActionError('No se pudo guardar el registro de aplicación: ' + res.error)
       return
     }
+    setPendingApply(null)
     setView('list')
   }
 
@@ -74,8 +96,44 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
         <ApplicationForm
           treatment={selected}
           operatorName={operatorName}
-          onSave={handleApplySave}
+          onSave={handleApplyTimes}
           onCancel={() => setView('list')}
+        />
+      </div>
+    )
+  }
+
+  if (view === 'applystart') {
+    return (
+      <div>
+        {errorBanner}
+        <div className="alert info" style={{marginBottom:'16px'}}>
+          📋 Paso 1 de 2 — foto al colocar el kit en la cámara, coincidente con la hora de inicio registrada.
+        </div>
+        <MatriSureCapture
+          onCapture={handleApplyStartPhoto}
+          onCancel={cancelApplyFlow}
+          bannerText="Foto de INICIO de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
+          confirmLabel="✓ Usar como foto de inicio"
+          previewAlt="Foto de inicio de aplicación"
+        />
+      </div>
+    )
+  }
+
+  if (view === 'applyend') {
+    return (
+      <div>
+        {errorBanner}
+        <div className="alert info" style={{marginBottom:'16px'}}>
+          📋 Paso 2 de 2 — foto al finalizar la aplicación, coincidente con la hora de fin registrada.
+        </div>
+        <MatriSureCapture
+          onCapture={handleApplyEndPhoto}
+          onCancel={cancelApplyFlow}
+          bannerText="Foto de FIN de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
+          confirmLabel="✓ Usar como foto de fin y guardar"
+          previewAlt="Foto de fin de aplicación"
         />
       </div>
     )
@@ -124,6 +182,10 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
 
   return (
     <div>
+      {viewingPhoto && (
+        <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+
       <div className="alert success">
         📸 Las fotos del Kit MatriSure deben tomarse en vivo desde la cámara del dispositivo. No se permiten cargas desde la galería.
       </div>
@@ -192,6 +254,12 @@ export default function AppLog({ treatments = [], operatorName, onApply, onSubmi
                             <button className="btn-lime btn-sm" onClick={() => openCapture(t)}>
                               📸 Subir MatriSure
                             </button>
+                          )}
+                          {t.start_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.start_photo_url)}>📷 Inicio</button>
+                          )}
+                          {t.end_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.end_photo_url)}>📷 Fin</button>
                           )}
                           <button className="btn-secondary btn-sm" onClick={() => openHistory(t.cold_rooms?.name)}>
                             🕒 Historial

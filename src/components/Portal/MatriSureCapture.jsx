@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 // device camera — gallery upload is not permitted." A file picker (even one
 // with a `capture` attribute hint) still lets a desktop user choose an old
 // file, so this uses getUserMedia + canvas instead, which has no such escape hatch.
-export default function MatriSureCapture({ onCapture, onCancel }) {
+export default function MatriSureCapture({ onCapture, onCancel, bannerText, confirmLabel, previewAlt }) {
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
@@ -57,7 +57,7 @@ export default function MatriSureCapture({ onCapture, onCancel }) {
   return (
     <div style={{maxWidth:'480px'}}>
       <div className="alert success" style={{marginBottom:'16px'}}>
-        📸 Foto en vivo desde la cámara del dispositivo — no se permite subir desde la galería.
+        📸 {bannerText || 'Foto en vivo desde la cámara del dispositivo — no se permite subir desde la galería.'}
       </div>
 
       <div style={card}>
@@ -75,10 +75,10 @@ export default function MatriSureCapture({ onCapture, onCancel }) {
           </>
         ) : (
           <>
-            <img src={previewUrl} alt="MatriSure capturada" style={{width:'100%', borderRadius:'8px', marginBottom:'12px'}}/>
+            <img src={previewUrl} alt={previewAlt || 'MatriSure capturada'} style={{width:'100%', borderRadius:'8px', marginBottom:'12px'}}/>
             <div style={{display:'flex', gap:'10px'}}>
               <button className="btn-primary" style={{flex:1, opacity: uploading ? .6 : 1}} onClick={confirm} disabled={uploading}>
-                {uploading ? 'Subiendo…' : '✓ Usar esta foto'}
+                {uploading ? 'Subiendo…' : (confirmLabel || '✓ Usar esta foto')}
               </button>
               <button className="btn-secondary" onClick={retake} disabled={uploading}>↺ Repetir</button>
             </div>
