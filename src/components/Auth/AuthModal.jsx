@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabaseClient'
 
-const ROLE_LABELS = { owner: 'Owner', approver: 'Aprobador', planner: 'Planificador', operator: 'Operador', viewer: 'Viewer' }
-
 export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteInfo }) {
+  const { t } = useTranslation()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
@@ -23,8 +23,6 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
 
   const [companyName, setCompanyName] = useState('')
   const [taxId,        setTaxId]        = useState('')
-  const [taxStatus,    setTaxStatus]    = useState('Responsable Inscripto')
-  const [region,       setRegion]       = useState('Río Negro')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
   const [registerError,   setRegisterError]   = useState('')
@@ -38,7 +36,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
     setLoading(false)
     if (signInError) {
       setError(signInError.message === 'Invalid login credentials'
-        ? 'Email o contraseña incorrectos.'
+        ? t('authModal.login.wrongCredentials')
         : signInError.message)
       return
     }
@@ -51,7 +49,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
   // emailed link.
   const handleForgotPassword = async () => {
     setResetError('')
-    if (!email.trim()) { setResetError('Escribí tu email arriba primero.'); return }
+    if (!email.trim()) { setResetError(t('authModal.login.forgotEmailFirst')); return }
     setResetLoading(true)
     const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: window.location.origin,
@@ -67,7 +65,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
   // DOMAIN_MODEL.md's note on why this app has no privileged invite flow).
   const handleSignup = async () => {
     setSignupError('')
-    if (!signupName.trim()) { setSignupError('Completá tu nombre.'); return }
+    if (!signupName.trim()) { setSignupError(t('authModal.signup.nameRequired')); return }
     setSignupLoading(true)
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: signupEmail,
@@ -86,14 +84,12 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
   // reviews it later from Organizaciones and creates the real Organization.
   const handleRegister = async () => {
     setRegisterError('')
-    if (!companyName.trim()) { setRegisterError('Completá la Razón Social.'); return }
-    if (!companyEmail.trim()) { setRegisterError('Completá un email de contacto.'); return }
+    if (!companyName.trim()) { setRegisterError(t('authModal.register.companyNameRequired')); return }
+    if (!companyEmail.trim()) { setRegisterError(t('authModal.register.emailRequired')); return }
     setRegisterLoading(true)
     const { error: insertError } = await supabase.from('organization_access_requests').insert({
       company_name: companyName.trim(),
       tax_id: taxId.trim() || null,
-      tax_status: taxStatus,
-      region,
       contact_email: companyEmail.trim(),
       contact_phone: companyPhone.trim() || null,
     })
@@ -124,27 +120,27 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
 
         {/* Tabs */}
         <div style={{display:'flex', borderBottom:'2px solid #dde0d5', marginBottom:'24px'}}>
-          {['login','signup','register'].map(t => (
+          {['login','signup','register'].map(tKey => (
             <button
-              key={t}
-              onClick={() => onSwitchTab(t)}
+              key={tKey}
+              onClick={() => onSwitchTab(tKey)}
               style={{
                 flex:1, padding:'10px', textAlign:'center',
                 fontSize:'13px', fontWeight:700, background:'none', border:'none',
-                borderBottom: tab === t ? '3px solid #0b4358' : '3px solid transparent',
-                color: tab === t ? '#0b4358' : '#6b7280',
+                borderBottom: tab === tKey ? '3px solid #0b4358' : '3px solid transparent',
+                color: tab === tKey ? '#0b4358' : '#6b7280',
                 marginBottom:'-2px', cursor:'pointer'
               }}
             >
-              {t === 'login' ? 'Ingresar' : t === 'signup' ? 'Crear usuario' : 'Nueva empresa'}
+              {t(`authModal.tabs.${tKey}`)}
             </button>
           ))}
         </div>
 
         {inviteInfo && (tab === 'login' || tab === 'signup') && (
           <div style={{fontSize:'12.5px', color:'#0b4358', background:'#eef3ea', border:'1px solid #d3e0c8', borderRadius:'8px', padding:'11px 14px', marginBottom:'20px'}}>
-            🔗 Te invitaron a unirte a <strong>{inviteInfo.org_name}</strong> como {inviteInfo.roles.map(r => ROLE_LABELS[r] || r).join(', ')}.
-            {tab === 'login' ? ' Ingresá para asignarte automáticamente.' : ' Creá tu usuario para asignarte automáticamente.'}
+            {t('authModal.invite.intro')} <strong>{inviteInfo.org_name}</strong> {t('authModal.invite.as')} {inviteInfo.roles.map(r => t(`roles.${r}`, r)).join(', ')}.
+            {' '}{tab === 'login' ? t('authModal.invite.loginCta') : t('authModal.invite.signupCta')}
           </div>
         )}
 
@@ -152,14 +148,14 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
         {tab === 'login' && (
           <div>
             <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
-              Bienvenido
+              {t('authModal.login.title')}
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
-              Ingresá con tu email y contraseña.
+              {t('authModal.login.subtitle')}
             </p>
             {[
-              ['Email','email','empresa@correo.com', email, setEmail],
-              ['Contraseña','password','••••••••', password, setPassword],
+              [t('authModal.login.emailLabel'), 'email', t('authModal.login.emailPlaceholder'), email, setEmail],
+              [t('authModal.login.passwordLabel'), 'password', t('authModal.login.passwordPlaceholder'), password, setPassword],
             ].map(([label,type,ph,value,setValue]) => (
               <div key={label} style={{marginBottom:'16px'}}>
                 <label style={{display:'block', fontSize:'12px', fontWeight:700,
@@ -184,18 +180,18 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
               className="btn-primary"
               style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: loading ? .6 : 1}}
             >
-              {loading ? 'Ingresando…' : 'Ingresar al portal'}
+              {loading ? t('authModal.login.submitting') : t('authModal.login.submit')}
             </button>
             {resetSent ? (
               <div style={{fontSize:'12px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'10px', textAlign:'center', marginTop:'16px'}}>
-                ✓ Te enviamos un email a {email} con un link para elegir una nueva contraseña.
+                {t('authModal.login.resetSent', { email })}
               </div>
             ) : (
               <>
                 <p style={{fontSize:'13px', color:'#6b7280', textAlign:'center', marginTop:'16px', marginBottom:0}}>
-                  ¿Olvidaste tu contraseña?{' '}
+                  {t('authModal.login.forgotQuestion')}{' '}
                   <a href="#" onClick={(e) => { e.preventDefault(); handleForgotPassword() }} style={{color:'#0b4358', fontWeight:700}}>
-                    {resetLoading ? 'Enviando…' : 'Recuperarla por email'}
+                    {resetLoading ? t('authModal.login.forgotSending') : t('authModal.login.forgotLink')}
                   </a>
                 </p>
                 {resetError && (
@@ -211,23 +207,23 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
         {tab === 'signup' && (
           <div>
             <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
-              Crear usuario
+              {t('authModal.signup.title')}
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
-              Creá tu login personal. Después, quien administre tu empresa en el portal te va a asignar a la cuenta correspondiente.
+              {t('authModal.signup.subtitle')}
             </p>
             {signupDone ? (
               <div style={{fontSize:'13px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'14px'}}>
                 {pendingConfirm
-                  ? '✓ Usuario creado. Revisá tu email para confirmarlo antes de ingresar.'
-                  : '✓ Usuario creado. Ya podés ingresar.'}
+                  ? t('authModal.signup.doneConfirm')
+                  : t('authModal.signup.doneReady')}
               </div>
             ) : (
               <>
                 {[
-                  ['Nombre completo','text','Tu nombre y apellido', signupName, setSignupName],
-                  ['Email','email','vos@empresa.com', signupEmail, setSignupEmail],
-                  ['Contraseña','password','••••••••', signupPassword, setSignupPassword],
+                  [t('authModal.signup.nameLabel'), 'text', t('authModal.signup.namePlaceholder'), signupName, setSignupName],
+                  [t('authModal.login.emailLabel'), 'email', t('authModal.signup.emailPlaceholder'), signupEmail, setSignupEmail],
+                  [t('authModal.signup.passwordLabel'), 'password', t('authModal.signup.passwordPlaceholder'), signupPassword, setSignupPassword],
                 ].map(([label,type,ph,value,setValue]) => (
                   <div key={label} style={{marginBottom:'16px'}}>
                     <label style={{display:'block', fontSize:'12px', fontWeight:700,
@@ -251,7 +247,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
                   className="btn-primary"
                   style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: signupLoading ? .6 : 1}}
                 >
-                  {signupLoading ? 'Creando…' : 'Crear usuario'}
+                  {signupLoading ? t('authModal.signup.submitting') : t('authModal.signup.submit')}
                 </button>
               </>
             )}
@@ -262,20 +258,20 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
         {tab === 'register' && (
           <div>
             <h2 style={{fontSize:'22px', fontWeight:900, color:'#0b4358', marginBottom:'6px'}}>
-              Solicitar acceso — nueva empresa
+              {t('authModal.register.title')}
             </h2>
             <p style={{fontSize:'13px', color:'#6b7280', marginBottom:'24px'}}>
-              Completá tus datos. Tu distribuidor validará tu cuenta.
+              {t('authModal.register.subtitle')}
             </p>
             {registerDone ? (
               <div style={{fontSize:'13px', color:'#1a6b30', background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'8px', padding:'14px'}}>
-                ✓ Solicitud enviada. Te van a contactar por email cuando tu cuenta esté habilitada.
+                {t('authModal.register.done')}
               </div>
             ) : (
               <>
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
-                  {[['Razón Social','text','Empresa S.A.', companyName, setCompanyName],
-                    ['CUIT','text','XX-XXXXXXXX-X', taxId, setTaxId]].map(([label,type,ph,value,setValue]) => (
+                  {[[t('authModal.register.companyNameLabel'), 'text', t('authModal.register.companyNamePlaceholder'), companyName, setCompanyName],
+                    [t('authModal.register.taxIdLabel'), 'text', 'XX-XXXXXXXX-X', taxId, setTaxId]].map(([label,type,ph,value,setValue]) => (
                     <div key={label}>
                       <label style={{display:'block', fontSize:'12px', fontWeight:700,
                         color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
@@ -287,23 +283,9 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
                     </div>
                   ))}
                 </div>
-                {[['Situación Fiscal',['Responsable Inscripto','Monotributista','Exento'], taxStatus, setTaxStatus],
-                  ['Provincia / región',['Río Negro','Neuquén','Mendoza','Buenos Aires','Otra'], region, setRegion]
-                ].map(([label, opts, value, setValue]) => (
-                  <div key={label} style={{marginBottom:'14px', marginTop:'14px'}}>
-                    <label style={{display:'block', fontSize:'12px', fontWeight:700,
-                      color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
-                      letterSpacing:'.04em'}}>{label}</label>
-                    <select value={value} onChange={e => setValue(e.target.value)} style={{width:'100%', padding:'11px 14px',
-                      border:'1.5px solid #dde0d5', borderRadius:'7px',
-                      fontSize:'14px', color:'#0b4358'}}>
-                      {opts.map(o => <option key={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px'}}>
-                  {[['Email','email','email@empresa.com', companyEmail, setCompanyEmail],
-                    ['Teléfono','tel','+54 XXX XXXX', companyPhone, setCompanyPhone]].map(([label,type,ph,value,setValue]) => (
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'14px', marginTop:'14px'}}>
+                  {[[t('authModal.register.emailLabel'), 'email', t('authModal.register.emailPlaceholder'), companyEmail, setCompanyEmail],
+                    [t('authModal.register.phoneLabel'), 'tel', t('authModal.register.phonePlaceholder'), companyPhone, setCompanyPhone]].map(([label,type,ph,value,setValue]) => (
                     <div key={label}>
                       <label style={{display:'block', fontSize:'12px', fontWeight:700,
                         color:'#0b4358', marginBottom:'5px', textTransform:'uppercase',
@@ -324,7 +306,7 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
                   className="btn-primary"
                   style={{width:'100%', padding:'13px', fontSize:'15px', marginTop:'8px', opacity: registerLoading ? .6 : 1}}
                 >
-                  {registerLoading ? 'Enviando…' : 'Enviar solicitud'}
+                  {registerLoading ? t('authModal.register.submitting') : t('authModal.register.submit')}
                 </button>
               </>
             )}

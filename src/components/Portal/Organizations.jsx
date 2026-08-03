@@ -15,7 +15,9 @@ const ALLOWED_CHILD_TYPES = {
   customer: [],
 }
 
-const emptyForm = { name: '', org_type: '', parent_id: '', country: '', currency: '', fx_rate_to_usd: '' }
+const LANGUAGE_LABEL = { es: 'Español', pt: 'Português', en: 'English' }
+
+const emptyForm = { name: '', org_type: '', parent_id: '', country: '', currency: '', fx_rate_to_usd: '', language: 'es' }
 
 export default function Organizations({ profile }) {
   const [orgs, setOrgs] = useState([])
@@ -113,6 +115,8 @@ export default function Organizations({ profile }) {
       org_type: form.org_type,
       parent_id: form.parent_id,
       country: form.country || null,
+      language: form.language || 'es',
+      tax_id: convertingRequest?.tax_id || null,
       currency: form.org_type === 'distributor' ? (form.currency || null) : null,
       fx_rate_to_usd: form.org_type === 'distributor' && form.fx_rate_to_usd ? Number(form.fx_rate_to_usd) : null,
     }
@@ -303,6 +307,16 @@ export default function Organizations({ profile }) {
                   style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px'}}
                   value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Ej: AR"
                 />
+              </div>
+
+              <div>
+                <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Idioma del portal</label>
+                <select
+                  style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px'}}
+                  value={form.language} onChange={e => setForm({ ...form, language: e.target.value })}
+                >
+                  {Object.entries(LANGUAGE_LABEL).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                </select>
               </div>
 
               {form.org_type === 'distributor' && (

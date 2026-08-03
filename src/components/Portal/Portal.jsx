@@ -16,6 +16,7 @@ import AboutPortal from './AboutPortal'
 import { ABOUT_PAGES } from '../../lib/aboutPages'
 import NotificationBell from '../Shared/NotificationBell'
 import { supabase } from '../../lib/supabaseClient'
+import { applyOrganizationLanguage } from '../../i18n'
 import { parsePlanFile } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
 import { fetchPouchCatalog } from '../../lib/orgPricing'
@@ -120,6 +121,7 @@ export default function Portal({ onSignOut }) {
         return
       }
       setProfile(profileData)
+      applyOrganizationLanguage(profileData.organizations?.language)
 
       const { data: rooms } = await supabase
         .from('cold_rooms')
@@ -706,7 +708,7 @@ export default function Portal({ onSignOut }) {
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} />,
     users:      <Users profile={profile} />,
-    profile:    <Profile />,
+    profile:    <Profile profile={profile} />,
     ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} isCustomer={!canSeeWassingtonPanel} />])),
   }
 

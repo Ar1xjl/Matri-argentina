@@ -1,0 +1,127 @@
+{
+  "navbar": {
+    "announcement": "info@ma-tri.com  |  Portal exclusivo para o Brasil  |  Distribuidor oficial: Arua",
+    "products": "Produtos",
+    "howItWorks": "Como funciona",
+    "requestAccess": "Solicitar acesso",
+    "login": "Entrar",
+    "openMenu": "Abrir menu"
+  },
+  "landing": {
+    "hero": {
+      "title": "Matri System",
+      "subtitle": "Calcule a dose exata para cada câmara. Tratamentos on-line. Rastreabilidade total."
+    },
+    "heroImage": {
+      "titleLine1": "Calcule com precisão.",
+      "titleLine2": "Decida com confiança.",
+      "description": "O sistema MaTri para o Brasil: otimize o tratamento 1-MCP em cada câmara fria com doses exatas, gestão de tratamentos e verificação MatriSure.",
+      "features": {
+        "exactDose": "Dose Exata",
+        "savesTime": "Economiza Tempo",
+        "easyToUse": "Fácil de Usar",
+        "traceability": "Rastreabilidade"
+      }
+    },
+    "badge": {
+      "protection": "Proteção de frescor em câmara fria com 1-MCP"
+    },
+    "section2": {
+      "title": "Controle sua dose com o Sistema MaTri",
+      "description": "Calculadora de dose por câmara, otimização de apresentações e gestão completa de tratamentos — tudo em um só portal."
+    },
+    "products": {
+      "powder": { "desc": "Pó ativo de 1-MCP para câmaras de grande volume. Compatível com o gerador MaTri.", "tag": "Maçãs · Peras" },
+      "tablets": { "desc": "Comprimidos de liberação controlada para tratamentos simples sem equipamento adicional.", "tag": "Kiwi · Peras · Maçãs" },
+      "generator": { "desc": "Equipamento profissional de aplicação. Compre ou alugue por dia. ID individual por unidade.", "tag": "Compra · Aluguel" },
+      "sure": { "desc": "Tiras que mudam de cor ao atingir a dose alvo. Verificação visual imediata.", "tag": "Verificação de dose" }
+    },
+    "howItWorks": {
+      "badge": "Processo em 3 etapas",
+      "title": "Assim funciona o portal",
+      "description": "Do cadastro até a confirmação da dose — tudo on-line, tudo rastreável.",
+      "step1": { "title": "Cadastre-se e solicite acesso", "desc": "Informe sua Razão Social, CNPJ e dados fiscais. Seu distribuidor valida sua conta e ativa seu acesso." },
+      "step2": { "title": "Calcule e peça", "desc": "Selecione a câmara, a cultura e o mercado de destino. O sistema sugere a dose e a combinação ideal de sachês." },
+      "step3": { "title": "Aplique e verifique", "desc": "Realize o tratamento e envie a foto do Kit MatriSure. Dose confirmada, registro completo." }
+    },
+    "cta": {
+      "title": "Pronto para começar?",
+      "subtitle": "Solicite acesso ao portal e comece a gerenciar seus tratamentos MaTri em minutos.",
+      "requestAccess": "Solicitar acesso",
+      "haveAccount": "Já tenho conta"
+    },
+    "footer": "© 2026 MaTri 1-MCP Solutions  ·  Distribuidor exclusivo no Brasil: Arua  ·  info@ma-tri.com"
+  },
+  "roles": {
+    "owner": "Owner",
+    "approver": "Aprovador",
+    "planner": "Planejador",
+    "operator": "Operador",
+    "viewer": "Viewer"
+  },
+  "authModal": {
+    "tabs": { "login": "Entrar", "signup": "Criar usuário", "register": "Nova empresa" },
+    "invite": {
+      "intro": "🔗 Você foi convidado a se juntar a",
+      "as": "como",
+      "loginCta": "Entre para se atribuir automaticamente.",
+      "signupCta": "Crie seu usuário para se atribuir automaticamente."
+    },
+    "login": {
+      "title": "Bem-vindo",
+      "subtitle": "Entre com seu email e senha.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "empresa@correio.com",
+      "passwordLabel": "Senha",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Entrar no portal",
+      "submitting": "Entrando…",
+      "wrongCredentials": "Email ou senha incorretos.",
+      "resetSent": "✓ Enviamos um email para {{email}} com um link para escolher uma nova senha.",
+      "forgotQuestion": "Esqueceu sua senha?",
+      "forgotLink": "Recuperar por email",
+      "forgotSending": "Enviando…",
+      "forgotEmailFirst": "Digite seu email acima primeiro."
+    },
+    "signup": {
+      "title": "Criar usuário",
+      "subtitle": "Crie seu login pessoal. Depois, quem administra sua empresa no portal vai te atribuir à conta correspondente.",
+      "doneConfirm": "✓ Usuário criado. Verifique seu email para confirmá-lo antes de entrar.",
+      "doneReady": "✓ Usuário criado. Você já pode entrar.",
+      "nameLabel": "Nome completo",
+      "namePlaceholder": "Seu nome e sobrenome",
+      "emailPlaceholder": "voce@empresa.com",
+      "passwordLabel": "Senha",
+      "passwordPlaceholder": "••••••••",
+      "nameRequired": "Preencha seu nome.",
+      "submit": "Criar usuário",
+      "submitting": "Criando…"
+    },
+    "register": {
+      "title": "Solicitar acesso — nova empresa",
+      "subtitle": "Preencha seus dados. Seu distribuidor validará sua conta.",
+      "done": "✓ Solicitação enviada. Você será contatado por email quando sua conta for habilitada.",
+      "companyNameLabel": "Razão Social",
+      "companyNamePlaceholder": "Empresa Ltda.",
+      "taxIdLabel": "CNPJ / CUIT",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@empresa.com",
+      "phoneLabel": "Telefone",
+      "phonePlaceholder": "+55 XX XXXXX-XXXX",
+      "companyNameRequired": "Preencha a Razão Social.",
+      "emailRequired": "Preencha um email de contato.",
+      "submit": "Enviar solicitação",
+      "submitting": "Enviando…"
+    }
+  },
+  "resetPassword": {
+    "title": "Escolha sua nova senha",
+    "subtitle": "Defina uma nova senha para sua conta.",
+    "newPasswordLabel": "Nova senha",
+    "confirmPasswordLabel": "Confirmar senha",
+    "tooShort": "A senha precisa ter pelo menos 6 caracteres.",
+    "mismatch": "As senhas não coincidem.",
+    "submit": "Salvar nova senha",
+    "submitting": "Salvando…"
+  }
+}

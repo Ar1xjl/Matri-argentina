@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
+import LanguageSwitcher from './LanguageSwitcher'
 
 export default function Navbar({ onOpenModal }) {
+  const { t } = useTranslation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const openModal = (tab) => {
@@ -15,7 +18,7 @@ export default function Navbar({ onOpenModal }) {
         background: '#072e3d', color: '#90b8c8',
         fontSize: '12px', textAlign: 'center', padding: '6px 12px'
       }}>
-        info@ma-tri.com &nbsp;|&nbsp; Portal exclusivo para Argentina &nbsp;|&nbsp; Distribuidor oficial: Wassington
+        {t('navbar.announcement')}
       </div>
 
       <nav style={{
@@ -29,17 +32,18 @@ export default function Navbar({ onOpenModal }) {
 
         <div className="navbar-links">
           <span style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer'}}>
-            Productos
+            {t('navbar.products')}
           </span>
           <span style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer'}}>
-            Cómo funciona
+            {t('navbar.howItWorks')}
           </span>
           <span
             style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer'}}
             onClick={() => openModal('register')}
           >
-            Solicitar acceso
+            {t('navbar.requestAccess')}
           </span>
+          <LanguageSwitcher />
           <button
             onClick={() => openModal('login')}
             style={{
@@ -48,14 +52,14 @@ export default function Navbar({ onOpenModal }) {
               fontSize: '14px', fontWeight: 600, cursor: 'pointer'
             }}
           >
-            Ingresar
+            {t('navbar.login')}
           </button>
         </div>
 
         <button
           className="navbar-hamburger"
           onClick={() => setMobileOpen(v => !v)}
-          aria-label="Abrir menú"
+          aria-label={t('navbar.openMenu')}
           style={{
             background: 'none', border: 'none', fontSize: '26px',
             color: '#0b4358', cursor: 'pointer', alignItems: 'center', justifyContent: 'center',
@@ -68,17 +72,20 @@ export default function Navbar({ onOpenModal }) {
 
       <div className={`navbar-mobile-menu${mobileOpen ? ' open' : ''}`}>
         <span style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer', padding:'10px 0'}}>
-          Productos
+          {t('navbar.products')}
         </span>
         <span style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer', padding:'10px 0'}}>
-          Cómo funciona
+          {t('navbar.howItWorks')}
         </span>
         <span
           style={{fontSize:'15px', fontWeight:500, color:'#0b4358', cursor:'pointer', padding:'10px 0'}}
           onClick={() => openModal('register')}
         >
-          Solicitar acceso
+          {t('navbar.requestAccess')}
         </span>
+        <div style={{padding:'10px 0'}}>
+          <LanguageSwitcher />
+        </div>
         <button
           onClick={() => openModal('login')}
           style={{
@@ -88,7 +95,7 @@ export default function Navbar({ onOpenModal }) {
             marginTop: '8px', width: '100%'
           }}
         >
-          Ingresar
+          {t('navbar.login')}
         </button>
       </div>
     </div>

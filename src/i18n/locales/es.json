@@ -1,0 +1,127 @@
+{
+  "navbar": {
+    "announcement": "info@ma-tri.com  |  Portal exclusivo para Argentina  |  Distribuidor oficial: Wassington",
+    "products": "Productos",
+    "howItWorks": "Cómo funciona",
+    "requestAccess": "Solicitar acceso",
+    "login": "Ingresar",
+    "openMenu": "Abrir menú"
+  },
+  "landing": {
+    "hero": {
+      "title": "Matri System",
+      "subtitle": "Calculá la dosis exacta para cada cámara. Tratamientos en línea. Trazabilidad total."
+    },
+    "heroImage": {
+      "titleLine1": "Calculá con precisión.",
+      "titleLine2": "Decidí con confianza.",
+      "description": "El sistema MaTri para Argentina: optimizá el tratamiento 1-MCP en cada cámara frigorífica con dosis exactas, gestión de tratamientos y verificación MatriSure.",
+      "features": {
+        "exactDose": "Dosis Exacta",
+        "savesTime": "Ahorra Tiempo",
+        "easyToUse": "Fácil de Usar",
+        "traceability": "Trazabilidad"
+      }
+    },
+    "badge": {
+      "protection": "Protección de frescura en cámara frigorífica con 1-MCP"
+    },
+    "section2": {
+      "title": "Controlá tu dosis con el Sistema MaTri",
+      "description": "Calculadora de dosis por cámara, optimización de presentaciones y gestión completa de tratamientos — todo en un solo portal."
+    },
+    "products": {
+      "powder": { "desc": "Polvo activo de 1-MCP para cámaras de gran volumen. Compatible con el generador MaTri.", "tag": "Manzanas · Peras" },
+      "tablets": { "desc": "Tabletas de liberación controlada para tratamientos simples sin equipamiento adicional.", "tag": "Kiwi · Peras · Manzanas" },
+      "generator": { "desc": "Equipo profesional de aplicación. Comprá o alquilá por día. ID individual por unidad.", "tag": "Compra · Alquiler" },
+      "sure": { "desc": "Tiras que cambian de color al alcanzar la dosis objetivo. Verificación visual inmediata.", "tag": "Verificación de dosis" }
+    },
+    "howItWorks": {
+      "badge": "Proceso en 3 pasos",
+      "title": "Así funciona el portal",
+      "description": "Desde el registro hasta la confirmación de dosis — todo en línea, todo trazable.",
+      "step1": { "title": "Registrate y solicitá acceso", "desc": "Ingresá tu Razón Social, CUIT y datos fiscales. Tu distribuidor valida tu cuenta y activa tu acceso." },
+      "step2": { "title": "Calculá y pedí", "desc": "Seleccioná la cámara, cultivo y mercado destino. El sistema sugiere la dosis y combinación óptima de sachets." },
+      "step3": { "title": "Aplicá y verificá", "desc": "Realizá el tratamiento y subí la foto del Kit MatriSure. Dosis confirmada, registro completo." }
+    },
+    "cta": {
+      "title": "¿Listo para empezar?",
+      "subtitle": "Solicitá acceso al portal y comenzá a gestionar tus tratamientos MaTri en minutos.",
+      "requestAccess": "Solicitar acceso",
+      "haveAccount": "Ya tengo cuenta"
+    },
+    "footer": "© 2026 MaTri 1-MCP Solutions  ·  Distribuidor exclusivo en Argentina: Wassington  ·  info@ma-tri.com"
+  },
+  "roles": {
+    "owner": "Owner",
+    "approver": "Aprobador",
+    "planner": "Planificador",
+    "operator": "Operador",
+    "viewer": "Viewer"
+  },
+  "authModal": {
+    "tabs": { "login": "Ingresar", "signup": "Crear usuario", "register": "Nueva empresa" },
+    "invite": {
+      "intro": "🔗 Te invitaron a unirte a",
+      "as": "como",
+      "loginCta": "Ingresá para asignarte automáticamente.",
+      "signupCta": "Creá tu usuario para asignarte automáticamente."
+    },
+    "login": {
+      "title": "Bienvenido",
+      "subtitle": "Ingresá con tu email y contraseña.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "empresa@correo.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Ingresar al portal",
+      "submitting": "Ingresando…",
+      "wrongCredentials": "Email o contraseña incorrectos.",
+      "resetSent": "✓ Te enviamos un email a {{email}} con un link para elegir una nueva contraseña.",
+      "forgotQuestion": "¿Olvidaste tu contraseña?",
+      "forgotLink": "Recuperarla por email",
+      "forgotSending": "Enviando…",
+      "forgotEmailFirst": "Escribí tu email arriba primero."
+    },
+    "signup": {
+      "title": "Crear usuario",
+      "subtitle": "Creá tu login personal. Después, quien administre tu empresa en el portal te va a asignar a la cuenta correspondiente.",
+      "doneConfirm": "✓ Usuario creado. Revisá tu email para confirmarlo antes de ingresar.",
+      "doneReady": "✓ Usuario creado. Ya podés ingresar.",
+      "nameLabel": "Nombre completo",
+      "namePlaceholder": "Tu nombre y apellido",
+      "emailPlaceholder": "vos@empresa.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "••••••••",
+      "nameRequired": "Completá tu nombre.",
+      "submit": "Crear usuario",
+      "submitting": "Creando…"
+    },
+    "register": {
+      "title": "Solicitar acceso — nueva empresa",
+      "subtitle": "Completá tus datos. Tu distribuidor validará tu cuenta.",
+      "done": "✓ Solicitud enviada. Te van a contactar por email cuando tu cuenta esté habilitada.",
+      "companyNameLabel": "Razón Social",
+      "companyNamePlaceholder": "Empresa S.A.",
+      "taxIdLabel": "CUIT",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@empresa.com",
+      "phoneLabel": "Teléfono",
+      "phonePlaceholder": "+54 XXX XXXX",
+      "companyNameRequired": "Completá la Razón Social.",
+      "emailRequired": "Completá un email de contacto.",
+      "submit": "Enviar solicitud",
+      "submitting": "Enviando…"
+    }
+  },
+  "resetPassword": {
+    "title": "Elegí tu nueva contraseña",
+    "subtitle": "Definí una contraseña nueva para tu cuenta.",
+    "newPasswordLabel": "Nueva contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "tooShort": "La contraseña tiene que tener al menos 6 caracteres.",
+    "mismatch": "Las contraseñas no coinciden.",
+    "submit": "Guardar nueva contraseña",
+    "submitting": "Guardando…"
+  }
+}

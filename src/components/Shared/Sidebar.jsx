@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
 import { ABOUT_PAGES } from '../../lib/aboutPages'
+import LanguageSwitcher from './LanguageSwitcher'
 
 const NAV_ITEMS = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard',               section: 'Principal' },
@@ -135,6 +136,11 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
           </div>
         ))}
       </nav>
+
+      {/* Language */}
+      <div style={{padding:'10px 20px', borderTop:'1px solid rgba(255,255,255,.1)'}}>
+        <LanguageSwitcher dark />
+      </div>
 
       {/* User */}
       <div style={{

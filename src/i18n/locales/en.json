@@ -1,0 +1,127 @@
+{
+  "navbar": {
+    "announcement": "info@ma-tri.com  |  Official MaTri portal  |  Contact your local distributor",
+    "products": "Products",
+    "howItWorks": "How it works",
+    "requestAccess": "Request access",
+    "login": "Log in",
+    "openMenu": "Open menu"
+  },
+  "landing": {
+    "hero": {
+      "title": "Matri System",
+      "subtitle": "Calculate the exact dose for every cold room. Online treatments. Full traceability."
+    },
+    "heroImage": {
+      "titleLine1": "Calculate with precision.",
+      "titleLine2": "Decide with confidence.",
+      "description": "The MaTri system: optimize your 1-MCP treatment in every cold room with exact doses, treatment management and MatriSure verification.",
+      "features": {
+        "exactDose": "Exact Dose",
+        "savesTime": "Saves Time",
+        "easyToUse": "Easy to Use",
+        "traceability": "Traceability"
+      }
+    },
+    "badge": {
+      "protection": "Freshness protection in cold storage with 1-MCP"
+    },
+    "section2": {
+      "title": "Control your dose with the MaTri System",
+      "description": "Per-room dose calculator, packaging optimization, and full treatment management — all in one portal."
+    },
+    "products": {
+      "powder": { "desc": "Active 1-MCP powder for high-volume cold rooms. Compatible with the MaTri generator.", "tag": "Apples · Pears" },
+      "tablets": { "desc": "Controlled-release tablets for simple treatments with no extra equipment.", "tag": "Kiwi · Pears · Apples" },
+      "generator": { "desc": "Professional application equipment. Buy or rent by the day. Individual ID per unit.", "tag": "Purchase · Rental" },
+      "sure": { "desc": "Strips that change color when the target dose is reached. Immediate visual verification.", "tag": "Dose verification" }
+    },
+    "howItWorks": {
+      "badge": "3-step process",
+      "title": "How the portal works",
+      "description": "From registration to dose confirmation — all online, all traceable.",
+      "step1": { "title": "Sign up and request access", "desc": "Enter your company name, tax ID and fiscal details. Your distributor validates your account and activates your access." },
+      "step2": { "title": "Calculate and order", "desc": "Select the room, crop and destination market. The system suggests the dose and the optimal sachet combination." },
+      "step3": { "title": "Apply and verify", "desc": "Carry out the treatment and upload the MatriSure Kit photo. Dose confirmed, full record." }
+    },
+    "cta": {
+      "title": "Ready to get started?",
+      "subtitle": "Request access to the portal and start managing your MaTri treatments in minutes.",
+      "requestAccess": "Request access",
+      "haveAccount": "I already have an account"
+    },
+    "footer": "© 2026 MaTri 1-MCP Solutions  ·  info@ma-tri.com"
+  },
+  "roles": {
+    "owner": "Owner",
+    "approver": "Approver",
+    "planner": "Planner",
+    "operator": "Operator",
+    "viewer": "Viewer"
+  },
+  "authModal": {
+    "tabs": { "login": "Log in", "signup": "Create account", "register": "New company" },
+    "invite": {
+      "intro": "🔗 You were invited to join",
+      "as": "as",
+      "loginCta": "Log in to be assigned automatically.",
+      "signupCta": "Create your account to be assigned automatically."
+    },
+    "login": {
+      "title": "Welcome",
+      "subtitle": "Log in with your email and password.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "company@email.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Log in to the portal",
+      "submitting": "Logging in…",
+      "wrongCredentials": "Incorrect email or password.",
+      "resetSent": "✓ We sent an email to {{email}} with a link to choose a new password.",
+      "forgotQuestion": "Forgot your password?",
+      "forgotLink": "Recover by email",
+      "forgotSending": "Sending…",
+      "forgotEmailFirst": "Enter your email above first."
+    },
+    "signup": {
+      "title": "Create account",
+      "subtitle": "Create your personal login. Afterwards, whoever manages your company in the portal will assign you to the right account.",
+      "doneConfirm": "✓ Account created. Check your email to confirm it before logging in.",
+      "doneReady": "✓ Account created. You can log in now.",
+      "nameLabel": "Full name",
+      "namePlaceholder": "Your first and last name",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "nameRequired": "Enter your name.",
+      "submit": "Create account",
+      "submitting": "Creating…"
+    },
+    "register": {
+      "title": "Request access — new company",
+      "subtitle": "Fill in your details. Your distributor will validate your account.",
+      "done": "✓ Request sent. You'll be contacted by email once your account is enabled.",
+      "companyNameLabel": "Company name",
+      "companyNamePlaceholder": "Company Inc.",
+      "taxIdLabel": "Tax ID",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@company.com",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "+1 XXX XXXX",
+      "companyNameRequired": "Enter the company name.",
+      "emailRequired": "Enter a contact email.",
+      "submit": "Send request",
+      "submitting": "Sending…"
+    }
+  },
+  "resetPassword": {
+    "title": "Choose your new password",
+    "subtitle": "Set a new password for your account.",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "tooShort": "Password must be at least 6 characters.",
+    "mismatch": "Passwords don't match.",
+    "submit": "Save new password",
+    "submitting": "Saving…"
+  }
+}
