@@ -173,13 +173,14 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   }
 
   // Prices from the real pricing engine (this Organization's Distributor's tables)
-  const { purchase_price: genPurchase, rental_price: genRental } = getGeneratorPrice(pricing, vol)
+  const { purchase_price: genPurchase } = getGeneratorPrice(pricing, vol)
   const serviceFee = getServiceFee(pricing, vol)
 
-  // ROI calculation
+  // ROI calculation — Comprar vs. Servicio gestionado only (rental por día
+  // discontinued, DOMAIN_MODEL.md Rule 39 update — too much support/upkeep
+  // overhead relative to its actual use).
   const totalRooms       = rooms * treatments          // total treatments per season
   const serviceCostTotal = totalRooms * serviceFee     // cost of managed service
-  const rentalCostTotal  = totalRooms * genRental      // cost of renting each treatment
   const breakEvenTreatments = serviceFee > 0 ? Math.ceil(genPurchase / serviceFee) : 0 // treatments to break even vs service
   const unitsToBuy = Math.max(1, planSummary.maxSimultaneous)
 
@@ -191,8 +192,6 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
           ? `Con ${totalRooms} tratamientos por temporada el generador se amortiza en ${breakEvenTreatments} tratamientos. Además, tu Plan de Temporada muestra hasta ${planSummary.maxSimultaneous} cámaras tratándose el mismo día — te conviene comprar ${unitsToBuy} unidades, no solo una.`
           : `Con ${totalRooms} tratamientos por temporada el generador se amortiza en ${breakEvenTreatments} tratamientos. Ya conviene comprarlo.`,
       }
-    } else if (totalRooms >= 4) {
-      return { label:'Alquilar por ahora', color:'#b06a00', bg:'#fff3cd', icon:'📅', desc:`Con ${totalRooms} tratamientos el alquiler es más conveniente. Cuando llegues a ${breakEvenTreatments} tratamientos por temporada conviene comprar.` }
     } else {
       return { label:'Servicio gestionado', color:'#0c447c', bg:'#e8f4fc', icon:'👷', desc:`Con ${totalRooms} tratamientos el servicio gestionado de Wassington es la opción más conveniente. Sin inversión inicial.` }
     }
@@ -205,7 +204,6 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const PRODUCTS = [
     { title:'Comprar generador', price: fmtUSD(genPurchase), desc:'Unidad profesional con ID individual. Incluye batería. Mejor opción para operaciones con múltiples cámaras.', btn:'Solicitar compra', style:'primary' },
     { title:'Batería recargable', price:'$95 USD', desc:'Batería de repuesto para el generador MaTri. Compatibilidad garantizada.', btn:'Solicitar compra', style:'primary' },
-    { title:'Alquilar generador', price: `${fmtUSD(genRental)}/día`, desc:'Alquilá por los días que necesitás. Wassington confirma disponibilidad y realiza checklist previo.', btn:'Solicitar alquiler', style:'lime' },
   ]
 
   const fleetSection = (
@@ -354,7 +352,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
     return (
       <div>
         <div className="alert info">
-          📦 Estado de tu flota de generadores — quién los tiene, cuáles están disponibles para alquilar, y cuáles necesitan service.
+          📦 Estado de tu flota de generadores — quién los tiene, cuáles están disponibles, y cuáles necesitan service.
         </div>
         {fleetSection}
       </div>
@@ -364,7 +362,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   return (
     <div>
       <div className="alert warn">
-        📞 Si un generador falla durante el alquiler, contactá a Wassington: <strong>+54 299 XXX-XXXX</strong>
+        📞 Si un generador falla, contactá a Wassington: <strong>+54 299 XXX-XXXX</strong>
       </div>
 
       {/* ROI Calculator */}
@@ -462,13 +460,6 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                       highlight: rec.label === 'Servicio gestionado',
                     },
                     {
-                      option: 'Alquiler de generador',
-                      perTreatment: fmtUSD(genRental) + '/día',
-                      total: fmtUSD(rentalCostTotal),
-                      breakeven: `—`,
-                      highlight: rec.label === 'Alquilar por ahora',
-                    },
-                    {
                       option: 'Compra del generador',
                       perTreatment: fmtUSD(genPurchase / Math.max(totalRooms, 1)) + '/trat.',
                       total: fmtUSD(genPurchase * unitsToBuy) + (unitsToBuy > 1 ? ` (${unitsToBuy} unidades)` : ' (único pago)'),
@@ -477,7 +468,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                     },
                   ].map((r, i) => (
                     <tr key={i} style={{
-                      borderBottom: i < 2 ? '0.5px solid #ddddd5' : 'none',
+                      borderBottom: i < 1 ? '0.5px solid #ddddd5' : 'none',
                       background: r.highlight ? '#f0f7e0' : '#fff',
                     }}>
                       <td style={{padding:'12px 16px', fontWeight: r.highlight ? 700 : 400}}>
@@ -501,7 +492,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
       </div>
 
       {/* Product cards */}
-      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'16px', marginBottom:'20px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'16px', marginBottom:'20px'}}>
         {PRODUCTS.map((p, i) => (
           <div key={i} style={{background:'white', border:'1.5px solid var(--border)', borderRadius:'var(--radius)', padding:'22px 18px', display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center'}}>
             <img src={generatorImg} alt="Generador" style={{height:'90px', objectFit:'contain', marginBottom:'12px', opacity: i===1 ? .6 : 1}}/>

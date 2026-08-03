@@ -14,10 +14,10 @@ const inputStyle = { width:'100%', padding:'9px 12px', borderRadius:'7px', borde
 // Traspaso a sub-distribuidor: mueve la unidad como stock entre depósitos —
 // cambia org_id, sin checklist ni registro de despacho (el nuevo dueño la
 // administra como parte de su propia flota, misma lógica que hoy usa Wassington).
-// Alquilar / Vender a cliente: ambas piden el mismo checklist previo (entrega
-// física real). Alquilar deja org_id sin cambios y crea un generator_dispatches;
-// Vender cambia org_id de forma permanente (Rule 29 — arranca historial nuevo,
-// no queda registro de despacho).
+// Vender a cliente: pide el mismo checklist previo (entrega física real) y
+// cambia org_id de forma permanente (Rule 29 — arranca historial nuevo, no
+// queda registro de despacho). Alquiler por día discontinuado (Rule 39
+// update) — generaba demasiada carga de soporte/mantenimiento.
 export default function GeneratorTransferModal({ generator, profile, onClose, onDone }) {
   const [orgs, setOrgs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -40,12 +40,11 @@ export default function GeneratorTransferModal({ generator, profile, onClose, on
 
   const MODES = [
     ...(subdistributors.length > 0 ? [{ id: 'subdistributor', label: 'Traspaso a sub-distribuidor' }] : []),
-    { id: 'rent', label: 'Alquilar a cliente' },
     { id: 'sell', label: 'Vender a cliente' },
   ]
 
   const targetOptions = mode === 'subdistributor' ? subdistributors : customers
-  const needsChecklist = mode === 'rent' || mode === 'sell'
+  const needsChecklist = mode === 'sell'
   const checklistOk = CHECKLIST_ITEMS.every(([key]) => checklist[key])
   const canConfirm = mode && targetOrgId && (!needsChecklist || checklistOk)
 
@@ -69,20 +68,6 @@ export default function GeneratorTransferModal({ generator, profile, onClose, on
         setError(error.code === '23505' ? 'El destino ya tiene un generador con ese ID de unidad — pídele que lo renombre antes del traspaso.' : error.message)
         return
       }
-    } else {
-      const { error: dispatchError } = await supabase.from('generator_dispatches').insert({
-        generator_id: generator.id,
-        dispatched_to_org_id: targetOrgId,
-        dispatched_at: new Date().toISOString(),
-        checklist_battery_charged: true,
-        checklist_seals_intact: true,
-        checklist_test_run_completed: true,
-        checklist_service_interval_ok: true,
-      })
-      if (dispatchError) { setSaving(false); setError(dispatchError.message); return }
-      const { error: statusError } = await supabase.from('generators').update({ status: 'on_rent' }).eq('id', generator.id)
-      setSaving(false)
-      if (statusError) { setError(statusError.message); return }
     }
     onDone()
   }

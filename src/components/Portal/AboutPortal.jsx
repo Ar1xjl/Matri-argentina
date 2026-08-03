@@ -390,7 +390,7 @@ const SECTIONS = {
         <Table headers={['Tabla', 'Unidad', 'Segmentada por']} rows={[
           ['Producto', '$/m³', 'SKU (Powder / Tablets) × bracket de volumen'],
           ['Servicio de aplicación', '$/tratamiento', 'Bracket — solo Powder con servicio gestionado'],
-          ['Generador', 'compra $/unidad y alquiler $/día', 'Bracket'],
+          ['Generador', 'compra $/unidad', 'Bracket'],
           ['Brackets de volumen', '—', 'Editables por Distribuidor (0–600 / 600–1.200 / 1.200–1.800 / 1.800+ m³ por defecto)'],
         ]} />
         <p style={{ ...pMuted, marginTop: '10px' }}>Solo Owner y Aprobador editan estas tablas. Global las ve de solo lectura; un Sub-distribuidor tiene control total sobre las suyas propias.</p>
@@ -494,9 +494,9 @@ const SECTIONS = {
 
       <Card title="Ciclo de vida de una unidad">
         <Flow>
-          <FlowStep state="Disponible">Recién registrada, o vuelta de un alquiler.</FlowStep>
+          <FlowStep state="Disponible">Recién registrada.</FlowStep>
           <FlowArrow />
-          <FlowStep state="Despachada / En alquiler">Checklist previo obligatorio antes de salir.</FlowStep>
+          <FlowStep state="Despachada">Checklist previo obligatorio antes de salir (venta a Cliente).</FlowStep>
           <FlowArrow />
           <FlowStep state="En servicio → Reparada">O directamente Fuera de servicio.</FlowStep>
         </Flow>
@@ -506,16 +506,19 @@ const SECTIONS = {
       <Table headers={['Acción', 'Quién', 'Qué pasa']} rows={[
         ['Registrar unidad nueva', 'Solo Global o Distribuidor', 'Un Sub-distribuidor nunca origina stock nuevo.'],
         ['Traspaso a sub-distribuidor', 'Distribuidor', 'Cambio simple de dueño, sin checklist.'],
-        ['Alquilar a cliente', 'Distribuidor/Sub-distribuidor', 'Checklist previo obligatorio. La propiedad nunca cambia.'],
-        ['Vender a cliente', 'Distribuidor/Sub-distribuidor', 'Mismo checklist, pero la propiedad pasa al Cliente.'],
-        ['Marcar como devuelto', 'Distribuidor/Sub-distribuidor', 'Cierra el alquiler, vuelve a Disponible.'],
+        ['Vender a cliente', 'Distribuidor/Sub-distribuidor', 'Checklist previo obligatorio. La propiedad pasa al Cliente.'],
+        ['Marcar como devuelto', 'Distribuidor/Sub-distribuidor', 'Cierra un alquiler existente de antes de discontinuar la modalidad. Ya no se pueden iniciar alquileres nuevos.'],
       ]} />
 
       <Callout label="Checklist previo al despacho (bloqueante)">
         Batería cargada, sellos intactos, prueba de arranque, service al día. La unidad no puede pasar a “Despachada” con el checklist incompleto.
       </Callout>
 
-      <Card title="Calculadora Comprar vs. Alquilar vs. Servicio gestionado" style={{ marginTop: '18px' }}>
+      <Callout kind="real" label="🔧 Estado real — alquiler discontinuado">
+        Generaba demasiada carga de soporte y mantenimiento — hoy solo quedan Comprar o Servicio gestionado como alternativas a la propiedad propia.
+      </Callout>
+
+      <Card title="Calculadora Comprar vs. Servicio gestionado" style={{ marginTop: '18px' }}>
         <p style={pMuted}>Vista del Cliente — puede alimentarse con datos reales del Plan de Temporada. Un Distribuidor o Global ve directamente el estado de su propia flota.</p>
       </Card>
 

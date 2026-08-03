@@ -71,9 +71,10 @@ export default function CampaignCostSimulator({ lines = [], pricing, override, p
     return { productCost, serviceCost, total, totalM3, costPerM3: totalM3 > 0 ? total / totalM3 : 0 }
   }, [powderRooms, tabletRooms, roundingByLine, serviceModel])
 
-  // Same buy/rent/service-vs-generator math as Generators.jsx's ROI calculator
-  // (DOMAIN_MODEL.md), just framed here as a decision that already knows the
-  // real planned application count instead of asking the customer to guess it.
+  // Same buy-vs-service math as Generators.jsx's ROI calculator (rental por
+  // día discontinued, DOMAIN_MODEL.md Rule 39 update), just framed here as a
+  // decision that already knows the real planned application count instead
+  // of asking the customer to guess it.
   const roi = useMemo(() => {
     if (powderRooms.length === 0) return null
     const avgVol = powderRooms.reduce((s, r) => s + r.options.vol, 0) / powderRooms.length
@@ -85,9 +86,6 @@ export default function CampaignCostSimulator({ lines = [], pricing, override, p
     if (totalTreatments >= breakEven && breakEven > 0) {
       rec = { label: 'Comprar el generador', color:'#1a6b30', bg:'#eaf7ee', icon:'🏆',
         desc: `Con ${totalTreatments} aplicaciones de MatriPowder planificadas, el generador se amortiza en ${breakEven} tratamientos — ya te conviene comprarlo en vez de pagar el servicio por cada aplicación.` }
-    } else if (totalTreatments >= 4) {
-      rec = { label: 'Alquilar por ahora', color:'#b06a00', bg:'#fff3cd', icon:'📅',
-        desc: `Con ${totalTreatments} aplicaciones, alquilar te conviene más que el servicio gestionado. Cuando llegues a ${breakEven} tratamientos por temporada, ya conviene comprar.` }
     } else {
       rec = { label: 'Servicio gestionado', color:'#0c447c', bg:'#e8f4fc', icon:'👷',
         desc: `Con solo ${totalTreatments} aplicación${totalTreatments === 1 ? '' : 'es'} planificada${totalTreatments === 1 ? '' : 's'}, el servicio gestionado de Wassington es la opción más conveniente — sin inversión inicial.` }

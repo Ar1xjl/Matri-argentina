@@ -148,15 +148,16 @@ Available → Dispatched → On Rent → Returned → Available
 
 **Pre-dispatch checklist** (recorded per dispatch event): battery charged, seals intact, test run completed, last service within acceptable interval. **This is a blocking gate (2026-07-03)** — unlike the administrative "no formal checklist" pattern used for Organization onboarding, this one is about physical equipment safety: a Generator cannot be marked Dispatched until the checklist is complete.
 
+> **Correction (2026-07-28) — Generator rental discontinued:** renting a Generator by the day generated too much support/maintenance overhead relative to its actual use, so it's no longer offered. New transfers are limited to a Sub-distributor stock move or a permanent sale to a Customer. The buy-vs-alternative ROI calculators (Generators.jsx and the Season Plan's Campaign Cost Simulator) now only compare Purchase vs. Managed Service. Historical `on_rent` status and any already-open rental dispatch can still be closed out via "Marcar como devuelto," but no new rental can be started. See Business Rule 48.
+
 > MatriTablets do not require a Generator. Generator is optional on Treatment and only relevant when product is MatriPowder.
 
 **Registering a brand-new unit (Fase F, 2026-07-13):** only FreshInset Global or a country Distributor (e.g. Wassington) can register a unit that's brand new to the system (just purchased from the manufacturer) — a Sub-distributor never originates new stock, it only ever receives units via transfer from above.
 
 **Transfer/dispatch actions, from the owner's "Mis generadores" screen:**
 - **Traspaso a sub-distribuidor:** a simple ownership move — `org_id` changes to the Sub-distributor, no checklist, no dispatch record. From that point the Sub-distributor manages the unit as part of its own fleet, exactly like a Distributor does.
-- **Alquilar a cliente:** requires the pre-dispatch checklist (Rule 31); creates a `generator_dispatches` row and moves status to `on_rent`; ownership (`org_id`) never changes — it stays the Distributor's/Sub-distributor's asset the whole time (Rule 29).
-- **Vender a cliente:** also requires the same checklist (a real physical handover deserves the same safety check as a rental, even though it's permanent) — but unlike renting, `org_id` changes to the Customer, permanently, and no dispatch record is created (fresh history starts there, per Rule 29).
-- **Marcar como devuelto:** closes the open `generator_dispatches` row (`returned_at`) and flips status back to `available`.
+- **Vender a cliente:** requires the pre-dispatch checklist (Rule 31) — a real physical handover deserves the safety check — and `org_id` changes to the Customer, permanently; no dispatch record is created (fresh history starts there, per Rule 29).
+- **Marcar como devuelto:** closes an already-open `generator_dispatches` row (`returned_at`) from a rental made before the feature was discontinued (Rule 48) and flips status back to `available`. No longer reachable for new transfers, since renting can no longer be initiated.
 
 ### Inventory
 
@@ -183,7 +184,8 @@ Configured per Organization, in that Organization's own currency (see "Currency"
 | Product price | currency / m³ | SKU × Volume bracket, within the Organization |
 | Application service fee | currency / Treatment | Volume bracket, within the Organization |
 | Generator purchase | currency / unit | Volume bracket, within the Organization |
-| Generator rental | currency / day | Volume bracket, within the Organization |
+
+> **Correction (2026-07-28):** dropped the "Generator rental / day" table as a live pricing input — rental was discontinued (Rule 48). The `pricing_generator.rental_price` column still exists in the schema (kept at `0`, untouched historical values for past rentals are not deleted) but is no longer editable from the Pricing screen.
 
 > **Correction (2026-07-07):** dropped "Organization tier" as a segmentation axis — it was a leftover from the original Argentina-only model, where Tier (T1/T2/T3) stood in for "which Distributor manages this customer." That's now expressed directly by the Organization tree itself (Business Rule 14), so a separate tier field on top of it was redundant.
 
@@ -390,7 +392,7 @@ FreshInset Global
 36. A Customer Pricing Override is set by that Customer's immediate ancestor Organization (Distributor or Sub-distributor), never by the Customer itself; a fixed override always wins over a % discount, which always wins over standard list price. A minimum volume commitment attached to an override is informational only — it never automatically revokes or blocks pricing.
 37. A Treatment's MatriPowder sachet breakdown is frozen at approval time, same as its price — it is never recomputed from a pouch-size catalog that may have changed since.
 38. A prospective Customer may submit a self-service access request before having any account; any non-Customer staff member (Distributor, Sub-distributor or Global) may review it and either reject it or assign it into the org tree, at which point Business Rule 13's normal activation approval still applies to the resulting Organization.
-39. Only FreshInset Global or a country Distributor may register a brand-new Generator unit into the system; a Sub-distributor only ever receives units via transfer. Transferring a unit to a Sub-distributor moves ownership directly with no checklist; renting or selling to a Customer both require the same pre-dispatch checklist, but only selling permanently changes ownership — renting never does (extends Rule 29).
+39. Only FreshInset Global or a country Distributor may register a brand-new Generator unit into the system; a Sub-distributor only ever receives units via transfer. Transferring a unit to a Sub-distributor moves ownership directly with no checklist; selling to a Customer requires the same pre-dispatch checklist and permanently changes ownership (extends Rule 29). *(Renting a Customer a Generator — described here and in Rules 29/30 as it originally worked — was discontinued 2026-07-28; see Rule 48.)*
 40. An Owner may pre-generate a shareable invite link for their own Organization (or one below it in the tree), fixing the target Organization and Business Roles in advance; whoever redeems it — creating an account or logging into an existing one — is assigned automatically, without the Owner ever needing to know the invitee's name or email beforehand (complements Rule 19's self-service assignment and Rule 17's one-Organization-per-User constraint).
 41. A Firmness Evaluation (Testigo-vs-Matri fruit firmness over shelf-life days) is a separate Treatment sub-entity from the MatriSure Verification — they confirm different things (in-room concentration vs. effect on the fruit) and Wassington runs both. Only staff of a non-Customer Organization in the Treatment's own ancestor chain may record or edit one; the Customer and the rest of that ancestor chain may only view it and download its signed PDF attachment, if any. Loss-of-firmness rate and its chart are always derived from the recorded samples, never stored separately.
 42. A non-Customer Organization (Distributor, Sub-distributor, or Global) may prepare a Season Plan draft on behalf of one of its descendant Customers who hasn't loaded their own — invisible to that Customer, and to anyone else, until explicitly shared. Sharing copies the draft's lines into that Customer's real Season Plan (creating one if it doesn't have one yet) and notifies that Customer's Owner and Planificador; the Customer then owns and edits those lines exactly as if they'd entered them themselves.
@@ -399,6 +401,7 @@ FreshInset Global
 45. A Treatment cannot move to Applied without both an Inicio and a Fin application photo, taken live from the device camera — same anti-fraud requirement as Rule 11's MatriSure photo, enforced at the database level.
 46. A Treatment cannot move to Approved without a completed Treatment Dispatch Checklist (all five items attested) already recorded for it — a blocking gate enforced at the database level, mirroring Rule 31's Generator pre-dispatch checklist.
 47. A MatriSure Kit Lot older than 30 days from its `received_at` date must be destroyed (recorded, not just discarded) and replaced with newly ordered cards — the Distributor is warned of any such lot when approving a Treatment for the same SKU, but marking a lot destroyed and the checklist's `lot_age_verified` attestation are both manual actions, not automatic.
+48. Renting a Generator by the day is discontinued (2026-07-28) — it generated too much support/maintenance overhead relative to its actual use, a real-world complaint that outweighed the convenience. Only "Traspaso a sub-distribuidor" and "Vender a cliente" remain as transfer actions (extends/supersedes the renting half of Rules 29, 30, 39). No new `generator_dispatches` row or `on_rent` status can be created; any that already exist from before this date can still be closed via "Marcar como devuelto." Every buy-vs-alternative comparison (the Generators screen's ROI calculator and the Season Plan's Campaign Cost Simulator) now only weighs Purchase vs. Managed Service. `pricing_generator.rental_price` remains in the schema (written as `0` going forward) since dropping a `not null` column isn't worth the migration risk for a value nothing reads anymore.
 
 ---
 

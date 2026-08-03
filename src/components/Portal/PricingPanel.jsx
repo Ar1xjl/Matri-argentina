@@ -9,7 +9,6 @@ function buildValues(brackets, product, serviceFee, generator) {
     tablets:     product.find(p => p.sku === 'MatriTablets' && p.bracket === b.code)?.price ?? 0,
     service:     serviceFee.find(f => f.bracket === b.code)?.price ?? 0,
     genPurchase: generator.find(g => g.bracket === b.code)?.purchase_price ?? 0,
-    genRental:   generator.find(g => g.bracket === b.code)?.rental_price ?? 0,
   }]))
 }
 
@@ -80,7 +79,7 @@ export default function PricingPanel({ profile, readOnly = false }) {
     const generatorRows = brackets.map(b => ({
       org_id: orgId, bracket: b.code,
       purchase_price: Number(values[b.code]?.genPurchase) || 0,
-      rental_price: Number(values[b.code]?.genRental) || 0,
+      rental_price: 0, // alquiler por día discontinuado (DOMAIN_MODEL.md Rule 39 update) — columna sigue NOT NULL en pricing_generator
     }))
 
     const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
@@ -164,7 +163,6 @@ export default function PricingPanel({ profile, readOnly = false }) {
                 <th style={thStyle}>MatriTablets $/m³</th>
                 <th style={thStyle}>Servicio $/cámara</th>
                 <th style={thStyle}>Generador compra</th>
-                <th style={thStyle}>Generador alquiler/día</th>
                 <th style={thStyle}></th>
               </tr>
             </thead>
@@ -177,7 +175,6 @@ export default function PricingPanel({ profile, readOnly = false }) {
                     ['tablets', p => fmt(p)],
                     ['service', p => fmt(p)],
                     ['genPurchase', p => fmt(p)],
-                    ['genRental', p => fmt(p)],
                   ].map(([field, formatter]) => (
                     <td key={field} style={{padding:'8px 14px', textAlign:'right'}}>
                       {editing ? (
