@@ -242,10 +242,15 @@ export default function Users({ profile }) {
     loadPendingSignups()
   }
 
+  // Fully removes the person from the Organization (not just their roles) —
+  // otherwise they're left as a zombie member (org_id set, zero roles) that
+  // silently blocks reassigning them anywhere else. A DB trigger drops them
+  // back into "Solicitudes de usuario pendientes de asignar" automatically
+  // (migration 0029), same queue as any fresh self-registered signup.
   const handleRemoveAccess = async (memberId) => {
     setRemoveError('')
     setRemovingId(memberId)
-    const { error } = await supabase.from('user_roles').delete().eq('profile_id', memberId)
+    const { error } = await supabase.from('profiles').delete().eq('id', memberId)
     setRemovingId(null)
     if (error) {
       setRemoveError(error.message === 'Cannot remove the last Owner of an Organization'
@@ -254,6 +259,7 @@ export default function Users({ profile }) {
       return
     }
     await loadMembers(selectedOrgId)
+    loadPendingSignups()
   }
 
   if (loading) return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando…</div>
@@ -464,11 +470,9 @@ export default function Users({ profile }) {
                       </td>
                       {isOwner && (
                         <td>
-                          {rolesOf(m).length > 0 && (
-                            <button className="btn-secondary btn-sm" disabled={removingId === m.id} onClick={() => handleRemoveAccess(m.id)}>
-                              Quitar acceso
-                            </button>
-                          )}
+                          <button className="btn-secondary btn-sm" disabled={removingId === m.id} onClick={() => handleRemoveAccess(m.id)}>
+                            Quitar acceso
+                          </button>
                         </td>
                       )}
                     </tr>
