@@ -1,25 +1,27 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import logoImg from '../../assets/logos/MatriPowder_Logo.svg'
 import { ABOUT_PAGES } from '../../lib/aboutPages'
 import LanguageSwitcher from './LanguageSwitcher'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',   icon: '📊', label: 'Dashboard',               section: 'Principal' },
-  { id: 'rooms',       icon: '🏠', label: 'Frigoríficos y Cámaras',  section: null },
-  { id: 'seasonplan',  icon: '🗓️', label: 'Planificación de temporada', section: null },
-  { id: 'calculator',  icon: '🧮', label: 'Calculadora de dosis',    section: null },
-  { id: 'treatments',  icon: '📦', label: 'Tratamientos',            section: null },
-  { id: 'applog',      icon: '📋', label: 'Registro de aplicaciones',section: null },
-  { id: 'generators',  icon: '⚡', label: 'Generadores',             section: 'Equipamiento' },
-  { id: 'documents',   icon: '📄', label: 'Documentos',              section: 'Información' },
-  { id: 'knowledge-base', icon: '📚', label: 'MaTri Knowledge Base', section: null,
+  { id: 'dashboard',   icon: '📊', labelKey: 'sidebar.nav.dashboard',   section: 'main' },
+  { id: 'rooms',       icon: '🏠', labelKey: 'sidebar.nav.rooms',       section: null },
+  { id: 'seasonplan',  icon: '🗓️', labelKey: 'sidebar.nav.seasonplan',  section: null },
+  { id: 'calculator',  icon: '🧮', labelKey: 'sidebar.nav.calculator',  section: null },
+  { id: 'treatments',  icon: '📦', labelKey: 'sidebar.nav.treatments',  section: null },
+  { id: 'applog',      icon: '📋', labelKey: 'sidebar.nav.applog',      section: null },
+  { id: 'generators',  icon: '⚡', labelKey: 'sidebar.nav.generators',  section: 'equipment' },
+  { id: 'documents',   icon: '📄', labelKey: 'sidebar.nav.documents',   section: 'info' },
+  { id: 'knowledge-base', icon: '📚', labelKey: 'sidebar.nav.knowledgeBase', section: null,
     href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
-  { id: 'wassington',  icon: '⚙️', label: null,                      section: 'Administración' },
-  { id: 'users',       icon: '👥', label: 'Usuarios',                section: 'Cuenta' },
-  { id: 'profile',     icon: '👤', label: 'Mi perfil',               section: null },
+  { id: 'wassington',  icon: '⚙️', labelKey: null,                     section: 'admin' },
+  { id: 'users',       icon: '👥', labelKey: 'sidebar.nav.users',       section: 'account' },
+  { id: 'profile',     icon: '👤', labelKey: 'sidebar.nav.profile',     section: null },
 ]
 
 export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true, mobileOpen = false }) {
+  const { t } = useTranslation()
   const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
   const navItems = NAV_ITEMS.filter(item =>
     (item.id !== 'wassington' || canSeeWassingtonPanel) &&
@@ -47,7 +49,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
       {/* Logo */}
       <div style={{padding:'16px 20px 14px', borderBottom:'1px solid rgba(255,255,255,.1)'}}>
         <img src={logoImg} alt="MaTri" style={{height:'30px', filter:'brightness(0) invert(1)'}}/>
-        <div style={{fontSize:'10px', color:'#607080', marginTop:'4px'}}>🇦🇷 Portal Argentina</div>
+        <div style={{fontSize:'10px', color:'#607080', marginTop:'4px'}}>{t('sidebar.tagline')}</div>
       </div>
 
       {/* Nav */}
@@ -60,7 +62,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                 textTransform:'uppercase', color:'#607080',
                 padding:'14px 20px 5px'
               }}>
-                {item.section}
+                {t(`sidebar.sections.${item.section}`)}
               </div>
             )}
             {item.href ? (
@@ -77,7 +79,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                 }}
               >
                 <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
-                {item.label}
+                {t(item.labelKey)}
               </a>
             ) : (
               <div
@@ -92,7 +94,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                 }}
               >
                 <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>{item.icon}</span>
-                {item.label || `Panel ${orgName}`}
+                {item.labelKey ? t(item.labelKey) : t('sidebar.panelOf', { orgName })}
               </div>
             )}
 
@@ -108,7 +110,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                   }}
                 >
                   <span style={{fontSize:'15px', width:'20px', textAlign:'center'}}>📘</span>
-                  <span style={{flex:1}}>Acerca del Portal</span>
+                  <span style={{flex:1}}>{t('sidebar.aboutPortal')}</span>
                   <span style={{fontSize:'10px', transform: aboutOpen ? 'rotate(180deg)' : 'none', transition:'.15s'}}>▾</span>
                 </div>
                 {aboutOpen && aboutItems.map(page => {
@@ -158,7 +160,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
             {orgName}
           </div>
         </div>
-        <button onClick={onSignOut} title="Cerrar sesión"
+        <button onClick={onSignOut} title={t('sidebar.signOut')}
           style={{background:'none', border:'none', color:'#607080', fontSize:'16px', cursor:'pointer'}}>
           ⎋
         </button>

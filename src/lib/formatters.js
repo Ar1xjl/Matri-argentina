@@ -15,3 +15,11 @@ export function formatDateTime(date, options) {
   if (!date) return ''
   return new Date(date).toLocaleString(activeLocale(), options)
 }
+
+export function formatUSD(v) {
+  return '$' + Number(v).toLocaleString(activeLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export function formatNumber(v, decimals = 1) {
+  return Number(v).toLocaleString(activeLocale(), { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}

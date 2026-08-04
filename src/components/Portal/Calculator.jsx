@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { POUCHES, DOSE_BASE, greedyCeiling, greedyFloor, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
-
-function fmtUSD(v) { return '$' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
-function fmtNum(v, d=1) { return Number(v).toLocaleString('es-AR', {minimumFractionDigits:d, maximumFractionDigits:d}) }
+import { formatUSD as fmtUSD, formatNumber as fmtNum } from '../../lib/formatters'
 
 // ── Styles ────────────────────────────────────────────────────────────────
 const card    = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'24px', marginBottom:'16px'}
@@ -16,6 +15,7 @@ const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', lette
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
 export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0 }) {
+  const { t } = useTranslation()
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [override,   setOverride]   = useState(null)
   const [pouchSizes, setPouchSizes] = useState(POUCHES) // real catalog replaces this fallback once loaded
@@ -85,7 +85,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   }, [])
 
   if (coldRooms.length === 0) {
-    return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando cámaras...</div>
+    return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>{t('calculator.loadingRooms')}</div>
   }
 
   const vol    = coldRooms[roomIdx].volume_m3
@@ -170,12 +170,12 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
           <div style={{borderTop:'0.5px solid #e0e0d8', marginTop:'12px', paddingTop:'12px'}}>
             {/* Itemized breakdown */}
             <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#555', marginBottom:'4px'}}>
-              <span>Costo {productLabel}</span>
+              <span>{t('calculator.option.productCost', { product: productLabel })}</span>
               <span>{fmtUSD(cost)}</span>
             </div>
             {serviceFee !== undefined && (
               <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#888', marginBottom:'4px'}}>
-                <span>+ Servicio de aplicación (opcional)</span>
+                <span>{t('calculator.option.serviceFee')}</span>
                 <span>{fmtUSD(serviceFee)}</span>
               </div>
             )}
@@ -184,30 +184,30 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             <div style={{display:'grid', gridTemplateColumns: optPpb !== undefined ? 'repeat(3,1fr)' : 'repeat(2,1fr)', gap:'8px', marginTop:'10px'}}>
               {optPpb !== undefined && (
                 <div style={statBox}>
-                  <div style={statLbl}>Dosis</div>
+                  <div style={statLbl}>{t('calculator.option.dose')}</div>
                   <div style={{...statVal, fontWeight:400}}>{fmtNum(optPpb, 0)} ppb</div>
                 </div>
               )}
               <div style={statBox}>
-                <div style={statLbl}>$/m³</div>
+                <div style={statLbl}>{t('calculator.option.perM3')}</div>
                 <div style={{...statVal, fontWeight:400}}>{fmtUSD(cost/vol)}</div>
               </div>
               <div style={statBox}>
-                <div style={statLbl}>Total</div>
+                <div style={statLbl}>{t('calculator.option.total')}</div>
                 <div style={statVal}>{fmtUSD(cost)}</div>
               </div>
             </div>
 
             {serviceFee !== undefined && (
               <div style={{fontSize:'10px', color:'#aaa', marginTop:'8px', textAlign:'center'}}>
-                Total sin servicio · Con servicio gestionado: {fmtUSD(cost + serviceFee)}
+                {t('calculator.option.totalWithService', { amount: fmtUSD(cost + serviceFee) })}
               </div>
             )}
           </div>
         )}
         {isSelected && (
           <div style={{marginTop:'10px', background:'#e8f4fc', borderRadius:'8px', padding:'8px 10px', fontSize:'11px', color:'#0c447c', fontWeight:600}}>
-            ✓ Seleccionado
+            {t('calculator.option.selected')}
           </div>
         )}
       </div>
@@ -220,61 +220,61 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
       {prefill && (
         <div className="alert info" style={{marginBottom:'14px'}}>
           {prefill.origin === 'repeat'
-            ? '↺ Repitiendo un tratamiento anterior. Ajustá lo que haga falta y confirmá para enviarlo a Wassington.'
-            : `🗓️ Revisando línea de tu Planificación de Temporada${queueLength > 1 ? ` — quedan ${queueLength} por revisar` : ''}. Ajustá lo que haga falta y confirmá para enviarla a Wassington.`}
+            ? t('calculator.prefill.repeat')
+            : `${t('calculator.prefill.seasonPlanPrefix')}${queueLength > 1 ? t('calculator.prefill.queueRemaining', { count: queueLength }) : ''}${t('calculator.prefill.seasonPlanSuffix')}`}
         </div>
       )}
 
       {/* Admin bar */}
       <div style={{background:'#0b4358', color:'#fff', padding:'8px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', borderRadius:'8px 8px 0 0'}}>
-        <span>{override ? 'Precio pactado con tu distribuidor aplicado a este cálculo' : 'Precios según la tabla configurada por tu distribuidor'}</span>
+        <span>{override ? t('calculator.pricingBar.override') : t('calculator.pricingBar.standard')}</span>
       </div>
 
       {/* Inputs */}
       <div style={card}>
-        <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'16px'}}>Datos de la cámara</div>
+        <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'16px'}}>{t('calculator.roomData.title')}</div>
 
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
           <div>
-            <label style={lbl}>Cámara</label>
+            <label style={lbl}>{t('calculator.roomData.roomLabel')}</label>
             <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
               {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name}{r.organizations?.name ? ` — ${r.organizations.name}` : ''} ({r.volume_m3} m³)</option>)}
             </select>
           </div>
           <div>
-            <label style={lbl}>Nombre personalizado (opcional)</label>
-            <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="Ej: Sector B — Peras"/>
+            <label style={lbl}>{t('calculator.roomData.customNameLabel')}</label>
+            <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder={t('calculator.roomData.customNamePlaceholder')}/>
           </div>
         </div>
 
         <div style={{marginBottom:'14px'}}>
-          <label style={lbl}>Dosis objetivo (ppb)</label>
+          <label style={lbl}>{t('calculator.roomData.targetDoseLabel')}</label>
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
             <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setDoseSource('manual'); setResults(null) }} min="100" max="5000" step="50"/>
             <button onClick={() => { setPpb('1000'); setDoseSource('manual') }} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
-              Estándar (1.000 ppb)
+              {t('calculator.roomData.standardDose')}
             </button>
           </div>
           <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
-            Dosis estándar: 1.000 ppb = 0.067 g MatriPowder 3.3% por m³
+            {t('calculator.roomData.standardDoseHint')}
           </div>
         </div>
 
         <div style={{background:'#f0f7e0', border:'1px solid #b5cc2e', borderRadius:'8px', padding:'12px 14px', marginBottom:'14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div>
-            <div style={{fontSize:'12px', fontWeight:700, color:'#3b6d11', marginBottom:'2px'}}>No sabés qué dosis usar?</div>
-            <div style={{fontSize:'11px', color:'#555'}}>Consultá la calculadora científica DoseRight basada en parámetros de cosecha.</div>
+            <div style={{fontSize:'12px', fontWeight:700, color:'#3b6d11', marginBottom:'2px'}}>{t('calculator.roomData.doseRightPrompt')}</div>
+            <div style={{fontSize:'11px', color:'#555'}}>{t('calculator.roomData.doseRightDesc')}</div>
           </div>
           <button
             onClick={() => window.open('https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html', 'doseright', 'width=900,height=700,scrollbars=yes')}
             style={{background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:'12px', fontFamily:'inherit'}}
           >
-            Abrir DoseRight
+            {t('calculator.roomData.openDoseRight')}
           </button>
         </div>
 
         <button style={calcBtn} onClick={calculate}>
-          Calcular y comparar alternativas
+          {t('calculator.roomData.calculate')}
         </button>
       </div>
 
@@ -282,10 +282,10 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
       {results && (
         <div>
           <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>
-            Compará las alternativas para {roomName || coldRooms[roomIdx].name} ({vol} m³)
+            {t('calculator.results.compareTitle', { roomName: roomName || coldRooms[roomIdx].name, vol })}
           </div>
           <div style={{fontSize:'12px', color:'#888', marginBottom:'16px'}}>
-            Dosis objetivo: {fmtNum(ppbVal, 0)} ppb · Hacé click en una alternativa para seleccionarla
+            {t('calculator.results.targetDose', { ppb: fmtNum(ppbVal, 0) })}
           </div>
 
           <div style={{display:'flex', gap:'14px', flexWrap:'wrap', marginBottom:'20px'}}>
@@ -293,8 +293,8 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             {/* Option 1 — Powder exact */}
             <OptionCard
               id="exact"
-              title="MatriPowder — Dosis exacta"
-              badge={{label:'Dosis exacta', bg:'#e8f4fc', color:'#0c447c'}}
+              title={t('calculator.options.exact.title')}
+              badge={{label:t('calculator.options.exact.badge'), bg:'#e8f4fc', color:'#0c447c'}}
               cost={results.exact.productCost}
               ppbVal={results.exact.ppb}
               productLabel="MatriPowder"
@@ -304,20 +304,20 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                 {results.exact.combo.filter(p=>p.qty>0).map(p => (
                   <div key={p.size} style={pouchRow}>
                     <div style={{background:'#0b4358', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', fontWeight:700}}>{p.size}g</div>
-                    <div style={{fontSize:'12px', color:'#333', flex:1}}>Sachet {p.size}g</div>
+                    <div style={{fontSize:'12px', color:'#333', flex:1}}>{t('calculator.option.sachet', { size: p.size })}</div>
                     <div style={{fontSize:'13px', fontWeight:700, color:'#e8736a'}}>×{p.qty}</div>
                   </div>
                 ))}
               </div>
-              <div style={{fontSize:'11px', color:'#888'}}>{fmtNum(results.exact.grams, 1)} g totales</div>
+              <div style={{fontSize:'11px', color:'#888'}}>{t('calculator.option.totalGrams', { grams: fmtNum(results.exact.grams, 1) })}</div>
             </OptionCard>
 
             {/* Option 2 — Powder adjusted */}
             {!results.adjusted.skip && (
               <OptionCard
                 id="adjusted"
-                title="MatriPowder — Dosis ajustada"
-                badge={{label:'Sin sachet extra', bg:'#eaf7ee', color:'#1a6b30'}}
+                title={t('calculator.options.adjusted.title')}
+                badge={{label:t('calculator.options.adjusted.badge'), bg:'#eaf7ee', color:'#1a6b30'}}
                 cost={results.adjusted.productCost}
                 ppbVal={results.adjusted.ppb}
                 productLabel="MatriPowder"
@@ -327,12 +327,12 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                   {results.adjusted.combo.filter(p=>p.qty>0).map(p => (
                     <div key={p.size} style={pouchRow}>
                       <div style={{background:'#0b4358', color:'#fff', borderRadius:'6px', padding:'2px 8px', fontSize:'11px', fontWeight:700}}>{p.size}g</div>
-                      <div style={{fontSize:'12px', color:'#333', flex:1}}>Sachet {p.size}g</div>
+                      <div style={{fontSize:'12px', color:'#333', flex:1}}>{t('calculator.option.sachet', { size: p.size })}</div>
                       <div style={{fontSize:'13px', fontWeight:700, color:'#e8736a'}}>×{p.qty}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{fontSize:'11px', color:'#888'}}>{fmtNum(results.adjusted.grams, 1)} g totales</div>
+                <div style={{fontSize:'11px', color:'#888'}}>{t('calculator.option.totalGrams', { grams: fmtNum(results.adjusted.grams, 1) })}</div>
               </OptionCard>
             )}
 
@@ -340,22 +340,22 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             <OptionCard
               id="tablets"
               title="MatriTablets"
-              badge={{label:'Autoaplicación', bg:'#fff3cd', color:'#b06a00'}}
+              badge={{label:t('calculator.options.tablets.badge'), bg:'#fff3cd', color:'#b06a00'}}
               cost={results.tablets.productCost}
               ppbVal={results.tablets.ppb}
               productLabel="MatriTablets"
             >
               <div style={{display:'flex', gap:'10px', marginBottom:'8px'}}>
                 <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
-                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta grande (5m³)</div>
+                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>{t('calculator.options.tablets.large')}</div>
                   <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.large}</div>
                 </div>
                 <div style={{flex:1, background:'#f5f5ee', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
-                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>Tableta chica (2.5m³)</div>
+                  <div style={{fontSize:'11px', color:'#888', marginBottom:'2px'}}>{t('calculator.options.tablets.small')}</div>
                   <div style={{fontSize:'20px', fontWeight:700, color:'#0b4358'}}>{results.tablets.small}</div>
                 </div>
               </div>
-              <div style={{fontSize:'11px', color:'#888'}}>Cobertura: {fmtNum(vol, 1)} m³ · No requiere generador</div>
+              <div style={{fontSize:'11px', color:'#888'}}>{t('calculator.options.tablets.coverage', { vol: fmtNum(vol, 1) })}</div>
             </OptionCard>
           </div>
 
@@ -363,26 +363,26 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
           {selected && selected !== 'tablets' && (
             <div style={card}>
               <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>
-                Modelo de aplicación para MatriPowder
+                {t('calculator.serviceModel.title')}
               </div>
               <div style={{display:'flex', gap:'12px'}}>
                 <div
                   onClick={() => setServiceModel('service')}
                   style={{flex:1, borderRadius:'10px', border: serviceModel==='service' ? '2px solid #0b4358' : '1.5px solid #ddddd5', padding:'14px', cursor:'pointer', background: serviceModel==='service' ? '#f0f7ff' : '#fff'}}
                 >
-                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>Servicio gestionado</div>
-                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>Wassington realiza la aplicación</div>
+                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>{t('calculator.serviceModel.service.title')}</div>
+                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>{t('calculator.serviceModel.service.desc')}</div>
                   <div style={{fontSize:'16px', fontWeight:700, color:'#e8736a'}}>+{fmtUSD(results[selected].serviceFee)}</div>
-                  <div style={{fontSize:'11px', color:'#888'}}>cargo fijo por cámara</div>
+                  <div style={{fontSize:'11px', color:'#888'}}>{t('calculator.serviceModel.service.perRoom')}</div>
                 </div>
                 <div
                   onClick={() => setServiceModel('self')}
                   style={{flex:1, borderRadius:'10px', border: serviceModel==='self' ? '2px solid #0b4358' : '1.5px solid #ddddd5', padding:'14px', cursor:'pointer', background: serviceModel==='self' ? '#f0f7ff' : '#fff'}}
                 >
-                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>Autoaplicación</div>
-                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>El cliente realiza el tratamiento</div>
-                  <div style={{fontSize:'16px', fontWeight:700, color:'#1a6b30'}}>Sin cargo adicional</div>
-                  <div style={{fontSize:'11px', color:'#888'}}>requiere generador MaTri</div>
+                  <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>{t('calculator.serviceModel.self.title')}</div>
+                  <div style={{fontSize:'12px', color:'#888', marginBottom:'8px'}}>{t('calculator.serviceModel.self.desc')}</div>
+                  <div style={{fontSize:'16px', fontWeight:700, color:'#1a6b30'}}>{t('calculator.serviceModel.self.noCharge')}</div>
+                  <div style={{fontSize:'11px', color:'#888'}}>{t('calculator.serviceModel.self.needsGenerator')}</div>
                 </div>
               </div>
             </div>
@@ -392,13 +392,13 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
           {selected && (
             <div style={{background:'#0b4358', borderRadius:'12px', padding:'20px 24px', marginBottom:'16px'}}>
               <div style={{fontSize:'12px', fontWeight:700, color:'#b5cc2e', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'14px'}}>
-                Resumen del tratamiento seleccionado
+                {t('calculator.summary.title')}
               </div>
               <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', marginBottom:'14px'}}>
                 {[
-                  ['Producto', selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'],
-                  ['Cámara', `${vol} m³`],
-                  ['Dosis', `${fmtNum(results[selected]?.ppb || 0, 0)} ppb`],
+                  [t('calculator.summary.product'), selected === 'tablets' ? 'MatriTablets' : 'MatriPowder'],
+                  [t('calculator.summary.room'), `${vol} m³`],
+                  [t('calculator.summary.dose'), `${fmtNum(results[selected]?.ppb || 0, 0)} ppb`],
                 ].map(([l,v]) => (
                   <div key={l} style={{background:'rgba(255,255,255,.08)', borderRadius:'8px', padding:'10px', textAlign:'center'}}>
                     <div style={{fontSize:'10px', color:'rgba(255,255,255,.5)', marginBottom:'3px', textTransform:'uppercase'}}>{l}</div>
@@ -408,9 +408,9 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', borderTop:'0.5px solid rgba(255,255,255,.15)', paddingTop:'14px'}}>
                 <div>
-                  <div style={{fontSize:'13px', color:'rgba(255,255,255,.6)'}}>Costo producto</div>
+                  <div style={{fontSize:'13px', color:'rgba(255,255,255,.6)'}}>{t('calculator.summary.productCost')}</div>
                   <div style={{fontSize:'13px', color:'rgba(255,255,255,.6)', marginTop:'2px'}}>
-                    {selected !== 'tablets' && serviceModel === 'service' && `Servicio de aplicación`}
+                    {selected !== 'tablets' && serviceModel === 'service' && t('calculator.summary.applicationService')}
                   </div>
                 </div>
                 <div style={{textAlign:'right'}}>
@@ -421,7 +421,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                 </div>
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', borderTop:'0.5px solid rgba(181,204,46,.3)', paddingTop:'12px', marginTop:'8px'}}>
-                <span style={{fontSize:'15px', fontWeight:700, color:'#b5cc2e'}}>Total estimado</span>
+                <span style={{fontSize:'15px', fontWeight:700, color:'#b5cc2e'}}>{t('calculator.summary.total')}</span>
                 <span style={{fontSize:'24px', fontWeight:800, color:'#fff'}}>
                   {fmtUSD(
                     selected === 'tablets'
@@ -431,7 +431,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                 </span>
               </div>
               <div style={{fontSize:'11px', color:'rgba(255,255,255,.4)', marginTop:'4px', textAlign:'right'}}>
-                Precio indicativo · Wassington confirmará al aprobar
+                {t('calculator.summary.priceNote')}
               </div>
             </div>
           )}
@@ -439,16 +439,16 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
           {/* Confirm button */}
           {selected && !treatmentSent && (
             <button onClick={sendTreatment} style={{...calcBtn, background:'#0b4358', marginTop:'0'}}>
-              Confirmar y enviar tratamiento
+              {t('calculator.confirm')}
             </button>
           )}
 
           {treatmentSent && (
             <div style={{background:'#eaf7ee', border:'1px solid #a3d9b0', borderRadius:'10px', padding:'16px', textAlign:'center', fontSize:'13px', color:'#1a6b30', fontWeight:500}}>
-              Tratamiento enviado a Wassington para aprobación
-              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Revisá el estado en la sección Tratamientos</div>
+              {t('calculator.sentMessage')}
+              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>{t('calculator.sentHint')}</div>
               <button onClick={() => onNavigate && onNavigate('treatments')} style={{marginTop:'10px', background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'8px 16px', fontSize:'12px', fontWeight:700, cursor:'pointer', fontFamily:'inherit'}}>
-                Ver mis tratamientos
+                {t('calculator.viewTreatments')}
               </button>
             </div>
           )}
@@ -456,7 +456,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
       )}
 
       <div style={{textAlign:'center', fontSize:'11px', color:'#aaa', padding:'16px 0'}}>
-        MaTri DoseRight Calculator · Argentina · FreshInset 2026
+        {t('calculator.footer')}
       </div>
     </div>
   )

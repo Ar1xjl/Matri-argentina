@@ -1,4 +1,454 @@
 {
+  "seasonPlan": {
+    "productUndecided": "Sin decidir",
+    "defaultLabel": "Temporada",
+    "columns": {
+      "room": "Cámara", "crop": "Cultivo", "volume": "Volumen (m³)", "estDate": "Fecha estimada",
+      "dose": "Dosis (ppb)", "product": "Producto", "cost": "Costo (producto)", "costPerM3": "$/m³ (producto)",
+      "notes": "Notas", "status": "Estado"
+    },
+    "status": { "converted": "Convertida", "planned": "Planificada", "convertedBadge": "✓ Convertida", "plannedBadge": "⏳ Planificada" },
+    "intro": "📋 Planificá tu temporada completa — cámara, fecha estimada y dosis por tratamiento. No es vinculante: podés ajustar todo antes de convertir una línea en un Tratamiento real.",
+    "excelImport": {
+      "title": "Carga rápida desde Excel",
+      "downloadTemplate": "📥 Descargar plantilla",
+      "uploadPlan": "📤 Subir plan",
+      "importing": "Importando…",
+      "hint": "Frigorífico, Cámara, Volumen y Dosis son opcionales salvo el nombre de la Cámara — podés subir solo lo que ya tengas y completar el resto acá abajo. El producto se elige después de subir, seleccionando filas y aplicándolo en conjunto.",
+      "imported_one": "✓ Se importaron {{count}} registro.",
+      "imported_other": "✓ Se importaron {{count}} registros.",
+      "duplicates_one": "{{count}} fila no se volvieron a cargar por ser duplicadas (misma cámara + misma fecha ya planificada):",
+      "duplicates_other": "{{count}} filas no se volvieron a cargar por ser duplicadas (misma cámara + misma fecha ya planificada):",
+      "noDate": "sin fecha",
+      "errors_one": "{{count}} fila con problemas:",
+      "errors_other": "{{count}} filas con problemas:",
+      "rowPrefix": "Fila {{row}}: "
+    },
+    "summary": {
+      "rooms": "Total cámaras",
+      "applications": "Total aplicaciones",
+      "totalM3": "Total m³",
+      "totalCost": "Costo total (producto)",
+      "avgCostPerM3": "Costo prom. $/m³ (producto)",
+      "disclaimer1": "Pagás por la dosis real que usás — no una tarifa fija que asume 1.000 ppb para todos los cultivos.",
+      "disclaimer2": "Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional."
+    },
+    "simulator": {
+      "title": "🧮 Simulador del costo total por campaña",
+      "descSelected": "Elegí redondeo de dosis y modelo de aplicación para las {{count}} cámaras seleccionadas, y mirá el costo final $ y $/m³.",
+      "descAll": "Elegí redondeo de dosis y modelo de aplicación para todo tu plan, y mirá el costo final $ y $/m³.",
+      "open": "Abrir simulador →"
+    },
+    "addLine": "+ Agregar línea",
+    "convert": "Convertir en Tratamiento",
+    "bulkEdit": {
+      "title": "Edición en lote — {{count}} línea(s) seleccionada(s). Completá solo lo que quieras cambiar.",
+      "date": "Fecha",
+      "crop": "Cultivo (de la cámara)",
+      "noChange": "Sin cambios",
+      "apply": "Aplicar a seleccionadas"
+    },
+    "empty": "No hay líneas planificadas todavía. Hacé click en \"+ Agregar línea\" para empezar.",
+    "noFilterMatches": "Ninguna línea coincide con los filtros aplicados.",
+    "chooseRoom": "Elegir cámara",
+    "replaceModal": {
+      "title": "Ya tenés cámaras planificadas para esta temporada",
+      "body": "¿Querés borrarlas y cargar el archivo de nuevo desde cero, o agregar estas cámaras a las que ya tenés cargadas? Si el archivo trae la misma cámara para la misma fecha que ya está planificada, el sistema lo va a tomar como un duplicado y no lo va a cargar de nuevo.",
+      "add": "Agregar a lo que ya tengo",
+      "replace": "Borrar lo planificado y cargar de nuevo"
+    }
+  },
+  "treatments": {
+    "status": {
+      "approved": "✓ Aprobado",
+      "submitted": "⏳ Pendiente",
+      "applied": "🔧 Aplicado",
+      "completed": "📸 MatriSure OK",
+      "rejected": "✗ Rechazado",
+      "cancelled": "– Cancelado"
+    },
+    "model": { "service": "Servicio", "own": "Propio" },
+    "newTreatment": "+ Nuevo tratamiento",
+    "hideFilters": "✕ Ocultar filtros",
+    "title": "Todos los tratamientos",
+    "countOfTotal": "{{count}} de {{total}} tratamientos esta temporada",
+    "empty": "No hay tratamientos todavía. Hacé click en \"+ Nuevo tratamiento\" para crear el primero.",
+    "noFilterMatches": "Ningún tratamiento coincide con los filtros aplicados.",
+    "columns": {
+      "id": "N° tratamiento",
+      "room": "Cámara",
+      "product": "Producto",
+      "sachets": "Sachets",
+      "price": "Precio",
+      "model": "Modelo",
+      "status": "Estado"
+    },
+    "viewPhoto": "📷 Ver foto",
+    "evaluation": "📊 Evaluación",
+    "repeat": "↺ Repetir"
+  },
+  "calculator": {
+    "loadingRooms": "Cargando cámaras...",
+    "pricingBar": {
+      "override": "Precio pactado con tu distribuidor aplicado a este cálculo",
+      "standard": "Precios según la tabla configurada por tu distribuidor"
+    },
+    "prefill": {
+      "repeat": "↺ Repitiendo un tratamiento anterior. Ajustá lo que haga falta y confirmá para enviarlo a tu distribuidor.",
+      "seasonPlanPrefix": "🗓️ Revisando línea de tu Planificación de Temporada",
+      "queueRemaining": " — quedan {{count}} por revisar",
+      "seasonPlanSuffix": ". Ajustá lo que haga falta y confirmá para enviarla a tu distribuidor."
+    },
+    "roomData": {
+      "title": "Datos de la cámara",
+      "roomLabel": "Cámara",
+      "customNameLabel": "Nombre personalizado (opcional)",
+      "customNamePlaceholder": "Ej: Sector B — Peras",
+      "targetDoseLabel": "Dosis objetivo (ppb)",
+      "standardDose": "Estándar (1.000 ppb)",
+      "standardDoseHint": "Dosis estándar: 1.000 ppb = 0.067 g MatriPowder 3.3% por m³",
+      "doseRightPrompt": "No sabés qué dosis usar?",
+      "doseRightDesc": "Consultá la calculadora científica DoseRight basada en parámetros de cosecha.",
+      "openDoseRight": "Abrir DoseRight",
+      "calculate": "Calcular y comparar alternativas"
+    },
+    "results": {
+      "compareTitle": "Compará las alternativas para {{roomName}} ({{vol}} m³)",
+      "targetDose": "Dosis objetivo: {{ppb}} ppb · Hacé click en una alternativa para seleccionarla"
+    },
+    "option": {
+      "productCost": "Costo {{product}}",
+      "serviceFee": "+ Servicio de aplicación (opcional)",
+      "dose": "Dosis",
+      "perM3": "$/m³",
+      "total": "Total",
+      "totalWithService": "Total sin servicio · Con servicio gestionado: {{amount}}",
+      "selected": "✓ Seleccionado",
+      "totalGrams": "{{grams}} g totales",
+      "sachet": "Sachet {{size}}g"
+    },
+    "options": {
+      "exact": { "title": "MatriPowder — Dosis exacta", "badge": "Dosis exacta" },
+      "adjusted": { "title": "MatriPowder — Dosis ajustada", "badge": "Sin sachet extra" },
+      "tablets": {
+        "badge": "Autoaplicación",
+        "large": "Tableta grande (5m³)",
+        "small": "Tableta chica (2.5m³)",
+        "coverage": "Cobertura: {{vol}} m³ · No requiere generador"
+      }
+    },
+    "serviceModel": {
+      "title": "Modelo de aplicación para MatriPowder",
+      "service": { "title": "Servicio gestionado", "desc": "Tu distribuidor realiza la aplicación", "perRoom": "cargo fijo por cámara" },
+      "self": { "title": "Autoaplicación", "desc": "El cliente realiza el tratamiento", "noCharge": "Sin cargo adicional", "needsGenerator": "requiere generador MaTri" }
+    },
+    "summary": {
+      "title": "Resumen del tratamiento seleccionado",
+      "product": "Producto",
+      "room": "Cámara",
+      "dose": "Dosis",
+      "productCost": "Costo producto",
+      "applicationService": "Servicio de aplicación",
+      "total": "Total estimado",
+      "priceNote": "Precio indicativo · Tu distribuidor confirmará al aprobar"
+    },
+    "confirm": "Confirmar y enviar tratamiento",
+    "sentMessage": "Tratamiento enviado a tu distribuidor para aprobación",
+    "sentHint": "Revisá el estado en la sección Tratamientos",
+    "viewTreatments": "Ver mis tratamientos",
+    "footer": "MaTri DoseRight Calculator · FreshInset 2026"
+  },
+  "common": {
+    "filter": "Filtrar",
+    "closeFilters": "✕ Filtros",
+    "exportExcel": "⬇ Exportar a Excel",
+    "cancel": "✕ Cancelar",
+    "delete": "✕ Eliminar",
+    "filterPlaceholder": "Filtrar...",
+    "saving": "Guardando…",
+    "loading": "Cargando..."
+  },
+  "profile": {
+    "company": {
+      "title": "Datos de la empresa",
+      "name": "Razón Social",
+      "taxId": "CUIT",
+      "taxIdPlaceholder": "Ej: 30-XXXXXXXX-X",
+      "taxStatus": "Situación Fiscal",
+      "taxStatusPlaceholder": "Ej: Responsable Inscripto",
+      "region": "Provincia / Región",
+      "regionPlaceholder": "Ej: Río Negro",
+      "save": "Guardar cambios",
+      "saved": "✓ Guardado"
+    },
+    "password": {
+      "title": "Cambiar contraseña",
+      "current": "Contraseña actual",
+      "new": "Nueva contraseña",
+      "confirm": "Confirmar contraseña",
+      "update": "Actualizar contraseña",
+      "forgotHint": "ℹ️ Si olvidaste tu contraseña, contactá a tu distribuidor para recibir una contraseña temporal. Tu sesión se cierra automáticamente a los 10 minutos de inactividad."
+    },
+    "accountInfo": {
+      "title": "Información de cuenta",
+      "distributor": "Distribuidor asignado",
+      "region": "Región",
+      "memberSince": "Miembro desde",
+      "lastAccess": "Último acceso"
+    }
+  },
+  "generators": {
+    "status": {
+      "available": "✓ Disponible", "dispatched": "📦 Despachado", "onRent": "📅 En alquiler",
+      "returned": "↩️ Devuelto", "inService": "🔧 En service", "repaired": "✓ Reparado", "outOfService": "✗ Fuera de servicio"
+    },
+    "columns": { "unitId": "ID unidad", "serialNumber": "N° de serie", "status": "Estado", "lastService": "Última revisión", "notes": "Notas" },
+    "form": {
+      "unitIdRequired": "Completá el ID de unidad.",
+      "quantityMin": "La cantidad tiene que ser al menos 1.",
+      "duplicateUnitId": "Uno de los ID de unidad generados ya existe — probá con otro código o número inicial.",
+      "unitIdEmpty": "El ID de unidad no puede quedar vacío.",
+      "duplicateUnitIdEdit": "Ya existe un generador con ese ID de unidad.",
+      "quantity": "Cantidad",
+      "firstOfBatch": "(primero de la tanda)",
+      "optional": "Opcional",
+      "purchaseDate": "Fecha de compra",
+      "notesPlaceholder": "Opcional, aplica a toda la tanda",
+      "willCreate": "Se van a crear {{count}} unidades:",
+      "to": "a",
+      "save": "Guardar"
+    },
+    "myGenerators": "Mis generadores",
+    "individualId": "ID individual por unidad",
+    "export": "⬇ Exportar",
+    "addGenerator": "+ Agregar generador",
+    "emptyCanRegister": "Todavía no tenés generadores propios. Usá \"+ Agregar generador\" para dar de alta la primera unidad.",
+    "emptyReadonly": "Todavía no tenés generadores propios. Van a aparecer acá cuando tu distribuidor te transfiera uno.",
+    "noFilterMatches": "Ningún generador coincide con los filtros aplicados.",
+    "edit": "Editar",
+    "transfer": "Transferir",
+    "markReturned": "Marcar devuelto",
+    "fleetStatusNotice": "📦 Estado de tu flota de generadores — quién los tiene, cuáles están disponibles, y cuáles necesitan service.",
+    "contactDistributor": "📞 Si un generador falla, contactá a tu distribuidor.",
+    "roi": {
+      "title": "¿Conviene comprar el generador?",
+      "usePlan": "📋 Usar mi Plan de Temporada",
+      "hide": "Ocultar cálculo",
+      "show": "Ver cálculo de conveniencia",
+      "planDataNotice": "📋 Estos números vienen de tu Plan de Temporada. Solo se consideran las líneas con producto MatriPowder para este análisis — MatriTablets no necesita generador, y las líneas \"sin decidir\" todavía no cuentan como demanda real.",
+      "roomsWithPowder": "Cámaras con MatriPowder",
+      "treatmentsPerRoom": "Tratamientos por cámara / temporada",
+      "avgVolume": "Volumen promedio de cámara (m³)",
+      "peakDay": "Cámaras tratándose el mismo día (pico de tu temporada)",
+      "footnote": "* Precios según la tabla de tu distribuidor y volumen promedio {{vol}} m³. El servicio gestionado incluye mano de obra de tu distribuidor.",
+      "recommendation": {
+        "buy": "Con {{total}} tratamientos por temporada el generador se amortiza en {{breakEven}} tratamientos. Ya conviene comprarlo.",
+        "buyWithConcurrency": "Con {{total}} tratamientos por temporada el generador se amortiza en {{breakEven}} tratamientos. Además, tu Plan de Temporada muestra hasta {{units}} cámaras tratándose el mismo día — te conviene comprar {{units}} unidades, no solo una.",
+        "service": "Con {{total}} tratamientos el servicio gestionado de tu distribuidor es la opción más conveniente. Sin inversión inicial.",
+        "buyLabel": "Comprar el generador",
+        "serviceLabel": "Servicio gestionado"
+      },
+      "table": {
+        "option": "Opción",
+        "costPerTreatment": "Costo por tratamiento",
+        "total": "Total ({{total}} tratamientos)",
+        "breakEven": "Break-even",
+        "alwaysAvailable": "Siempre disponible",
+        "perTreatmentSuffix": "/trat.",
+        "units": " ({{count}} unidades)",
+        "singlePayment": " (único pago)",
+        "treatmentsCount": "{{count}} tratamientos"
+      }
+    },
+    "products": {
+      "buy": { "title": "Comprar generador", "desc": "Unidad profesional con ID individual. Incluye batería. Mejor opción para operaciones con múltiples cámaras." },
+      "battery": { "title": "Batería recargable", "desc": "Batería de repuesto para el generador MaTri. Compatibilidad garantizada." },
+      "requestPurchase": "Solicitar compra"
+    }
+  },
+  "roomHistory": {
+    "title": "Historial de tratamientos — {{roomName}}",
+    "summary": "{{count}} tratamientos · Dosis promedio: {{avgPpb}} ppb",
+    "close": "✕ Cerrar",
+    "allSeasons": "Todas las temporadas",
+    "season": "Temporada {{season}}",
+    "exportPdf": "📄 Exportar PDF",
+    "exportExcel": "📊 Exportar Excel",
+    "columns": { "date": "Fecha", "crop": "Fruta / variedad", "dose": "Dosis", "operator": "Operario", "generator": "Generador", "matriSure": "MatriSure" },
+    "confirmed": "📸 Confirmado",
+    "pending": "⏳ Pendiente",
+    "empty": "No hay tratamientos registrados para esta temporada."
+  },
+  "documents": {
+    "notice": "📄 Todos los documentos están actualizados. Tu distribuidor publica nuevas versiones cuando hay cambios regulatorios o de producto.",
+    "title": "Biblioteca de documentos",
+    "count": "{{count}} documentos vigentes",
+    "current": "Vigente",
+    "download": "⬇ Descargar"
+  },
+  "applicationForm": {
+    "startTimeLabel": "Fecha y hora de inicio",
+    "endTimeLabel": "Fecha y hora de fin",
+    "startHeading": "Iniciar aplicación",
+    "endHeading": "Finalizar aplicación",
+    "contextLine": "📋 {{heading}} para {{room}} · {{product}} · Tratamiento #{{id}}",
+    "treatmentData": "Datos del tratamiento",
+    "doseLabel": "Dosis (ppb)",
+    "doseHint": "Definida en la calculadora al crear el tratamiento.",
+    "operatorLabel": "Operario",
+    "operatorHint": "Vos, como usuario que registra la aplicación.",
+    "generatorNotAvailable": "⚠️ Selección de generador todavía no disponible — la gestión real de generadores está pendiente.",
+    "continueToPhoto": "Continuar a la foto"
+  },
+  "matriSureCapture": {
+    "cameraError": "No se pudo acceder a la cámara. Revisá los permisos del navegador para este sitio.",
+    "defaultBanner": "Foto en vivo desde la cámara del dispositivo — no se permite subir desde la galería.",
+    "capture": "📷 Capturar foto",
+    "defaultPreviewAlt": "MatriSure capturada",
+    "uploading": "Subiendo…",
+    "useThisPhoto": "✓ Usar esta foto"
+  },
+  "matriSurePhotoModal": {
+    "title": "Foto MatriSure",
+    "error": "No se pudo cargar la foto."
+  },
+  "appLog": {
+    "status": {
+      "inProgress": "🔧 En curso — falta finalizar",
+      "readyToApply": "⏳ Listo para aplicar",
+      "appliedMissingMatriSure": "🔧 Aplicado — falta MatriSure",
+      "confirmed": "📸 Confirmado"
+    },
+    "columns": { "room": "Cámara", "product": "Producto", "doseSachets": "Dosis / sachets", "appliedDate": "Fecha aplicación", "matriSure": "MatriSure" },
+    "errors": {
+      "saveStart": "No se pudo guardar el inicio de la aplicación: {{error}}",
+      "saveEnd": "No se pudo guardar el fin de la aplicación: {{error}}",
+      "saveMatriSure": "No se pudo guardar la verificación MatriSure: {{error}}"
+    },
+    "startPhotoHint": "📋 Foto al colocar el kit en la cámara, coincidente con la hora de inicio registrada. El tratamiento queda \"En curso\" hasta que vuelvas a cerrarlo con la foto de Fin.",
+    "startPhotoBanner": "Foto de INICIO de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería.",
+    "useAsStartPhoto": "✓ Usar como foto de inicio",
+    "startPhotoAlt": "Foto de inicio de aplicación",
+    "endPhotoHint": "📋 Foto al finalizar la aplicación, coincidente con la hora de fin registrada.",
+    "endPhotoBanner": "Foto de FIN de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería.",
+    "useAsEndPhoto": "✓ Usar como foto de fin y guardar",
+    "endPhotoAlt": "Foto de fin de aplicación",
+    "review": {
+      "question": "¿Qué mostró la tira?",
+      "confirmed": "✓ Dosis alcanzada",
+      "notReached": "✗ Dosis no alcanzada",
+      "askHelp": "🙋 No estoy seguro — pedir ayuda a mi distribuidor"
+    },
+    "livePhotoNotice": "📸 Las fotos del Kit MatriSure deben tomarse en vivo desde la cámara del dispositivo. No se permiten cargas desde la galería.",
+    "matriSureDesc": "Las tiras MatriSure cambian de color cuando la cámara alcanzó la dosis objetivo de 1-MCP. Fotografiá la tira al finalizar el tratamiento — la foto queda registrada con fecha, hora y número de cámara automáticamente.",
+    "season2026": "Temporada 2026",
+    "empty": "No hay tratamientos aprobados todavía.",
+    "startApplication": "▶️ Iniciar aplicación",
+    "finishApplication": "⏹ Finalizar aplicación",
+    "uploadMatriSure": "📸 Subir MatriSure",
+    "photoStart": "📷 Inicio",
+    "photoEnd": "📷 Fin"
+  },
+  "rooms": {
+    "status": {
+      "approved": "Activa",
+      "submitted": "Pendiente",
+      "applied": "Aplicado",
+      "completed": "MatriSure OK",
+      "rejected": "Rechazado",
+      "cancelled": "Cancelado"
+    },
+    "autoSaveHint": "ℹ️ Las cámaras se guardan automáticamente con el primer tratamiento, o podés agregarlas manualmente.",
+    "newRoom": "+ Nueva cámara",
+    "history": "🕒 Historial",
+    "empty": "No hay cámaras cargadas todavía.",
+    "noFilterMatches": "Ninguna cámara coincide con los filtros aplicados.",
+    "columns": {
+      "customer": "Cliente",
+      "location": "Ubicación",
+      "room": "Cámara",
+      "volume": "Volumen (m³)",
+      "crop": "Cultivo",
+      "lastTreatment": "Último trat.",
+      "status": "Estado"
+    },
+    "form": {
+      "customerRequired": "Elegí a qué cliente pertenece la cámara.",
+      "noCustomers": "No hay clientes todavía",
+      "nameLabel": "Nombre de la cámara",
+      "namePlaceholder": "Ej: Cámara Norte 3",
+      "locationLabel": "Ubicación / establecimiento",
+      "locationPlaceholder": "Ej: Est. San José",
+      "cropLabel": "Cultivo principal",
+      "save": "Guardar cámara"
+    }
+  },
+  "dashboard": {
+    "stats": {
+      "activeRooms": { "label": "Cámaras activas", "unit": "con tratamientos esta temporada" },
+      "pending": { "label": "Tratamientos pendientes", "unit": "esperando aprobación" },
+      "approved": { "label": "Tratamientos aprobados", "unit": "esta temporada" },
+      "revenue": { "label": "Facturación (USD)", "unit": "en tratamientos aprobados" }
+    },
+    "status": {
+      "approved": "✓ Activa",
+      "submitted": "⏳ Pendiente",
+      "applied": "🔧 Aplicado",
+      "completed": "📸 OK",
+      "rejected": "✗ Rechazado",
+      "cancelled": "– Cancelado"
+    },
+    "pendingAlertPrefix": "⏳ Tenés",
+    "pendingAlertCount_one": "{{count}} tratamiento pendiente",
+    "pendingAlertCount_other": "{{count}} tratamientos pendientes",
+    "pendingAlertSuffix": "esperando aprobación de tu distribuidor.",
+    "recentTreatments": {
+      "title": "Últimos tratamientos",
+      "viewAll": "Ver todos",
+      "empty": "No hay tratamientos todavía.",
+      "createFirst": "Crear el primer tratamiento",
+      "columns": { "room": "Cámara", "product": "Producto", "price": "Precio", "date": "Fecha", "status": "Estado", "view": "Ver" }
+    },
+    "roomsSummary": {
+      "title": "Cámaras — resumen rápido",
+      "viewAll": "Ver todas",
+      "empty": "No hay cámaras con tratamientos todavía.",
+      "service": "Servicio",
+      "own": "Propio",
+      "newTreatment": "Nuevo tratamiento"
+    },
+    "quickActions": {
+      "calculator": { "label": "Nueva calculadora", "desc": "Calculá dosis y compará alternativas" },
+      "matrisure": { "label": "Registro MatriSure", "desc": "Subí foto de verificación de dosis" },
+      "generators": { "label": "Generadores", "desc": "Comprá o alquilá un generador MaTri" }
+    }
+  },
+  "sidebar": {
+    "tagline": "🇦🇷 Portal Argentina",
+    "nav": {
+      "dashboard": "Dashboard",
+      "rooms": "Frigoríficos y Cámaras",
+      "seasonplan": "Planificación de temporada",
+      "calculator": "Calculadora de dosis",
+      "treatments": "Tratamientos",
+      "applog": "Registro de aplicaciones",
+      "generators": "Generadores",
+      "documents": "Documentos",
+      "knowledgeBase": "MaTri Knowledge Base",
+      "users": "Usuarios",
+      "profile": "Mi perfil"
+    },
+    "sections": {
+      "main": "Principal",
+      "equipment": "Equipamiento",
+      "info": "Información",
+      "admin": "Administración",
+      "account": "Cuenta"
+    },
+    "aboutPortal": "Acerca del Portal",
+    "panelOf": "Panel {{orgName}}",
+    "signOut": "Cerrar sesión"
+  },
   "navbar": {
     "announcement": "info@ma-tri.com  |  Portal exclusivo para Argentina  |  Distribuidor oficial: Wassington",
     "products": "Productos",

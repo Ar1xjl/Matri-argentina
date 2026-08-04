@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import RoomHistory from './RoomHistory'
 import { supabase } from '../../lib/supabaseClient'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import { formatDate } from '../../lib/formatters'
 
-const statusLabel = (status) => ({
-  approved:  { cls:'approved',  label:'Activa' },
-  submitted: { cls:'pending',   label:'Pendiente' },
-  applied:   { cls:'pending',   label:'Aplicado' },
-  completed: { cls:'confirmed', label:'MatriSure OK' },
-  rejected:  { cls:'rejected',  label:'Rechazado' },
-  cancelled: { cls:'rejected',  label:'Cancelado' },
-}[status] || null)
+const STATUS_KEYS = {
+  approved:  { cls:'approved',  key:'approved' },
+  submitted: { cls:'pending',   key:'submitted' },
+  applied:   { cls:'pending',   key:'applied' },
+  completed: { cls:'confirmed', key:'completed' },
+  rejected:  { cls:'rejected',  key:'rejected' },
+  cancelled: { cls:'rejected',  key:'cancelled' },
+}
 
 export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDeleteRoom, profile }) {
+  const { t } = useTranslation()
+  const statusLabel = (status) => {
+    const s = STATUS_KEYS[status]
+    return s ? { cls: s.cls, label: t(`rooms.status.${s.key}`) } : null
+  }
   const [showForm, setShowForm] = useState(false)
   const [historyRoom, setHistoryRoom] = useState(null)
   const [name, setName] = useState('')
@@ -59,7 +66,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
 
   const handleSave = async () => {
     if (!name || !volume) return
-    if (isDistributorView && !targetOrgId) { setFormError('Elegí a qué cliente pertenece la cámara.'); return }
+    if (isDistributorView && !targetOrgId) { setFormError(t('rooms.form.customerRequired')); return }
     setFormError('')
     const res = await onAddRoom({ name, location, volume_m3: Number(volume), primary_crop: crop }, isDistributorView ? targetOrgId : undefined)
     if (res?.error) { setFormError(res.error); return }
@@ -74,13 +81,13 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
   }
 
   const COLUMNS = [
-    ...(isDistributorView ? [{ header: 'Cliente', get: r => r.organizations?.name || '' }] : []),
-    { header: 'Ubicación', get: r => r.location || '' },
-    { header: 'Cámara',    get: r => r.name || '' },
-    { header: 'Volumen (m³)', get: r => r.volume_m3 ?? '' },
-    { header: 'Cultivo',   get: r => r.primary_crop || '' },
-    { header: 'Último trat.', get: r => { const last = lastTreatmentByRoom[r.id]; return last ? new Date(last.created_at).toLocaleDateString('es-AR') : '' } },
-    { header: 'Estado',    get: r => { const last = lastTreatmentByRoom[r.id]; return last ? (statusLabel(last.status)?.label || '') : '' } },
+    ...(isDistributorView ? [{ header: t('rooms.columns.customer'), get: r => r.organizations?.name || '' }] : []),
+    { header: t('rooms.columns.location'), get: r => r.location || '' },
+    { header: t('rooms.columns.room'),    get: r => r.name || '' },
+    { header: t('rooms.columns.volume'), get: r => r.volume_m3 ?? '' },
+    { header: t('rooms.columns.crop'),   get: r => r.primary_crop || '' },
+    { header: t('rooms.columns.lastTreatment'), get: r => { const last = lastTreatmentByRoom[r.id]; return last ? formatDate(last.created_at) : '' } },
+    { header: t('rooms.columns.status'),    get: r => { const last = lastTreatmentByRoom[r.id]; return last ? (statusLabel(last.status)?.label || '') : '' } },
   ]
 
   const filtered = filterRows(coldRooms, COLUMNS, filters)
@@ -89,17 +96,17 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
   return (
     <div>
       <div className="alert info">
-        ℹ️ Las cámaras se guardan automáticamente con el primer tratamiento, o podés agregarlas manualmente.
+        {t('rooms.autoSaveHint')}
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Frigoríficos y Cámaras</span>
+          <span className="card-title">{t('sidebar.nav.rooms')}</span>
           <div style={{display:'flex', gap:'8px'}}>
-            <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? '✕ Filtros' : 'Filtrar'}</button>
-            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('camaras.xlsx', COLUMNS, filtered)}>⬇ Exportar a Excel</button>
+            <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? t('common.closeFilters') : t('common.filter')}</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('camaras.xlsx', COLUMNS, filtered)}>{t('common.exportExcel')}</button>
             <button className="btn-lime btn-sm" onClick={() => setShowForm(!showForm)}>
-              {showForm ? '✕ Cancelar' : '+ Nueva cámara'}
+              {showForm ? t('common.cancel') : t('rooms.newRoom')}
             </button>
           </div>
         </div>
@@ -109,27 +116,27 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
             <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px'}}>
               {isDistributorView && (
                 <div className="form-field">
-                  <label>Cliente</label>
+                  <label>{t('rooms.columns.customer')}</label>
                   <select value={targetOrgId} onChange={e => setTargetOrgId(e.target.value)}>
-                    {customerOrgs.length === 0 && <option value="">No hay clientes todavía</option>}
+                    {customerOrgs.length === 0 && <option value="">{t('rooms.form.noCustomers')}</option>}
                     {customerOrgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                   </select>
                 </div>
               )}
               <div className="form-field">
-                <label>Nombre de la cámara</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Cámara Norte 3"/>
+                <label>{t('rooms.form.nameLabel')}</label>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder={t('rooms.form.namePlaceholder')}/>
               </div>
               <div className="form-field">
-                <label>Ubicación / establecimiento</label>
-                <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Ej: Est. San José"/>
+                <label>{t('rooms.form.locationLabel')}</label>
+                <input value={location} onChange={e => setLocation(e.target.value)} placeholder={t('rooms.form.locationPlaceholder')}/>
               </div>
               <div className="form-field">
-                <label>Volumen (m³)</label>
+                <label>{t('rooms.columns.volume')}</label>
                 <input type="number" value={volume} onChange={e => setVolume(e.target.value)} placeholder="Ej: 450"/>
               </div>
               <div className="form-field">
-                <label>Cultivo principal</label>
+                <label>{t('rooms.form.cropLabel')}</label>
                 <select value={crop} onChange={e => setCrop(e.target.value)}>
                   <option>Manzanas</option>
                   <option>Peras</option>
@@ -138,7 +145,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
                 </select>
               </div>
               <div className="form-field" style={{display:'flex', alignItems:'flex-end'}}>
-                <button className="btn-primary" style={{width:'100%'}} onClick={handleSave}>Guardar cámara</button>
+                <button className="btn-primary" style={{width:'100%'}} onClick={handleSave}>{t('rooms.form.save')}</button>
               </div>
             </div>
             {formError && <div style={{color:'#8b2020', fontSize:'12px', marginTop:'10px'}}>{formError}</div>}
@@ -152,15 +159,15 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
         <div style={{padding:0}}>
           {filtered.length === 0 ? (
             <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-              {coldRooms.length === 0 ? 'No hay cámaras cargadas todavía.' : 'Ninguna cámara coincide con los filtros aplicados.'}
+              {coldRooms.length === 0 ? t('rooms.empty') : t('rooms.noFilterMatches')}
             </div>
           ) : (
             <div className="table-scroll"><table className="data-table">
               <thead>
                 <tr>
-                  {isDistributorView && <th>Cliente</th>}
-                  <th>Ubicación</th><th>Cámara</th><th>Volumen (m³)</th>
-                  <th>Cultivo</th><th>Último trat.</th><th>Estado</th><th></th>
+                  {isDistributorView && <th>{t('rooms.columns.customer')}</th>}
+                  <th>{t('rooms.columns.location')}</th><th>{t('rooms.columns.room')}</th><th>{t('rooms.columns.volume')}</th>
+                  <th>{t('rooms.columns.crop')}</th><th>{t('rooms.columns.lastTreatment')}</th><th>{t('rooms.columns.status')}</th><th></th>
                 </tr>
                 {showFilters && (
                   <tr>
@@ -169,7 +176,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
                         <input
                           value={filters[c.header] || ''}
                           onChange={e => setFilter(c.header, e.target.value)}
-                          placeholder="Filtrar..."
+                          placeholder={t('common.filterPlaceholder')}
                           style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
                         />
                       </th>
@@ -189,15 +196,15 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
                       <td style={{fontWeight:700}}>{r.name}</td>
                       <td>{r.volume_m3} m³</td>
                       <td>{r.primary_crop || '—'}</td>
-                      <td style={{color:'var(--gray)'}}>{last ? new Date(last.created_at).toLocaleDateString('es-AR') : '—'}</td>
+                      <td style={{color:'var(--gray)'}}>{last ? formatDate(last.created_at) : '—'}</td>
                       <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>
                       <td>
                         <div style={{display:'flex', gap:'6px'}}>
                           <button className="btn-secondary btn-sm" onClick={() => setHistoryRoom(r.name)}>
-                            🕒 Historial
+                            {t('rooms.history')}
                           </button>
                           <button className="btn-secondary btn-sm" onClick={() => handleDelete(r)}>
-                            ✕ Eliminar
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>

@@ -1,23 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import generatorImg  from '../../assets/images/MatriGenerator.png'
 import generatorLogo from '../../assets/logos/MatriGenerator_Logo.svg'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchOrgPricing, getGeneratorPrice, getServiceFee } from '../../lib/orgPricing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import { formatUSD as fmtUSD } from '../../lib/formatters'
 import GeneratorTransferModal from './GeneratorTransferModal'
 
-const GENERATOR_STATUS_LABEL = {
-  available: '✓ Disponible', dispatched: '📦 Despachado', on_rent: '📅 En alquiler',
-  returned: '↩️ Devuelto', in_service: '🔧 En service', repaired: '✓ Reparado', out_of_service: '✗ Fuera de servicio',
+const GENERATOR_STATUS_KEYS = {
+  available: 'available', dispatched: 'dispatched', on_rent: 'onRent',
+  returned: 'returned', in_service: 'inService', repaired: 'repaired', out_of_service: 'outOfService',
 }
-
-const FLEET_COLUMNS = [
-  { header: 'ID unidad',        get: g => g.unit_code || '' },
-  { header: 'N° de serie',      get: g => g.serial_number || '' },
-  { header: 'Estado',           get: g => GENERATOR_STATUS_LABEL[g.status] || g.status },
-  { header: 'Última revisión',  get: g => g.last_service_date || '' },
-  { header: 'Notas',            get: g => g.notes || '' },
-]
 
 // Compras en tanda traen unidades con ID/N° de serie correlativos (ej: GEN-001
 // a GEN-010) — a partir de un valor "base" con un número al final, genera la
@@ -32,6 +26,8 @@ function generateSequence(base, count) {
 }
 
 export default function Generators({ orgId, seasonPlanLines = [], coldRooms = [], profile }) {
+  const { t } = useTranslation()
+  const statusLabel = (status) => t(`generators.status.${GENERATOR_STATUS_KEYS[status] || status}`, status)
   const [pricing,      setPricing]      = useState({ brackets: [], product: [], serviceFee: [], generator: [] })
   const [myGenerators, setMyGenerators] = useState([])
   const [showFleetFilters, setShowFleetFilters] = useState(false)
@@ -39,6 +35,15 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
 
   const isDistributorView = profile?.organizations?.org_type !== 'customer'
   const canRegisterNew = ['global', 'distributor'].includes(profile?.organizations?.org_type)
+
+  const FLEET_COLUMNS = [
+    { header: t('generators.columns.unitId'),      get: g => g.unit_code || '' },
+    { header: t('generators.columns.serialNumber'), get: g => g.serial_number || '' },
+    { header: t('generators.columns.status'),       get: g => statusLabel(g.status) },
+    { header: t('generators.columns.lastService'),  get: g => g.last_service_date || '' },
+    { header: t('generators.columns.notes'),        get: g => g.notes || '' },
+  ]
+
   const filteredFleet = filterRows(myGenerators, FLEET_COLUMNS, fleetFilters)
   const [rooms,      setRooms]      = useState(3)
   const [treatments, setTreatments] = useState(2)
@@ -73,8 +78,8 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const handleAddGenerator = async () => {
     setAddError('')
     const quantity = Number(newGen.quantity)
-    if (!newGen.unit_code.trim()) { setAddError('Completá el ID de unidad.'); return }
-    if (!quantity || quantity < 1) { setAddError('La cantidad tiene que ser al menos 1.'); return }
+    if (!newGen.unit_code.trim()) { setAddError(t('generators.form.unitIdRequired')); return }
+    if (!quantity || quantity < 1) { setAddError(t('generators.form.quantityMin')); return }
     setAddSaving(true)
 
     const unitCodes = generateSequence(newGen.unit_code.trim(), quantity)
@@ -92,7 +97,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
     const { error } = await supabase.from('generators').insert(rows)
     setAddSaving(false)
     if (error) {
-      setAddError(error.code === '23505' ? 'Uno de los ID de unidad generados ya existe — probá con otro código o número inicial.' : error.message)
+      setAddError(error.code === '23505' ? t('generators.form.duplicateUnitId') : error.message)
       return
     }
     setNewGen({ quantity: '1', unit_code: '', serial_number: '', purchase_date: '', notes: '' })
@@ -111,7 +116,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
 
   const handleSaveEdit = async () => {
     setEditError('')
-    if (!editBuffer.unit_code.trim()) { setEditError('El ID de unidad no puede quedar vacío.'); return }
+    if (!editBuffer.unit_code.trim()) { setEditError(t('generators.form.unitIdEmpty')); return }
     setEditSaving(true)
     const { error } = await supabase.from('generators').update({
       unit_code: editBuffer.unit_code.trim(),
@@ -121,7 +126,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
     }).eq('id', editingId)
     setEditSaving(false)
     if (error) {
-      setEditError(error.code === '23505' ? 'Ya existe un generador con ese ID de unidad.' : error.message)
+      setEditError(error.code === '23505' ? t('generators.form.duplicateUnitIdEdit') : error.message)
       return
     }
     setEditingId(null)
@@ -184,38 +189,40 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   const breakEvenTreatments = serviceFee > 0 ? Math.ceil(genPurchase / serviceFee) : 0 // treatments to break even vs service
   const unitsToBuy = Math.max(1, planSummary.maxSimultaneous)
 
+  // `type` drives both logic (which row/branch to highlight) and display
+  // (translated via t() below) — keep them decoupled so this doesn't break
+  // when the UI language changes.
   const recommendation = () => {
     if (totalRooms >= breakEvenTreatments && breakEvenTreatments > 0) {
       return {
-        label: 'Comprar el generador', color:'#1a6b30', bg:'#eaf7ee', icon:'🏆',
+        type: 'buy', color:'#1a6b30', bg:'#eaf7ee', icon:'🏆',
         desc: usedPlanData && planSummary.maxSimultaneous > 1
-          ? `Con ${totalRooms} tratamientos por temporada el generador se amortiza en ${breakEvenTreatments} tratamientos. Además, tu Plan de Temporada muestra hasta ${planSummary.maxSimultaneous} cámaras tratándose el mismo día — te conviene comprar ${unitsToBuy} unidades, no solo una.`
-          : `Con ${totalRooms} tratamientos por temporada el generador se amortiza en ${breakEvenTreatments} tratamientos. Ya conviene comprarlo.`,
+          ? t('generators.roi.recommendation.buyWithConcurrency', { total: totalRooms, breakEven: breakEvenTreatments, units: unitsToBuy })
+          : t('generators.roi.recommendation.buy', { total: totalRooms, breakEven: breakEvenTreatments }),
       }
     } else {
-      return { label:'Servicio gestionado', color:'#0c447c', bg:'#e8f4fc', icon:'👷', desc:`Con ${totalRooms} tratamientos el servicio gestionado de Wassington es la opción más conveniente. Sin inversión inicial.` }
+      return { type: 'service', color:'#0c447c', bg:'#e8f4fc', icon:'👷', desc: t('generators.roi.recommendation.service', { total: totalRooms }) }
     }
   }
 
   const rec = recommendation()
-
-  const fmtUSD = (v) => '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2})
+  const recLabel = rec.type === 'buy' ? t('generators.roi.recommendation.buyLabel') : t('generators.roi.recommendation.serviceLabel')
 
   const PRODUCTS = [
-    { title:'Comprar generador', price: fmtUSD(genPurchase), desc:'Unidad profesional con ID individual. Incluye batería. Mejor opción para operaciones con múltiples cámaras.', btn:'Solicitar compra', style:'primary' },
-    { title:'Batería recargable', price:'$95 USD', desc:'Batería de repuesto para el generador MaTri. Compatibilidad garantizada.', btn:'Solicitar compra', style:'primary' },
+    { title:t('generators.products.buy.title'), price: fmtUSD(genPurchase), desc:t('generators.products.buy.desc'), btn:t('generators.products.requestPurchase'), style:'primary' },
+    { title:t('generators.products.battery.title'), price:'$95 USD', desc:t('generators.products.battery.desc'), btn:t('generators.products.requestPurchase'), style:'primary' },
   ]
 
   const fleetSection = (
     <div className="card">
       <div className="card-header">
-        <span className="card-title">Mis generadores</span>
+        <span className="card-title">{t('generators.myGenerators')}</span>
         <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-          <span style={{fontSize:'12px', color:'var(--gray)'}}>ID individual por unidad</span>
-          <button className="btn-secondary btn-sm" onClick={() => setShowFleetFilters(!showFleetFilters)}>{showFleetFilters ? '✕ Filtros' : 'Filtrar'}</button>
-          <button className="btn-secondary btn-sm" onClick={() => exportToExcel('generadores.xlsx', FLEET_COLUMNS, filteredFleet)}>⬇ Exportar</button>
+          <span style={{fontSize:'12px', color:'var(--gray)'}}>{t('generators.individualId')}</span>
+          <button className="btn-secondary btn-sm" onClick={() => setShowFleetFilters(!showFleetFilters)}>{showFleetFilters ? t('common.closeFilters') : t('common.filter')}</button>
+          <button className="btn-secondary btn-sm" onClick={() => exportToExcel('generadores.xlsx', FLEET_COLUMNS, filteredFleet)}>{t('generators.export')}</button>
           {canRegisterNew && (
-            <button className="btn-lime btn-sm" onClick={() => setShowAddForm(!showAddForm)}>{showAddForm ? '✕ Cancelar' : '+ Agregar generador'}</button>
+            <button className="btn-lime btn-sm" onClick={() => setShowAddForm(!showAddForm)}>{showAddForm ? t('common.cancel') : t('generators.addGenerator')}</button>
           )}
         </div>
       </div>
@@ -224,54 +231,52 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
         <div style={{padding:'16px 20px', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>
           <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'0.7fr 1.3fr 1.3fr 1fr 1fr', gap:'10px', marginBottom:'10px'}}>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Cantidad</label>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>{t('generators.form.quantity')}</label>
               <input type="number" min="1" style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.quantity} onChange={e => setNewGen(prev => ({ ...prev, quantity: e.target.value }))}/>
             </div>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>ID de unidad {Number(newGen.quantity) > 1 ? '(primero de la tanda)' : ''}</label>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>{t('generators.form.unitId')} {Number(newGen.quantity) > 1 ? t('generators.form.firstOfBatch') : ''}</label>
               <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.unit_code} onChange={e => setNewGen(prev => ({ ...prev, unit_code: e.target.value }))} placeholder="Ej: GEN-001"/>
             </div>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>N° de serie {Number(newGen.quantity) > 1 ? '(primero de la tanda)' : ''}</label>
-              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.serial_number} onChange={e => setNewGen(prev => ({ ...prev, serial_number: e.target.value }))} placeholder="Opcional"/>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>{t('generators.columns.serialNumber')} {Number(newGen.quantity) > 1 ? t('generators.form.firstOfBatch') : ''}</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.serial_number} onChange={e => setNewGen(prev => ({ ...prev, serial_number: e.target.value }))} placeholder={t('generators.form.optional')}/>
             </div>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Fecha de compra</label>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>{t('generators.form.purchaseDate')}</label>
               <input type="date" style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.purchase_date} onChange={e => setNewGen(prev => ({ ...prev, purchase_date: e.target.value }))}/>
             </div>
             <div>
-              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Notas</label>
-              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.notes} onChange={e => setNewGen(prev => ({ ...prev, notes: e.target.value }))} placeholder="Opcional, aplica a toda la tanda"/>
+              <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>{t('generators.columns.notes')}</label>
+              <input style={{width:'100%', padding:'8px 10px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'13px'}} value={newGen.notes} onChange={e => setNewGen(prev => ({ ...prev, notes: e.target.value }))} placeholder={t('generators.form.notesPlaceholder')}/>
             </div>
           </div>
           {Number(newGen.quantity) > 1 && newGen.unit_code.trim() && (
             <div style={{fontSize:'12px', color:'#0b4358', marginBottom:'10px'}}>
-              Se van a crear {Number(newGen.quantity)} unidades: <strong>{generateSequence(newGen.unit_code.trim(), Number(newGen.quantity))[0]}</strong> a{' '}
+              {t('generators.form.willCreate', { count: Number(newGen.quantity) })} <strong>{generateSequence(newGen.unit_code.trim(), Number(newGen.quantity))[0]}</strong> {t('generators.form.to')}{' '}
               <strong>{generateSequence(newGen.unit_code.trim(), Number(newGen.quantity)).slice(-1)[0]}</strong>
-              {newGen.serial_number.trim() && <> — N° de serie <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity))[0]}</strong> a <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity)).slice(-1)[0]}</strong></>}
+              {newGen.serial_number.trim() && <> — {t('generators.columns.serialNumber')} <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity))[0]}</strong> {t('generators.form.to')} <strong>{generateSequence(newGen.serial_number.trim(), Number(newGen.quantity)).slice(-1)[0]}</strong></>}
             </div>
           )}
           {addError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'10px'}}>{addError}</div>}
-          <button className="btn-primary btn-sm" disabled={addSaving} onClick={handleAddGenerator}>{addSaving ? 'Guardando…' : 'Guardar generador(es)'}</button>
+          <button className="btn-primary btn-sm" disabled={addSaving} onClick={handleAddGenerator}>{addSaving ? t('common.saving') : t('generators.form.save')}</button>
         </div>
       )}
 
       <div style={{padding:0}}>
         {myGenerators.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            {canRegisterNew
-              ? 'Todavía no tenés generadores propios. Usá "+ Agregar generador" para dar de alta la primera unidad.'
-              : 'Todavía no tenés generadores propios. Van a aparecer acá cuando tu distribuidor te transfiera uno.'}
+            {canRegisterNew ? t('generators.emptyCanRegister') : t('generators.emptyReadonly')}
           </div>
         ) : filteredFleet.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            Ningún generador coincide con los filtros aplicados.
+            {t('generators.noFilterMatches')}
           </div>
         ) : (
           <div className="table-scroll"><table className="data-table">
             <thead>
               <tr>
-                <th>ID unidad</th><th>N° de serie</th><th>Estado</th><th>Última revisión</th><th>Notas</th>{isDistributorView && <th></th>}
+                <th>{t('generators.columns.unitId')}</th><th>{t('generators.columns.serialNumber')}</th><th>{t('generators.columns.status')}</th><th>{t('generators.columns.lastService')}</th><th>{t('generators.columns.notes')}</th>{isDistributorView && <th></th>}
               </tr>
               {showFleetFilters && (
                 <tr>
@@ -280,7 +285,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                       <input
                         value={fleetFilters[c.header] || ''}
                         onChange={e => setFleetFilters(prev => ({ ...prev, [c.header]: e.target.value }))}
-                        placeholder="Filtrar..."
+                        placeholder={t('common.filterPlaceholder')}
                         style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
                       />
                     </th>
@@ -294,14 +299,14 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                 <tr key={g.id} style={{background:'#f5f5ee'}}>
                   <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.unit_code} onChange={e => setEditBuffer(prev => ({ ...prev, unit_code: e.target.value }))}/></td>
                   <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.serial_number} onChange={e => setEditBuffer(prev => ({ ...prev, serial_number: e.target.value }))}/></td>
-                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
+                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{statusLabel(g.status)}</span></td>
                   <td><input type="date" style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.purchase_date} onChange={e => setEditBuffer(prev => ({ ...prev, purchase_date: e.target.value }))}/></td>
                   <td><input style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px'}} value={editBuffer.notes} onChange={e => setEditBuffer(prev => ({ ...prev, notes: e.target.value }))}/></td>
                   {isDistributorView && (
                     <td>
                       <div style={{display:'flex', gap:'6px'}}>
-                        <button className="btn-primary btn-sm" disabled={editSaving} onClick={handleSaveEdit}>{editSaving ? 'Guardando…' : 'Guardar'}</button>
-                        <button className="btn-secondary btn-sm" onClick={() => setEditingId(null)}>Cancelar</button>
+                        <button className="btn-primary btn-sm" disabled={editSaving} onClick={handleSaveEdit}>{editSaving ? t('common.saving') : t('generators.form.save')}</button>
+                        <button className="btn-secondary btn-sm" onClick={() => setEditingId(null)}>{t('common.cancel')}</button>
                       </div>
                       {editError && <div style={{color:'#8b2020', fontSize:'11px', marginTop:'4px'}}>{editError}</div>}
                     </td>
@@ -311,18 +316,18 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                 <tr key={g.id}>
                   <td style={{fontWeight:700, fontFamily:'monospace'}}>{g.unit_code}</td>
                   <td style={{fontFamily:'monospace', color:'var(--gray)'}}>{g.serial_number || '—'}</td>
-                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{GENERATOR_STATUS_LABEL[g.status] || g.status}</span></td>
+                  <td><span className={`status ${g.status === 'available' ? 'approved' : 'pending'}`}>{statusLabel(g.status)}</span></td>
                   <td style={{color:'var(--gray)'}}>{g.last_service_date || '—'}</td>
                   <td style={{color:'var(--gray)'}}>{g.notes || '—'}</td>
                   {isDistributorView && (
                     <td>
                       <div style={{display:'flex', gap:'6px'}}>
-                        <button className="btn-secondary btn-sm" onClick={() => startEdit(g)}>Editar</button>
+                        <button className="btn-secondary btn-sm" onClick={() => startEdit(g)}>{t('generators.edit')}</button>
                         {g.status === 'available' && (
-                          <button className="btn-secondary btn-sm" onClick={() => setTransferTarget(g)}>Transferir</button>
+                          <button className="btn-secondary btn-sm" onClick={() => setTransferTarget(g)}>{t('generators.transfer')}</button>
                         )}
                         {(g.status === 'dispatched' || g.status === 'on_rent') && (
-                          <button className="btn-secondary btn-sm" onClick={() => handleReturn(g.id)}>Marcar devuelto</button>
+                          <button className="btn-secondary btn-sm" onClick={() => handleReturn(g.id)}>{t('generators.markReturned')}</button>
                         )}
                       </div>
                     </td>
@@ -352,7 +357,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
     return (
       <div>
         <div className="alert info">
-          📦 Estado de tu flota de generadores — quién los tiene, cuáles están disponibles, y cuáles necesitan service.
+          {t('generators.fleetStatusNotice')}
         </div>
         {fleetSection}
       </div>
@@ -362,19 +367,19 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
   return (
     <div>
       <div className="alert warn">
-        📞 Si un generador falla, contactá a Wassington: <strong>+54 299 XXX-XXXX</strong>
+        {t('generators.contactDistributor')}
       </div>
 
       {/* ROI Calculator */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">¿Conviene comprar el generador?</span>
+          <span className="card-title">{t('generators.roi.title')}</span>
           <div style={{display:'flex', gap:'8px'}}>
             {planSummary.uniqueRooms > 0 && (
-              <button className="btn-lime btn-sm" onClick={applyPlanData}>📋 Usar mi Plan de Temporada</button>
+              <button className="btn-lime btn-sm" onClick={applyPlanData}>{t('generators.roi.usePlan')}</button>
             )}
             <button className="btn-secondary btn-sm" onClick={() => setShowRoi(!showRoi)}>
-              {showRoi ? 'Ocultar cálculo' : 'Ver cálculo de conveniencia'}
+              {showRoi ? t('generators.roi.hide') : t('generators.roi.show')}
             </button>
           </div>
         </div>
@@ -383,13 +388,13 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
           <div className="card-body">
             {usedPlanData && (
               <div className="alert info" style={{marginBottom:'16px'}}>
-                📋 Estos números vienen de tu Plan de Temporada. Solo se consideran las líneas con producto MatriPowder para este análisis — MatriTablets no necesita generador, y las líneas "sin decidir" todavía no cuentan como demanda real.
+                {t('generators.roi.planDataNotice')}
               </div>
             )}
             <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'14px', marginBottom:'20px'}}>
               <div>
                 <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
-                  Cámaras con MatriPowder
+                  {t('generators.roi.roomsWithPowder')}
                 </label>
                 <input
                   type="number" min="1" max="50"
@@ -400,7 +405,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
               </div>
               <div>
                 <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
-                  Tratamientos por cámara / temporada
+                  {t('generators.roi.treatmentsPerRoom')}
                 </label>
                 <input
                   type="number" min="1" max="10"
@@ -411,7 +416,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
               </div>
               <div>
                 <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>
-                  Volumen promedio de cámara (m³)
+                  {t('generators.roi.avgVolume')}
                 </label>
                 <input
                   type="number" min="50" step="50"
@@ -425,7 +430,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
             {usedPlanData && (
               <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px', marginBottom:'20px'}}>
                 <div style={{background:'#f5f5ee', borderRadius:'8px', padding:'10px 14px', fontSize:'13px', color:'#0b4358'}}>
-                  <strong>Cámaras tratándose el mismo día (pico de tu temporada):</strong> {planSummary.maxSimultaneous || 0}
+                  <strong>{t('generators.roi.peakDay')}:</strong> {planSummary.maxSimultaneous || 0}
                 </div>
               </div>
             )}
@@ -434,7 +439,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
             <div style={{background:rec.bg, border:`1px solid ${rec.color}`, borderRadius:'10px', padding:'16px 20px', marginBottom:'20px', display:'flex', alignItems:'flex-start', gap:'14px'}}>
               <div style={{fontSize:'28px'}}>{rec.icon}</div>
               <div>
-                <div style={{fontSize:'14px', fontWeight:700, color:rec.color, marginBottom:'4px'}}>{rec.label}</div>
+                <div style={{fontSize:'14px', fontWeight:700, color:rec.color, marginBottom:'4px'}}>{recLabel}</div>
                 <div style={{fontSize:'13px', color:'#444'}}>{rec.desc}</div>
               </div>
             </div>
@@ -445,7 +450,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
                 <thead>
                   <tr>
-                    {['Opción', 'Costo por tratamiento', `Total (${totalRooms} tratamientos)`, 'Break-even'].map(h => (
+                    {[t('generators.roi.table.option'), t('generators.roi.table.costPerTreatment'), t('generators.roi.table.total', { total: totalRooms }), t('generators.roi.table.breakEven')].map(h => (
                       <th key={h} style={{padding:'10px 16px', textAlign:'left', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', background:'#f5f5ee', borderBottom:'0.5px solid #ddddd5'}}>{h}</th>
                     ))}
                   </tr>
@@ -453,18 +458,18 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
                 <tbody>
                   {[
                     {
-                      option: 'Servicio gestionado',
+                      option: t('generators.roi.recommendation.serviceLabel'),
                       perTreatment: fmtUSD(serviceFee),
                       total: fmtUSD(serviceCostTotal),
-                      breakeven: `Siempre disponible`,
-                      highlight: rec.label === 'Servicio gestionado',
+                      breakeven: t('generators.roi.table.alwaysAvailable'),
+                      highlight: rec.type === 'service',
                     },
                     {
-                      option: 'Compra del generador',
-                      perTreatment: fmtUSD(genPurchase / Math.max(totalRooms, 1)) + '/trat.',
-                      total: fmtUSD(genPurchase * unitsToBuy) + (unitsToBuy > 1 ? ` (${unitsToBuy} unidades)` : ' (único pago)'),
-                      breakeven: breakEvenTreatments > 0 ? `${breakEvenTreatments} tratamientos` : '—',
-                      highlight: rec.label === 'Comprar el generador',
+                      option: t('generators.roi.recommendation.buyLabel'),
+                      perTreatment: fmtUSD(genPurchase / Math.max(totalRooms, 1)) + t('generators.roi.table.perTreatmentSuffix'),
+                      total: fmtUSD(genPurchase * unitsToBuy) + (unitsToBuy > 1 ? t('generators.roi.table.units', { count: unitsToBuy }) : t('generators.roi.table.singlePayment')),
+                      breakeven: breakEvenTreatments > 0 ? t('generators.roi.table.treatmentsCount', { count: breakEvenTreatments }) : '—',
+                      highlight: rec.type === 'buy',
                     },
                   ].map((r, i) => (
                     <tr key={i} style={{
@@ -485,7 +490,7 @@ export default function Generators({ orgId, seasonPlanLines = [], coldRooms = []
             </div>
 
             <div style={{fontSize:'11px', color:'#888', marginTop:'10px'}}>
-              * Precios según la tabla de tu distribuidor y volumen promedio {vol} m³. El servicio gestionado incluye mano de obra de Wassington.
+              {t('generators.roi.footnote', { vol })}
             </div>
           </div>
         )}

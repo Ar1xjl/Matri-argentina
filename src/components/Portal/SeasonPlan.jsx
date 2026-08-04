@@ -1,25 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
 import { POUCHES, DOSE_BASE, greedyCeiling, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { downloadPlanTemplate } from '../../lib/excelImport'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import { formatUSD as fmtUSD } from '../../lib/formatters'
 import CampaignCostSimulator from './CampaignCostSimulator'
-
-function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
-
-const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecided: 'Sin decidir' }
-const SEASON_PLAN_COLUMNS = [
-  { header: 'Cámara',           get: l => l.room?.name || '' },
-  { header: 'Cultivo',          get: l => l.room?.primary_crop || '' },
-  { header: 'Volumen (m³)',     get: l => l.room?.volume_m3 ?? '' },
-  { header: 'Fecha estimada',   get: l => l.planned_date || '' },
-  { header: 'Dosis (ppb)',      get: l => l.planned_dose_ppb ?? '' },
-  { header: 'Producto',         get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-  { header: 'Costo (producto)', get: l => l.cost != null ? l.cost.toFixed(2) : '' },
-  { header: '$/m³ (producto)',  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
-  { header: 'Notas',            get: l => l.notes || '' },
-  { header: 'Estado',           get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
-]
 
 // Same "indicative cost" math as the Calculator — exact-dose Powder cost, or
 // scaled Tablets cost. Undecided product has no indicative cost yet. Applies
@@ -47,6 +33,8 @@ export default function SeasonPlan({
   plan, lines = [], coldRooms = [], orgId = null, onAddLine, onUpdateLine, onDeleteLine, onConvert,
   onImportPlan, onBulkApply, onClearPlannedLines, onNavigate,
 }) {
+  const { t } = useTranslation()
+  const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecided: t('seasonPlan.productUndecided') }
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [override, setOverride] = useState(null)
   const [pouchSizes, setPouchSizes] = useState(POUCHES)
@@ -62,6 +50,19 @@ export default function SeasonPlan({
   const [importing, setImporting] = useState(false)
   const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
   const planFileInput = useRef(null)
+
+  const SEASON_PLAN_COLUMNS = [
+    { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '' },
+    { header: t('seasonPlan.columns.crop'),       get: l => l.room?.primary_crop || '' },
+    { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '' },
+    { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '' },
+    { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '' },
+    { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
+    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '' },
+    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
+    { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '' },
+    { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned') },
+  ]
 
   // Nearest ancestor with its own price list configured (Fase H, 2026-07-16).
   useEffect(() => { fetchOrgPricing(orgId).then(setPricing) }, [orgId])
@@ -105,6 +106,7 @@ export default function SeasonPlan({
     return { ...l, room, cost }
   }), [lines, coldRooms, pricing, override, pouchSizes])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- SEASON_PLAN_COLUMNS is rebuilt every render (it closes over `t`), memoizing on it would defeat the memo
   const filtered = useMemo(() => filterRows(enriched, SEASON_PLAN_COLUMNS, filters), [enriched, filters])
   const setFilter = (header, value) => setFilters(prev => ({ ...prev, [header]: value }))
 
@@ -158,46 +160,46 @@ export default function SeasonPlan({
   return (
     <div>
       <div className="alert info" style={{marginBottom:'16px'}}>
-        📋 Planificá tu temporada completa — cámara, fecha estimada y dosis por tratamiento. No es vinculante: podés ajustar todo antes de convertir una línea en un Tratamiento real.
+        {t('seasonPlan.intro')}
       </div>
 
       {/* Excel import */}
       <div style={{...card, background:'#f9faf5'}}>
         <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358', marginBottom:'10px'}}>
-          Carga rápida desde Excel
+          {t('seasonPlan.excelImport.title')}
         </div>
         <div style={{display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center'}}>
-          <button className="btn-secondary btn-sm" onClick={downloadPlanTemplate}>📥 Descargar plantilla</button>
-          <button className="btn-lime btn-sm" disabled={importing} onClick={() => planFileInput.current?.click()}>📤 Subir plan</button>
+          <button className="btn-secondary btn-sm" onClick={downloadPlanTemplate}>{t('seasonPlan.excelImport.downloadTemplate')}</button>
+          <button className="btn-lime btn-sm" disabled={importing} onClick={() => planFileInput.current?.click()}>{t('seasonPlan.excelImport.uploadPlan')}</button>
           <input ref={planFileInput} type="file" accept=".xlsx,.xls" style={{display:'none'}}
             onChange={e => { handleFileSelected(e.target.files[0]); e.target.value = '' }}/>
-          {importing && <span style={{fontSize:'12px', color:'#888'}}>Importando…</span>}
+          {importing && <span style={{fontSize:'12px', color:'#888'}}>{t('seasonPlan.excelImport.importing')}</span>}
         </div>
         <div style={{fontSize:'11px', color:'#888', marginTop:'6px'}}>
-          Frigorífico, Cámara, Volumen y Dosis son opcionales salvo el nombre de la Cámara — podés subir solo lo que ya tengas y completar el resto acá abajo. El producto se elige después de subir, seleccionando filas y aplicándolo en conjunto.
+          {t('seasonPlan.excelImport.hint')}
         </div>
 
         {importResult && (
           <div style={{marginTop:'12px', fontSize:'12px'}}>
             <div style={{color:'#1a6b30', fontWeight:600}}>
-              ✓ Se importaron {importResult.imported} registro{importResult.imported === 1 ? '' : 's'}.
+              {t('seasonPlan.excelImport.imported', { count: importResult.imported })}
             </div>
             {importResult.duplicates?.length > 0 && (
               <div style={{marginTop:'6px', color:'#b06a00'}}>
-                {importResult.duplicates.length} fila{importResult.duplicates.length === 1 ? '' : 's'} no se volvieron a cargar por ser duplicadas (misma cámara + misma fecha ya planificada):
+                {t('seasonPlan.excelImport.duplicates', { count: importResult.duplicates.length })}
                 <ul style={{margin:'4px 0 0', paddingLeft:'18px'}}>
                   {importResult.duplicates.map((d, i) => (
-                    <li key={i}>{d.room}{d.date ? ` — ${d.date}` : ' — sin fecha'}</li>
+                    <li key={i}>{d.room}{d.date ? ` — ${d.date}` : ` — ${t('seasonPlan.excelImport.noDate')}`}</li>
                   ))}
                 </ul>
               </div>
             )}
             {importResult.errors.length > 0 && (
               <div style={{marginTop:'6px', color:'#8b2020'}}>
-                {importResult.errors.length} fila{importResult.errors.length === 1 ? '' : 's'} con problemas:
+                {t('seasonPlan.excelImport.errors', { count: importResult.errors.length })}
                 <ul style={{margin:'4px 0 0', paddingLeft:'18px'}}>
                   {importResult.errors.map((e, i) => (
-                    <li key={i}>{e.row !== '-' ? `Fila ${e.row}: ` : ''}{e.reason}</li>
+                    <li key={i}>{e.row !== '-' ? t('seasonPlan.excelImport.rowPrefix', { row: e.row }) : ''}{e.reason}</li>
                   ))}
                 </ul>
               </div>
@@ -209,11 +211,11 @@ export default function SeasonPlan({
       {/* Summary panel */}
       <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'14px', marginBottom:'16px'}}>
         {[
-          ['Total cámaras', totals.rooms],
-          ['Total aplicaciones', totals.applications],
-          ['Total m³', totals.m3.toLocaleString('es-AR')],
-          ['Costo total (producto)', fmtUSD(totals.cost)],
-          ['Costo prom. $/m³ (producto)', fmtUSD(totals.avgPerM3)],
+          [t('seasonPlan.summary.rooms'), totals.rooms],
+          [t('seasonPlan.summary.applications'), totals.applications],
+          [t('seasonPlan.summary.totalM3'), totals.m3.toLocaleString()],
+          [t('seasonPlan.summary.totalCost'), fmtUSD(totals.cost)],
+          [t('seasonPlan.summary.avgCostPerM3'), fmtUSD(totals.avgPerM3)],
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
@@ -222,8 +224,8 @@ export default function SeasonPlan({
         ))}
       </div>
       <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
-        Pagás por la dosis real que usás — no una tarifa fija que asume 1.000 ppb para todos los cultivos.
-        <br/>Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional.
+        {t('seasonPlan.summary.disclaimer1')}
+        <br/>{t('seasonPlan.summary.disclaimer2')}
       </div>
 
       {enriched.some(l => l.product_preference !== 'undecided') && (
@@ -233,16 +235,16 @@ export default function SeasonPlan({
         }}>
           <div>
             <div style={{fontSize:'14px', fontWeight:700, color:'#fff', marginBottom:'2px'}}>
-              🧮 Simulador del costo total por campaña
+              {t('seasonPlan.simulator.title')}
             </div>
             <div style={{fontSize:'12px', color:'rgba(255,255,255,.7)'}}>
               {selected.size > 0
-                ? `Elegí redondeo de dosis y modelo de aplicación para las ${selected.size} cámaras seleccionadas, y mirá el costo final $ y $/m³.`
-                : 'Elegí redondeo de dosis y modelo de aplicación para todo tu plan, y mirá el costo final $ y $/m³.'}
+                ? t('seasonPlan.simulator.descSelected', { count: selected.size })
+                : t('seasonPlan.simulator.descAll')}
             </div>
           </div>
           <button className="btn-lime btn-sm" onClick={() => setShowSimulator(true)}>
-            Abrir simulador →
+            {t('seasonPlan.simulator.open')}
           </button>
         </div>
       )}
@@ -261,18 +263,18 @@ export default function SeasonPlan({
       {/* Table */}
       <div style={card}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px'}}>
-          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || 'Temporada'}</span>
+          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || t('seasonPlan.defaultLabel')}</span>
           <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
-            <button className="btn-secondary btn-sm" onClick={onAddLine}>+ Agregar línea</button>
-            <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? '✕ Filtros' : 'Filtrar'}</button>
-            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, filtered)}>⬇ Exportar a Excel</button>
+            <button className="btn-secondary btn-sm" onClick={onAddLine}>{t('seasonPlan.addLine')}</button>
+            <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? t('common.closeFilters') : t('common.filter')}</button>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, filtered)}>{t('common.exportExcel')}</button>
             <button
               className="btn-primary btn-sm"
               disabled={selectedPlannedLines.length === 0}
               style={{opacity: selectedPlannedLines.length === 0 ? .5 : 1}}
               onClick={handleConvert}
             >
-              Convertir en Tratamiento{selectedPlannedLines.length > 0 ? ` (${selectedPlannedLines.length})` : ''}
+              {t('seasonPlan.convert')}{selectedPlannedLines.length > 0 ? ` (${selectedPlannedLines.length})` : ''}
             </button>
           </div>
         </div>
@@ -280,31 +282,31 @@ export default function SeasonPlan({
         {selectedPlannedLines.length > 0 && (
           <div style={{background:'#f0f7ff', border:'1px solid #cfe3f7', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px'}}>
             <div style={{fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'8px'}}>
-              Edición en lote — {selectedPlannedLines.length} línea{selectedPlannedLines.length === 1 ? '' : 's'} seleccionada{selectedPlannedLines.length === 1 ? '' : 's'}. Completá solo lo que quieras cambiar.
+              {t('seasonPlan.bulkEdit.title', { count: selectedPlannedLines.length })}
             </div>
             <div style={{display:'flex', gap:'10px', flexWrap:'wrap', alignItems:'flex-end'}}>
               <div>
-                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Fecha</label>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.bulkEdit.date')}</label>
                 <input style={inp} type="date" value={bulkDate} onChange={e => setBulkDate(e.target.value)}/>
               </div>
               <div>
-                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Dosis (ppb)</label>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.columns.dose')}</label>
                 <input style={{...inp, width:'100px'}} type="number" value={bulkDose} onChange={e => setBulkDose(e.target.value)}/>
               </div>
               <div>
-                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Cultivo (de la cámara)</label>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.bulkEdit.crop')}</label>
                 <input style={inp} type="text" value={bulkCrop} onChange={e => setBulkCrop(e.target.value)} placeholder="Ej: Pera Williams"/>
               </div>
               <div>
-                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>Producto</label>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.columns.product')}</label>
                 <select style={inp} value={bulkProduct} onChange={e => setBulkProduct(e.target.value)}>
-                  <option value="">Sin cambios</option>
+                  <option value="">{t('seasonPlan.bulkEdit.noChange')}</option>
                   <option value="powder">MatriPowder</option>
                   <option value="tablets">MatriTablets</option>
                 </select>
               </div>
               <button className="btn-secondary btn-sm" onClick={handleBulkApply}>
-                Aplicar a seleccionadas
+                {t('seasonPlan.bulkEdit.apply')}
               </button>
             </div>
           </div>
@@ -312,11 +314,11 @@ export default function SeasonPlan({
 
         {enriched.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            No hay líneas planificadas todavía. Hacé click en "+ Agregar línea" para empezar.
+            {t('seasonPlan.empty')}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            Ninguna línea coincide con los filtros aplicados.
+            {t('seasonPlan.noFilterMatches')}
           </div>
         ) : (
           <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse'}}>
@@ -325,9 +327,10 @@ export default function SeasonPlan({
                 <th style={{...cell, background:'#f5f5ee'}}>
                   <input type="checkbox" checked={allSelected} disabled={plannedIds.length === 0} onChange={toggleSelectAll}/>
                 </th>
-                {['Cámara', 'Cultivo', 'Volumen (m³)', 'Fecha estimada', 'Dosis (ppb)', 'Producto', 'Costo (producto)', '$/m³ (producto)', 'Notas', 'Estado', ''].map(h => (
-                  <th key={h} style={{...cell, background:'#f5f5ee', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase'}}>{h}</th>
+                {SEASON_PLAN_COLUMNS.map(c => (
+                  <th key={c.header} style={{...cell, background:'#f5f5ee', fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase'}}>{c.header}</th>
                 ))}
+                <th style={{...cell, background:'#f5f5ee'}}></th>
               </tr>
               {showFilters && (
                 <tr>
@@ -337,7 +340,7 @@ export default function SeasonPlan({
                       <input
                         value={filters[c.header] || ''}
                         onChange={e => setFilter(c.header, e.target.value)}
-                        placeholder="Filtrar..."
+                        placeholder={t('common.filterPlaceholder')}
                         style={{width:'100%', padding:'5px 7px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'12px', fontWeight:400}}
                       />
                     </th>
@@ -356,7 +359,7 @@ export default function SeasonPlan({
                   <td style={cell}>
                     <select style={inp} value={l.cold_room_id || ''} disabled={l.status !== 'planned'}
                       onChange={e => onUpdateLine(l.id, { cold_room_id: e.target.value })}>
-                      <option value="" disabled>Elegir cámara</option>
+                      <option value="" disabled>{t('seasonPlan.chooseRoom')}</option>
                       {coldRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.volume_m3} m³)</option>)}
                     </select>
                   </td>
@@ -377,7 +380,7 @@ export default function SeasonPlan({
                   <td style={cell}>
                     <select style={inp} value={l.product_preference} disabled={l.status !== 'planned'}
                       onChange={e => onUpdateLine(l.id, { product_preference: e.target.value })}>
-                      <option value="undecided">Sin decidir</option>
+                      <option value="undecided">{t('seasonPlan.productUndecided')}</option>
                       <option value="powder">MatriPowder</option>
                       <option value="tablets">MatriTablets</option>
                     </select>
@@ -394,7 +397,7 @@ export default function SeasonPlan({
                   </td>
                   <td style={cell}>
                     <span className={`status ${l.status === 'converted' ? 'approved' : 'pending'}`}>
-                      {l.status === 'converted' ? '✓ Convertida' : '⏳ Planificada'}
+                      {l.status === 'converted' ? t('seasonPlan.status.convertedBadge') : t('seasonPlan.status.plannedBadge')}
                     </span>
                   </td>
                   <td style={cell}>
@@ -416,21 +419,20 @@ export default function SeasonPlan({
         >
           <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
             <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'10px'}}>
-              Ya tenés cámaras planificadas para esta temporada
+              {t('seasonPlan.replaceModal.title')}
             </div>
             <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'18px'}}>
-              ¿Querés borrarlas y cargar el archivo de nuevo desde cero, o agregar estas cámaras a las que ya tenés cargadas?
-              Si el archivo trae la misma cámara para la misma fecha que ya está planificada, el sistema lo va a tomar como un duplicado y no lo va a cargar de nuevo.
+              {t('seasonPlan.replaceModal.body')}
             </div>
             <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
               <button className="btn-primary" onClick={() => resolvePendingImport(false)}>
-                Agregar a lo que ya tengo
+                {t('seasonPlan.replaceModal.add')}
               </button>
               <button className="btn-secondary" onClick={() => resolvePendingImport(true)}>
-                Borrar lo planificado y cargar de nuevo
+                {t('seasonPlan.replaceModal.replace')}
               </button>
               <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setPendingFile(null)}>
-                Cancelar
+                {t('common.cancel')}
               </button>
             </div>
           </div>

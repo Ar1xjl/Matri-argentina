@@ -1,4 +1,454 @@
 {
+  "seasonPlan": {
+    "productUndecided": "Undecided",
+    "defaultLabel": "Season",
+    "columns": {
+      "room": "Room", "crop": "Crop", "volume": "Volume (m³)", "estDate": "Estimated date",
+      "dose": "Dose (ppb)", "product": "Product", "cost": "Cost (product)", "costPerM3": "$/m³ (product)",
+      "notes": "Notes", "status": "Status"
+    },
+    "status": { "converted": "Converted", "planned": "Planned", "convertedBadge": "✓ Converted", "plannedBadge": "⏳ Planned" },
+    "intro": "📋 Plan your whole season — room, estimated date and dose per treatment. Not binding: you can adjust everything before converting a line into a real Treatment.",
+    "excelImport": {
+      "title": "Quick Excel upload",
+      "downloadTemplate": "📥 Download template",
+      "uploadPlan": "📤 Upload plan",
+      "importing": "Importing…",
+      "hint": "Facility, Room, Volume and Dose are optional except the Room name — you can upload just what you already have and fill in the rest below. The product is chosen after uploading, by selecting rows and applying it in bulk.",
+      "imported_one": "✓ {{count}} record imported.",
+      "imported_other": "✓ {{count}} records imported.",
+      "duplicates_one": "{{count}} row was not loaded again as a duplicate (same room + same date already planned):",
+      "duplicates_other": "{{count}} rows were not loaded again as duplicates (same room + same date already planned):",
+      "noDate": "no date",
+      "errors_one": "{{count}} row with issues:",
+      "errors_other": "{{count}} rows with issues:",
+      "rowPrefix": "Row {{row}}: "
+    },
+    "summary": {
+      "rooms": "Total rooms",
+      "applications": "Total applications",
+      "totalM3": "Total m³",
+      "totalCost": "Total cost (product)",
+      "avgCostPerM3": "Avg. cost $/m³ (product)",
+      "disclaimer1": "You pay for the actual dose you use — not a flat rate that assumes 1,000 ppb for every crop.",
+      "disclaimer2": "Cost values are for the product only — they don't include the optional application service."
+    },
+    "simulator": {
+      "title": "🧮 Total campaign cost simulator",
+      "descSelected": "Choose dose rounding and application model for the {{count}} selected rooms, and see the final $ and $/m³ cost.",
+      "descAll": "Choose dose rounding and application model for your whole plan, and see the final $ and $/m³ cost.",
+      "open": "Open simulator →"
+    },
+    "addLine": "+ Add line",
+    "convert": "Convert to Treatment",
+    "bulkEdit": {
+      "title": "Bulk edit — {{count}} line(s) selected. Only fill in what you want to change.",
+      "date": "Date",
+      "crop": "Crop (from the room)",
+      "noChange": "No change",
+      "apply": "Apply to selected"
+    },
+    "empty": "No planned lines yet. Click \"+ Add line\" to get started.",
+    "noFilterMatches": "No line matches the applied filters.",
+    "chooseRoom": "Choose room",
+    "replaceModal": {
+      "title": "You already have rooms planned for this season",
+      "body": "Do you want to clear them and upload the file again from scratch, or add these rooms to the ones you already have loaded? If the file has the same room for the same date already planned, the system will treat it as a duplicate and won't load it again.",
+      "add": "Add to what I already have",
+      "replace": "Clear planned lines and upload again"
+    }
+  },
+  "treatments": {
+    "status": {
+      "approved": "✓ Approved",
+      "submitted": "⏳ Pending",
+      "applied": "🔧 Applied",
+      "completed": "📸 MatriSure OK",
+      "rejected": "✗ Rejected",
+      "cancelled": "– Cancelled"
+    },
+    "model": { "service": "Service", "own": "Self-applied" },
+    "newTreatment": "+ New treatment",
+    "hideFilters": "✕ Hide filters",
+    "title": "All treatments",
+    "countOfTotal": "{{count}} of {{total}} treatments this season",
+    "empty": "No treatments yet. Click \"+ New treatment\" to create the first one.",
+    "noFilterMatches": "No treatment matches the applied filters.",
+    "columns": {
+      "id": "Treatment #",
+      "room": "Room",
+      "product": "Product",
+      "sachets": "Sachets",
+      "price": "Price",
+      "model": "Model",
+      "status": "Status"
+    },
+    "viewPhoto": "📷 View photo",
+    "evaluation": "📊 Evaluation",
+    "repeat": "↺ Repeat"
+  },
+  "calculator": {
+    "loadingRooms": "Loading rooms...",
+    "pricingBar": {
+      "override": "Price negotiated with your distributor applied to this calculation",
+      "standard": "Prices per the table configured by your distributor"
+    },
+    "prefill": {
+      "repeat": "↺ Repeating a previous treatment. Adjust as needed and confirm to send it to your distributor.",
+      "seasonPlanPrefix": "🗓️ Reviewing a line from your Season Plan",
+      "queueRemaining": " — {{count}} left to review",
+      "seasonPlanSuffix": ". Adjust as needed and confirm to send it to your distributor."
+    },
+    "roomData": {
+      "title": "Room data",
+      "roomLabel": "Room",
+      "customNameLabel": "Custom name (optional)",
+      "customNamePlaceholder": "E.g.: Sector B — Pears",
+      "targetDoseLabel": "Target dose (ppb)",
+      "standardDose": "Standard (1,000 ppb)",
+      "standardDoseHint": "Standard dose: 1,000 ppb = 0.067 g MatriPowder 3.3% per m³",
+      "doseRightPrompt": "Not sure which dose to use?",
+      "doseRightDesc": "Check the DoseRight scientific calculator based on harvest parameters.",
+      "openDoseRight": "Open DoseRight",
+      "calculate": "Calculate and compare options"
+    },
+    "results": {
+      "compareTitle": "Compare options for {{roomName}} ({{vol}} m³)",
+      "targetDose": "Target dose: {{ppb}} ppb · Click an option to select it"
+    },
+    "option": {
+      "productCost": "{{product}} cost",
+      "serviceFee": "+ Application service (optional)",
+      "dose": "Dose",
+      "perM3": "$/m³",
+      "total": "Total",
+      "totalWithService": "Total without service · With managed service: {{amount}}",
+      "selected": "✓ Selected",
+      "totalGrams": "{{grams}} g total",
+      "sachet": "{{size}}g sachet"
+    },
+    "options": {
+      "exact": { "title": "MatriPowder — Exact dose", "badge": "Exact dose" },
+      "adjusted": { "title": "MatriPowder — Adjusted dose", "badge": "No extra sachet" },
+      "tablets": {
+        "badge": "Self-applied",
+        "large": "Large tablet (5m³)",
+        "small": "Small tablet (2.5m³)",
+        "coverage": "Coverage: {{vol}} m³ · No generator needed"
+      }
+    },
+    "serviceModel": {
+      "title": "Application model for MatriPowder",
+      "service": { "title": "Managed service", "desc": "Your distributor performs the application", "perRoom": "flat fee per room" },
+      "self": { "title": "Self-applied", "desc": "The customer performs the treatment", "noCharge": "No additional charge", "needsGenerator": "requires MaTri generator" }
+    },
+    "summary": {
+      "title": "Selected treatment summary",
+      "product": "Product",
+      "room": "Room",
+      "dose": "Dose",
+      "productCost": "Product cost",
+      "applicationService": "Application service",
+      "total": "Estimated total",
+      "priceNote": "Indicative price · Your distributor will confirm on approval"
+    },
+    "confirm": "Confirm and send treatment",
+    "sentMessage": "Treatment sent to your distributor for approval",
+    "sentHint": "Check its status in the Treatments section",
+    "viewTreatments": "View my treatments",
+    "footer": "MaTri DoseRight Calculator · FreshInset 2026"
+  },
+  "common": {
+    "filter": "Filter",
+    "closeFilters": "✕ Filters",
+    "exportExcel": "⬇ Export to Excel",
+    "cancel": "✕ Cancel",
+    "delete": "✕ Delete",
+    "filterPlaceholder": "Filter...",
+    "saving": "Saving…",
+    "loading": "Loading..."
+  },
+  "profile": {
+    "company": {
+      "title": "Company data",
+      "name": "Company name",
+      "taxId": "Tax ID",
+      "taxIdPlaceholder": "E.g.: 00-0000000-0",
+      "taxStatus": "Tax status",
+      "taxStatusPlaceholder": "E.g.: Registered taxpayer",
+      "region": "State / Region",
+      "regionPlaceholder": "E.g.: California",
+      "save": "Save changes",
+      "saved": "✓ Saved"
+    },
+    "password": {
+      "title": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm password",
+      "update": "Update password",
+      "forgotHint": "ℹ️ If you forgot your password, contact your distributor to get a temporary one. Your session closes automatically after 10 minutes of inactivity."
+    },
+    "accountInfo": {
+      "title": "Account information",
+      "distributor": "Assigned distributor",
+      "region": "Region",
+      "memberSince": "Member since",
+      "lastAccess": "Last access"
+    }
+  },
+  "generators": {
+    "status": {
+      "available": "✓ Available", "dispatched": "📦 Dispatched", "onRent": "📅 Rented",
+      "returned": "↩️ Returned", "inService": "🔧 In service", "repaired": "✓ Repaired", "outOfService": "✗ Out of service"
+    },
+    "columns": { "unitId": "Unit ID", "serialNumber": "Serial number", "status": "Status", "lastService": "Last service", "notes": "Notes" },
+    "form": {
+      "unitIdRequired": "Enter the unit ID.",
+      "quantityMin": "Quantity has to be at least 1.",
+      "duplicateUnitId": "One of the generated unit IDs already exists — try another code or starting number.",
+      "unitIdEmpty": "The unit ID can't be empty.",
+      "duplicateUnitIdEdit": "A generator with that unit ID already exists.",
+      "quantity": "Quantity",
+      "firstOfBatch": "(first of the batch)",
+      "optional": "Optional",
+      "purchaseDate": "Purchase date",
+      "notesPlaceholder": "Optional, applies to the whole batch",
+      "willCreate": "{{count}} units will be created:",
+      "to": "to",
+      "save": "Save"
+    },
+    "myGenerators": "My generators",
+    "individualId": "Individual ID per unit",
+    "export": "⬇ Export",
+    "addGenerator": "+ Add generator",
+    "emptyCanRegister": "You don't have any generators yet. Use \"+ Add generator\" to register the first unit.",
+    "emptyReadonly": "You don't have any generators yet. They'll show up here once your distributor transfers you one.",
+    "noFilterMatches": "No generator matches the applied filters.",
+    "edit": "Edit",
+    "transfer": "Transfer",
+    "markReturned": "Mark as returned",
+    "fleetStatusNotice": "📦 Your generator fleet status — who has them, which are available, and which need service.",
+    "contactDistributor": "📞 If a generator fails, contact your distributor.",
+    "roi": {
+      "title": "Is it worth buying the generator?",
+      "usePlan": "📋 Use my Season Plan",
+      "hide": "Hide calculation",
+      "show": "See cost-benefit calculation",
+      "planDataNotice": "📋 These numbers come from your Season Plan. Only MatriPowder lines are considered for this analysis — MatriTablets doesn't need a generator, and \"undecided\" lines don't count as real demand yet.",
+      "roomsWithPowder": "Rooms with MatriPowder",
+      "treatmentsPerRoom": "Treatments per room / season",
+      "avgVolume": "Average room volume (m³)",
+      "peakDay": "Rooms treated on the same day (your season's peak)",
+      "footnote": "* Prices per your distributor's table and average volume {{vol}} m³. The managed service includes your distributor's labor.",
+      "recommendation": {
+        "buy": "With {{total}} treatments per season the generator pays for itself in {{breakEven}} treatments. It's already worth buying.",
+        "buyWithConcurrency": "With {{total}} treatments per season the generator pays for itself in {{breakEven}} treatments. Also, your Season Plan shows up to {{units}} rooms being treated on the same day — you should buy {{units}} units, not just one.",
+        "service": "With {{total}} treatments, your distributor's managed service is the most convenient option. No upfront investment.",
+        "buyLabel": "Buy the generator",
+        "serviceLabel": "Managed service"
+      },
+      "table": {
+        "option": "Option",
+        "costPerTreatment": "Cost per treatment",
+        "total": "Total ({{total}} treatments)",
+        "breakEven": "Break-even",
+        "alwaysAvailable": "Always available",
+        "perTreatmentSuffix": "/treatment",
+        "units": " ({{count}} units)",
+        "singlePayment": " (one-time payment)",
+        "treatmentsCount": "{{count}} treatments"
+      }
+    },
+    "products": {
+      "buy": { "title": "Buy generator", "desc": "Professional unit with individual ID. Includes battery. Best option for operations with multiple rooms." },
+      "battery": { "title": "Rechargeable battery", "desc": "Replacement battery for the MaTri generator. Guaranteed compatibility." },
+      "requestPurchase": "Request purchase"
+    }
+  },
+  "roomHistory": {
+    "title": "Treatment history — {{roomName}}",
+    "summary": "{{count}} treatments · Average dose: {{avgPpb}} ppb",
+    "close": "✕ Close",
+    "allSeasons": "All seasons",
+    "season": "Season {{season}}",
+    "exportPdf": "📄 Export PDF",
+    "exportExcel": "📊 Export Excel",
+    "columns": { "date": "Date", "crop": "Fruit / variety", "dose": "Dose", "operator": "Operator", "generator": "Generator", "matriSure": "MatriSure" },
+    "confirmed": "📸 Confirmed",
+    "pending": "⏳ Pending",
+    "empty": "No treatments recorded for this season."
+  },
+  "documents": {
+    "notice": "📄 All documents are up to date. Your distributor publishes new versions when there are regulatory or product changes.",
+    "title": "Document library",
+    "count": "{{count}} current documents",
+    "current": "Current",
+    "download": "⬇ Download"
+  },
+  "applicationForm": {
+    "startTimeLabel": "Start date and time",
+    "endTimeLabel": "End date and time",
+    "startHeading": "Start application",
+    "endHeading": "Finish application",
+    "contextLine": "📋 {{heading}} for {{room}} · {{product}} · Treatment #{{id}}",
+    "treatmentData": "Treatment data",
+    "doseLabel": "Dose (ppb)",
+    "doseHint": "Set in the calculator when the treatment was created.",
+    "operatorLabel": "Operator",
+    "operatorHint": "You, as the user recording the application.",
+    "generatorNotAvailable": "⚠️ Generator selection not available yet — real generator management is pending.",
+    "continueToPhoto": "Continue to photo"
+  },
+  "matriSureCapture": {
+    "cameraError": "Couldn't access the camera. Check this site's browser permissions.",
+    "defaultBanner": "Live photo from the device's camera — uploading from the gallery is not allowed.",
+    "capture": "📷 Capture photo",
+    "defaultPreviewAlt": "Captured MatriSure",
+    "uploading": "Uploading…",
+    "useThisPhoto": "✓ Use this photo"
+  },
+  "matriSurePhotoModal": {
+    "title": "MatriSure Photo",
+    "error": "Couldn't load the photo."
+  },
+  "appLog": {
+    "status": {
+      "inProgress": "🔧 In progress — needs finishing",
+      "readyToApply": "⏳ Ready to apply",
+      "appliedMissingMatriSure": "🔧 Applied — MatriSure pending",
+      "confirmed": "📸 Confirmed"
+    },
+    "columns": { "room": "Room", "product": "Product", "doseSachets": "Dose / sachets", "appliedDate": "Application date", "matriSure": "MatriSure" },
+    "errors": {
+      "saveStart": "Couldn't save the application start: {{error}}",
+      "saveEnd": "Couldn't save the application end: {{error}}",
+      "saveMatriSure": "Couldn't save the MatriSure verification: {{error}}"
+    },
+    "startPhotoHint": "📋 Photo when placing the kit in the room, matching the recorded start time. The treatment stays \"In progress\" until you close it again with the End photo.",
+    "startPhotoBanner": "START photo of the application — live from the device's camera, uploading from the gallery is not allowed.",
+    "useAsStartPhoto": "✓ Use as start photo",
+    "startPhotoAlt": "Application start photo",
+    "endPhotoHint": "📋 Photo when finishing the application, matching the recorded end time.",
+    "endPhotoBanner": "END photo of the application — live from the device's camera, uploading from the gallery is not allowed.",
+    "useAsEndPhoto": "✓ Use as end photo and save",
+    "endPhotoAlt": "Application end photo",
+    "review": {
+      "question": "What did the strip show?",
+      "confirmed": "✓ Dose reached",
+      "notReached": "✗ Dose not reached",
+      "askHelp": "🙋 Not sure — ask my distributor for help"
+    },
+    "livePhotoNotice": "📸 MatriSure Kit photos must be taken live from the device's camera. Gallery uploads are not allowed.",
+    "matriSureDesc": "MatriSure strips change color when the room reaches the 1-MCP target dose. Photograph the strip when finishing the treatment — the photo is recorded automatically with date, time and room number.",
+    "season2026": "2026 Season",
+    "empty": "No approved treatments yet.",
+    "startApplication": "▶️ Start application",
+    "finishApplication": "⏹ Finish application",
+    "uploadMatriSure": "📸 Upload MatriSure",
+    "photoStart": "📷 Start",
+    "photoEnd": "📷 End"
+  },
+  "rooms": {
+    "status": {
+      "approved": "Active",
+      "submitted": "Pending",
+      "applied": "Applied",
+      "completed": "MatriSure OK",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "autoSaveHint": "ℹ️ Rooms are saved automatically with the first treatment, or you can add them manually.",
+    "newRoom": "+ New room",
+    "history": "🕒 History",
+    "empty": "No rooms added yet.",
+    "noFilterMatches": "No room matches the applied filters.",
+    "columns": {
+      "customer": "Customer",
+      "location": "Location",
+      "room": "Room",
+      "volume": "Volume (m³)",
+      "crop": "Crop",
+      "lastTreatment": "Last treatment",
+      "status": "Status"
+    },
+    "form": {
+      "customerRequired": "Choose which customer the room belongs to.",
+      "noCustomers": "No customers yet",
+      "nameLabel": "Room name",
+      "namePlaceholder": "E.g.: North Room 3",
+      "locationLabel": "Location / facility",
+      "locationPlaceholder": "E.g.: San José Site",
+      "cropLabel": "Main crop",
+      "save": "Save room"
+    }
+  },
+  "dashboard": {
+    "stats": {
+      "activeRooms": { "label": "Active Rooms", "unit": "with treatments this season" },
+      "pending": { "label": "Pending Treatments", "unit": "awaiting approval" },
+      "approved": { "label": "Approved Treatments", "unit": "this season" },
+      "revenue": { "label": "Revenue (USD)", "unit": "in approved treatments" }
+    },
+    "status": {
+      "approved": "✓ Active",
+      "submitted": "⏳ Pending",
+      "applied": "🔧 Applied",
+      "completed": "📸 OK",
+      "rejected": "✗ Rejected",
+      "cancelled": "– Cancelled"
+    },
+    "pendingAlertPrefix": "⏳ You have",
+    "pendingAlertCount_one": "{{count}} pending treatment",
+    "pendingAlertCount_other": "{{count}} pending treatments",
+    "pendingAlertSuffix": "awaiting your distributor's approval.",
+    "recentTreatments": {
+      "title": "Recent treatments",
+      "viewAll": "View all",
+      "empty": "No treatments yet.",
+      "createFirst": "Create the first treatment",
+      "columns": { "room": "Room", "product": "Product", "price": "Price", "date": "Date", "status": "Status", "view": "View" }
+    },
+    "roomsSummary": {
+      "title": "Rooms — quick summary",
+      "viewAll": "View all",
+      "empty": "No rooms with treatments yet.",
+      "service": "Service",
+      "own": "Self-applied",
+      "newTreatment": "New treatment"
+    },
+    "quickActions": {
+      "calculator": { "label": "New calculation", "desc": "Calculate dose and compare options" },
+      "matrisure": { "label": "MatriSure Log", "desc": "Upload dose verification photo" },
+      "generators": { "label": "Generators", "desc": "Buy or rent a MaTri generator" }
+    }
+  },
+  "sidebar": {
+    "tagline": "🌎 International Portal",
+    "nav": {
+      "dashboard": "Dashboard",
+      "rooms": "Cold Rooms",
+      "seasonplan": "Season Planning",
+      "calculator": "Dose Calculator",
+      "treatments": "Treatments",
+      "applog": "Application Log",
+      "generators": "Generators",
+      "documents": "Documents",
+      "knowledgeBase": "MaTri Knowledge Base",
+      "users": "Users",
+      "profile": "My Profile"
+    },
+    "sections": {
+      "main": "Main",
+      "equipment": "Equipment",
+      "info": "Information",
+      "admin": "Administration",
+      "account": "Account"
+    },
+    "aboutPortal": "About the Portal",
+    "panelOf": "{{orgName}} Panel",
+    "signOut": "Log out"
+  },
   "navbar": {
     "announcement": "info@ma-tri.com  |  Official MaTri portal  |  Contact your local distributor",
     "products": "Products",

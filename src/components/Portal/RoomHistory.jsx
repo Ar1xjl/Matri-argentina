@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const HISTORY_DATA = [
   { date:'20 jun 2026', season:'2026', crop:'Manzana Fuji',   ppb:1000, operator:'J. Rodríguez', generator:'GEN-012', sureStatus:'confirmed', surePhoto:true },
@@ -12,6 +13,7 @@ const HISTORY_DATA = [
 const SEASONS = ['Todas', '2026', '2025']
 
 export default function RoomHistory({ roomName, onClose }) {
+  const { t } = useTranslation()
   const [season, setSeason] = useState('Todas')
 
   const filtered = season === 'Todas'
@@ -25,14 +27,14 @@ export default function RoomHistory({ roomName, onClose }) {
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px'}}>
         <div>
           <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>
-            Historial de tratamientos — {roomName}
+            {t('roomHistory.title', { roomName })}
           </div>
           <div style={{fontSize:'12px', color:'#888', marginTop:'2px'}}>
-            {filtered.length} tratamientos · Dosis promedio: {avgPpb} ppb
+            {t('roomHistory.summary', { count: filtered.length, avgPpb })}
           </div>
         </div>
         {onClose && (
-          <button className="btn-secondary btn-sm" onClick={onClose}>✕ Cerrar</button>
+          <button className="btn-secondary btn-sm" onClick={onClose}>{t('roomHistory.close')}</button>
         )}
       </div>
 
@@ -49,12 +51,12 @@ export default function RoomHistory({ roomName, onClose }) {
                 border:'none', borderRadius:'7px', padding:'7px 14px',
                 fontSize:'12px', fontWeight:600, cursor:'pointer'
               }}
-            >{s === 'Todas' ? 'Todas las temporadas' : `Temporada ${s}`}</button>
+            >{s === 'Todas' ? t('roomHistory.allSeasons') : t('roomHistory.season', { season: s })}</button>
           ))}
         </div>
         <div style={{display:'flex', gap:'8px'}}>
-          <button className="btn-secondary btn-sm">📄 Exportar PDF</button>
-          <button className="btn-secondary btn-sm">📊 Exportar Excel</button>
+          <button className="btn-secondary btn-sm">{t('roomHistory.exportPdf')}</button>
+          <button className="btn-secondary btn-sm">{t('roomHistory.exportExcel')}</button>
         </div>
       </div>
 
@@ -64,8 +66,8 @@ export default function RoomHistory({ roomName, onClose }) {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Fecha</th><th>Fruta / variedad</th><th>Dosis</th>
-                <th>Operario</th><th>Generador</th><th>MatriSure</th>
+                <th>{t('roomHistory.columns.date')}</th><th>{t('roomHistory.columns.crop')}</th><th>{t('roomHistory.columns.dose')}</th>
+                <th>{t('roomHistory.columns.operator')}</th><th>{t('roomHistory.columns.generator')}</th><th>{t('roomHistory.columns.matriSure')}</th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +80,7 @@ export default function RoomHistory({ roomName, onClose }) {
                   <td style={{fontFamily:'monospace', fontSize:'12px'}}>{h.generator}</td>
                   <td>
                     <span className={`status ${h.sureStatus}`}>
-                      {h.sureStatus === 'confirmed' ? '📸 Confirmado' : '⏳ Pendiente'}
+                      {h.sureStatus === 'confirmed' ? t('roomHistory.confirmed') : t('roomHistory.pending')}
                     </span>
                   </td>
                 </tr>
@@ -90,7 +92,7 @@ export default function RoomHistory({ roomName, onClose }) {
 
       {filtered.length === 0 && (
         <div style={{textAlign:'center', padding:'40px', color:'#888', fontSize:'13px'}}>
-          No hay tratamientos registrados para esta temporada.
+          {t('roomHistory.empty')}
         </div>
       )}
     </div>

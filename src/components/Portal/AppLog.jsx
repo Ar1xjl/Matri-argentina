@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import sureLogo from '../../assets/logos/MatriSure_Logo.png'
 import sureImg  from '../../assets/images/MatriSure_Kit.png'
 import ApplicationForm from './ApplicationForm'
@@ -7,31 +8,34 @@ import MatriSurePhotoModal from './MatriSurePhotoModal'
 import RoomHistory from './RoomHistory'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
-
-// "En curso" isn't a stored status (see Portal.jsx's startApplication/
-// finishApplication) — a real application can run 12-30h between Inicio and
-// Fin, so the Treatment stays 'approved' the whole time and this is derived
-// purely from which photos already exist (Juan, 2026-07-31).
-const statusLabel = (t) => {
-  if (t.status === 'approved' && t.start_photo_url && !t.end_photo_url) {
-    return { cls:'pending', label:'🔧 En curso — falta finalizar' }
-  }
-  return ({
-    approved:  { cls:'pending',   label:'⏳ Listo para aplicar' },
-    applied:   { cls:'pending',   label:'🔧 Aplicado — falta MatriSure' },
-    completed: { cls:'confirmed', label:'📸 Confirmado' },
-  })[t.status] || null
-}
-
-const APPLOG_COLUMNS = [
-  { header: 'Cámara',            get: t => t.cold_rooms?.name || '' },
-  { header: 'Producto',          get: t => t.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
-  { header: 'Dosis / sachets',   get: t => pouchBreakdownDisplay(t) },
-  { header: 'Fecha aplicación',  get: t => t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '' },
-  { header: 'MatriSure',         get: t => statusLabel(t)?.label || '' },
-]
+import { formatDate } from '../../lib/formatters'
 
 export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl }) {
+  const { t } = useTranslation()
+
+  // "En curso" isn't a stored status (see Portal.jsx's startApplication/
+  // finishApplication) — a real application can run 12-30h between Inicio and
+  // Fin, so the Treatment stays 'approved' the whole time and this is derived
+  // purely from which photos already exist (Juan, 2026-07-31).
+  const statusLabel = (tr) => {
+    if (tr.status === 'approved' && tr.start_photo_url && !tr.end_photo_url) {
+      return { cls:'pending', label:t('appLog.status.inProgress') }
+    }
+    return ({
+      approved:  { cls:'pending',   label:t('appLog.status.readyToApply') },
+      applied:   { cls:'pending',   label:t('appLog.status.appliedMissingMatriSure') },
+      completed: { cls:'confirmed', label:t('appLog.status.confirmed') },
+    })[tr.status] || null
+  }
+
+  const APPLOG_COLUMNS = [
+    { header: t('appLog.columns.room'),        get: tr => tr.cold_rooms?.name || '' },
+    { header: t('appLog.columns.product'),     get: tr => tr.product === 'powder' ? 'MatriPowder' : 'MatriTablets' },
+    { header: t('appLog.columns.doseSachets'), get: tr => pouchBreakdownDisplay(tr) },
+    { header: t('appLog.columns.appliedDate'), get: tr => tr.applied_at ? formatDate(tr.applied_at) : '' },
+    { header: t('appLog.columns.matriSure'),   get: tr => statusLabel(tr)?.label || '' },
+  ]
+
   const [view, setView] = useState('list') // 'list' | 'startform' | 'applystart' | 'endform' | 'applyend' | 'capture' | 'review' | 'history'
   const [selected, setSelected] = useState(null)
   const [historyRoom, setHistoryRoom] = useState(null)
@@ -60,7 +64,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     if (res?.error) {
       // Stay on this step — MatriSureCapture keeps the captured blob in its
       // own local state, so the user can just retry without retaking it.
-      setActionError('No se pudo guardar el inicio de la aplicación: ' + res.error)
+      setActionError(t('appLog.errors.saveStart', { error: res.error }))
       return
     }
     setPendingTime(null)
@@ -72,7 +76,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     const res = await onFinishApplication(selected.id, { ...pendingTime, endBlob })
     setSubmitting(false)
     if (res?.error) {
-      setActionError('No se pudo guardar el fin de la aplicación: ' + res.error)
+      setActionError(t('appLog.errors.saveEnd', { error: res.error }))
       return
     }
     setPendingTime(null)
@@ -89,7 +93,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     const res = await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
     setSubmitting(false)
     if (res?.error) {
-      setActionError('No se pudo guardar la verificación MatriSure: ' + res.error)
+      setActionError(t('appLog.errors.saveMatriSure', { error: res.error }))
       return
     }
     setPendingPhoto(null)
@@ -122,14 +126,14 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       <div>
         {errorBanner}
         <div className="alert info" style={{marginBottom:'16px'}}>
-          📋 Foto al colocar el kit en la cámara, coincidente con la hora de inicio registrada. El tratamiento queda "En curso" hasta que vuelvas a cerrarlo con la foto de Fin.
+          {t('appLog.startPhotoHint')}
         </div>
         <MatriSureCapture
           onCapture={handleStartPhoto}
           onCancel={cancelFlow}
-          bannerText="Foto de INICIO de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
-          confirmLabel={submitting ? 'Guardando…' : '✓ Usar como foto de inicio'}
-          previewAlt="Foto de inicio de aplicación"
+          bannerText={t('appLog.startPhotoBanner')}
+          confirmLabel={submitting ? t('common.saving') : t('appLog.useAsStartPhoto')}
+          previewAlt={t('appLog.startPhotoAlt')}
         />
       </div>
     )
@@ -155,14 +159,14 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       <div>
         {errorBanner}
         <div className="alert info" style={{marginBottom:'16px'}}>
-          📋 Foto al finalizar la aplicación, coincidente con la hora de fin registrada.
+          {t('appLog.endPhotoHint')}
         </div>
         <MatriSureCapture
           onCapture={handleEndPhoto}
           onCancel={cancelFlow}
-          bannerText="Foto de FIN de la aplicación — en vivo desde la cámara del dispositivo, no se permite subir desde la galería."
-          confirmLabel={submitting ? 'Guardando…' : '✓ Usar como foto de fin y guardar'}
-          previewAlt="Foto de fin de aplicación"
+          bannerText={t('appLog.endPhotoBanner')}
+          confirmLabel={submitting ? t('common.saving') : t('appLog.useAsEndPhoto')}
+          previewAlt={t('appLog.endPhotoAlt')}
         />
       </div>
     )
@@ -183,16 +187,16 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
         {errorBanner}
         <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
           <img src={URL.createObjectURL(pendingPhoto)} alt="MatriSure" style={{width:'100%', borderRadius:'8px', marginBottom:'16px'}}/>
-          <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>¿Qué mostró la tira?</div>
+          <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>{t('appLog.review.question')}</div>
           <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
             <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting} onClick={() => handleReview('confirmed')}>
-              ✓ Dosis alcanzada
+              {t('appLog.review.confirmed')}
             </button>
             <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting} onClick={() => handleReview('not_reached')}>
-              ✗ Dosis no alcanzada
+              {t('appLog.review.notReached')}
             </button>
             <button className="btn-secondary" disabled={submitting} onClick={() => handleReview('pending_review', true)}>
-              🙋 No estoy seguro — pedir ayuda a Wassington
+              {t('appLog.review.askHelp')}
             </button>
           </div>
         </div>
@@ -216,7 +220,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       )}
 
       <div className="alert success">
-        📸 Las fotos del Kit MatriSure deben tomarse en vivo desde la cámara del dispositivo. No se permiten cargas desde la galería.
+        {t('appLog.livePhotoNotice')}
       </div>
 
       <div className="card">
@@ -225,9 +229,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
           <div>
             <img src={sureLogo} alt="MatriSure" style={{height:'28px', objectFit:'contain', marginBottom:'8px', display:'block'}}/>
             <p style={{fontSize:'13px', color:'var(--gray)', lineHeight:1.6}}>
-              Las tiras MatriSure cambian de color cuando la cámara alcanzó la dosis objetivo de 1-MCP.
-              Fotografiá la tira al finalizar el tratamiento — la foto queda registrada con fecha,
-              hora y número de cámara automáticamente.
+              {t('appLog.matriSureDesc')}
             </p>
           </div>
         </div>
@@ -235,69 +237,69 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Registro de aplicaciones</span>
+          <span className="card-title">{t('sidebar.nav.applog')}</span>
           <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-            <span style={{fontSize:'12px', color:'var(--gray)'}}>Temporada 2026</span>
-            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('registro_de_aplicaciones.xlsx', APPLOG_COLUMNS, relevant)}>⬇ Exportar a Excel</button>
+            <span style={{fontSize:'12px', color:'var(--gray)'}}>{t('appLog.season2026')}</span>
+            <button className="btn-secondary btn-sm" onClick={() => exportToExcel('registro_de_aplicaciones.xlsx', APPLOG_COLUMNS, relevant)}>{t('common.exportExcel')}</button>
           </div>
         </div>
         <div style={{padding:0}}>
           {relevant.length === 0 ? (
             <div style={{padding:'40px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-              No hay tratamientos aprobados todavía.
+              {t('appLog.empty')}
             </div>
           ) : (
             <div className="table-scroll"><table className="data-table">
               <thead>
                 <tr>
-                  <th>Cámara</th><th>Producto</th><th>Dosis / sachets</th>
-                  <th>Fecha aplicación</th><th>MatriSure</th><th></th>
+                  <th>{t('appLog.columns.room')}</th><th>{t('appLog.columns.product')}</th><th>{t('appLog.columns.doseSachets')}</th>
+                  <th>{t('appLog.columns.appliedDate')}</th><th>{t('appLog.columns.matriSure')}</th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {relevant.map(t => {
-                  const s = statusLabel(t)
-                  const inProgress = t.status === 'approved' && t.start_photo_url && !t.end_photo_url
+                {relevant.map(tr => {
+                  const s = statusLabel(tr)
+                  const inProgress = tr.status === 'approved' && tr.start_photo_url && !tr.end_photo_url
                   return (
-                    <tr key={t.id}>
-                      <td style={{fontWeight:600}}>{t.cold_rooms?.name}</td>
+                    <tr key={tr.id}>
+                      <td style={{fontWeight:600}}>{tr.cold_rooms?.name}</td>
                       <td>
                         <span style={{
-                          background: t.product === 'powder' ? '#eef4c0' : '#e1f5ee',
-                          color: t.product === 'powder' ? '#4a6010' : '#0d7a5f',
+                          background: tr.product === 'powder' ? '#eef4c0' : '#e1f5ee',
+                          color: tr.product === 'powder' ? '#4a6010' : '#0d7a5f',
                           fontSize:'11px', fontWeight:700, padding:'3px 10px', borderRadius:'100px'
-                        }}>{t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'}</span>
+                        }}>{tr.product === 'powder' ? 'MatriPowder' : 'MatriTablets'}</span>
                       </td>
                       <td style={{fontFamily:'monospace', fontSize:'12px'}}>
-                        {pouchBreakdownDisplay(t)}
+                        {pouchBreakdownDisplay(tr)}
                       </td>
-                      <td style={{color:'var(--gray)'}}>{t.applied_at ? new Date(t.applied_at).toLocaleDateString('es-AR') : '—'}</td>
+                      <td style={{color:'var(--gray)'}}>{tr.applied_at ? formatDate(tr.applied_at) : '—'}</td>
                       <td>{s ? <span className={`status ${s.cls}`}>{s.label}</span> : '—'}</td>
                       <td>
                         <div style={{display:'flex', gap:'6px'}}>
-                          {t.status === 'approved' && !t.start_photo_url && (
-                            <button className="btn-lime btn-sm" onClick={() => openStartForm(t)}>
-                              ▶️ Iniciar aplicación
+                          {tr.status === 'approved' && !tr.start_photo_url && (
+                            <button className="btn-lime btn-sm" onClick={() => openStartForm(tr)}>
+                              {t('appLog.startApplication')}
                             </button>
                           )}
                           {inProgress && (
-                            <button className="btn-lime btn-sm" onClick={() => openEndForm(t)}>
-                              ⏹ Finalizar aplicación
+                            <button className="btn-lime btn-sm" onClick={() => openEndForm(tr)}>
+                              {t('appLog.finishApplication')}
                             </button>
                           )}
-                          {t.status === 'applied' && (
-                            <button className="btn-lime btn-sm" onClick={() => openCapture(t)}>
-                              📸 Subir MatriSure
+                          {tr.status === 'applied' && (
+                            <button className="btn-lime btn-sm" onClick={() => openCapture(tr)}>
+                              {t('appLog.uploadMatriSure')}
                             </button>
                           )}
-                          {t.start_photo_url && (
-                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.start_photo_url)}>📷 Inicio</button>
+                          {tr.start_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(tr.start_photo_url)}>{t('appLog.photoStart')}</button>
                           )}
-                          {t.end_photo_url && (
-                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.end_photo_url)}>📷 Fin</button>
+                          {tr.end_photo_url && (
+                            <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(tr.end_photo_url)}>{t('appLog.photoEnd')}</button>
                           )}
-                          <button className="btn-secondary btn-sm" onClick={() => openHistory(t.cold_rooms?.name)}>
-                            🕒 Historial
+                          <button className="btn-secondary btn-sm" onClick={() => openHistory(tr.cold_rooms?.name)}>
+                            {t('rooms.history')}
                           </button>
                         </div>
                       </td>

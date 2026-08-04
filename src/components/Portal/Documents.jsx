@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import powderLogo    from '../../assets/logos/MatriPowder_Logo.svg'
 import tabletsLogo   from '../../assets/logos/MatriTablets_Logo.svg'
 import generatorLogo from '../../assets/logos/MatriGenerator_Logo.svg'
@@ -12,16 +13,17 @@ const DOCS = [
 ]
 
 export default function Documents() {
+  const { t } = useTranslation()
   return (
     <div>
       <div className="alert info">
-        📄 Todos los documentos están actualizados. Wassington publica nuevas versiones cuando hay cambios regulatorios o de producto.
+        {t('documents.notice')}
       </div>
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Biblioteca de documentos</span>
-          <span style={{fontSize:'12px', color:'var(--gray)'}}>5 documentos vigentes</span>
+          <span className="card-title">{t('documents.title')}</span>
+          <span style={{fontSize:'12px', color:'var(--gray)'}}>{t('documents.count', { count: DOCS.length })}</span>
         </div>
         <div className="card-body" style={{padding:'8px 0'}}>
           {DOCS.map((d,i) => (
@@ -39,8 +41,8 @@ export default function Documents() {
                 background:'var(--teal-lt)', color:'var(--teal)',
                 fontSize:'10px', fontWeight:700, padding:'3px 10px',
                 borderRadius:'100px', whiteSpace:'nowrap'
-              }}>Vigente</span>
-              <button className="btn-secondary btn-sm">⬇ Descargar</button>
+              }}>{t('documents.current')}</span>
+              <button className="btn-secondary btn-sm">{t('documents.download')}</button>
             </div>
           ))}
         </div>

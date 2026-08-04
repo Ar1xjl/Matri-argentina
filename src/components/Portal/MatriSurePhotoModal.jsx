@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export default function MatriSurePhotoModal({ path, onGetPhotoUrl, onClose }) {
+  const { t } = useTranslation()
   const [url,   setUrl]   = useState(null)
   const [error, setError] = useState(false)
 
@@ -19,11 +21,11 @@ export default function MatriSurePhotoModal({ path, onGetPhotoUrl, onClose }) {
     >
       <div style={{background:'#fff', borderRadius:'14px', padding:'20px', maxWidth:'480px', width:'100%'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
-          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Foto MatriSure</span>
+          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{t('matriSurePhotoModal.title')}</span>
           <button onClick={onClose} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'#6b7280'}}>✕</button>
         </div>
-        {error && <div style={{color:'#8b2020', fontSize:'13px'}}>No se pudo cargar la foto.</div>}
-        {!error && !url && <div style={{fontSize:'13px', color:'#888', textAlign:'center', padding:'20px'}}>Cargando...</div>}
+        {error && <div style={{color:'#8b2020', fontSize:'13px'}}>{t('matriSurePhotoModal.error')}</div>}
+        {!error && !url && <div style={{fontSize:'13px', color:'#888', textAlign:'center', padding:'20px'}}>{t('common.loading')}</div>}
         {url && <img src={url} alt="MatriSure" style={{width:'100%', borderRadius:'8px'}}/>}
       </div>
     </div>

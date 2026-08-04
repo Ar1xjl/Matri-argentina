@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // Live camera capture only — no <input type="file"> anywhere in this component.
 // DOMAIN_MODEL.md Business Rule 11: "MatriSure photo must be taken live from
@@ -6,6 +7,7 @@ import { useState, useRef, useEffect } from 'react'
 // with a `capture` attribute hint) still lets a desktop user choose an old
 // file, so this uses getUserMedia + canvas instead, which has no such escape hatch.
 export default function MatriSureCapture({ onCapture, onCancel, bannerText, confirmLabel, previewAlt }) {
+  const { t } = useTranslation()
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
@@ -21,13 +23,13 @@ export default function MatriSureCapture({ onCapture, onCancel, bannerText, conf
         streamRef.current = stream
         if (videoRef.current) videoRef.current.srcObject = stream
       } catch {
-        setError('No se pudo acceder a la cámara. Revisá los permisos del navegador para este sitio.')
+        setError(t('matriSureCapture.cameraError'))
       }
     })()
     return () => {
       streamRef.current?.getTracks().forEach(t => t.stop())
     }
-  }, [])
+  }, [t])
 
   const capture = () => {
     const video = videoRef.current
@@ -57,7 +59,7 @@ export default function MatriSureCapture({ onCapture, onCancel, bannerText, conf
   return (
     <div style={{maxWidth:'480px'}}>
       <div className="alert success" style={{marginBottom:'16px'}}>
-        📸 {bannerText || 'Foto en vivo desde la cámara del dispositivo — no se permite subir desde la galería.'}
+        📸 {bannerText || t('matriSureCapture.defaultBanner')}
       </div>
 
       <div style={card}>
@@ -70,17 +72,17 @@ export default function MatriSureCapture({ onCapture, onCancel, bannerText, conf
             <video ref={videoRef} autoPlay playsInline muted
               style={{width:'100%', borderRadius:'8px', background:'#000', marginBottom:'12px'}}/>
             <button className="btn-primary" style={{width:'100%'}} onClick={capture} disabled={!!error}>
-              📷 Capturar foto
+              {t('matriSureCapture.capture')}
             </button>
           </>
         ) : (
           <>
-            <img src={previewUrl} alt={previewAlt || 'MatriSure capturada'} style={{width:'100%', borderRadius:'8px', marginBottom:'12px'}}/>
+            <img src={previewUrl} alt={previewAlt || t('matriSureCapture.defaultPreviewAlt')} style={{width:'100%', borderRadius:'8px', marginBottom:'12px'}}/>
             <div style={{display:'flex', gap:'10px'}}>
               <button className="btn-primary" style={{flex:1, opacity: uploading ? .6 : 1}} onClick={confirm} disabled={uploading}>
-                {uploading ? 'Subiendo…' : (confirmLabel || '✓ Usar esta foto')}
+                {uploading ? t('matriSureCapture.uploading') : (confirmLabel || t('matriSureCapture.useThisPhoto'))}
               </button>
-              <button className="btn-secondary" onClick={retake} disabled={uploading}>↺ Repetir</button>
+              <button className="btn-secondary" onClick={retake} disabled={uploading}>{t('treatments.repeat')}</button>
             </div>
           </>
         )}
@@ -88,7 +90,7 @@ export default function MatriSureCapture({ onCapture, onCancel, bannerText, conf
         <canvas ref={canvasRef} style={{display:'none'}}/>
       </div>
 
-      <button className="btn-secondary" style={{marginTop:'12px'}} onClick={onCancel}>Cancelar</button>
+      <button className="btn-secondary" style={{marginTop:'12px'}} onClick={onCancel}>{t('common.cancel')}</button>
     </div>
   )
 }
