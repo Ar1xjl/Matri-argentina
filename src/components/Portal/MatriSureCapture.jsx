@@ -67,14 +67,13 @@ export default function MatriSureCapture({ onCapture, onCancel, bannerText, conf
           <div style={{color:'#8b2020', fontSize:'13px', marginBottom:'12px'}}>{error}</div>
         )}
 
+        <video ref={videoRef} autoPlay playsInline muted
+          style={{width:'100%', borderRadius:'8px', background:'#000', marginBottom:'12px', display: photoBlob ? 'none' : 'block'}}/>
+
         {!photoBlob ? (
-          <>
-            <video ref={videoRef} autoPlay playsInline muted
-              style={{width:'100%', borderRadius:'8px', background:'#000', marginBottom:'12px'}}/>
-            <button className="btn-primary" style={{width:'100%'}} onClick={capture} disabled={!!error}>
-              {t('matriSureCapture.capture')}
-            </button>
-          </>
+          <button className="btn-primary" style={{width:'100%'}} onClick={capture} disabled={!!error}>
+            {t('matriSureCapture.capture')}
+          </button>
         ) : (
           <>
             <img src={previewUrl} alt={previewAlt || t('matriSureCapture.defaultPreviewAlt')} style={{width:'100%', borderRadius:'8px', marginBottom:'12px'}}/>
