@@ -7,6 +7,7 @@ import Inventory from './Inventory'
 import PouchCatalogPanel from './PouchCatalogPanel'
 import TabletCatalogPanel from './TabletCatalogPanel'
 import KitsGlobal from './KitsGlobal'
+import KitsDistributor from './KitsDistributor'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 
@@ -67,9 +68,13 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const isOperatorOnly = !canManage && myRoles.includes('operator')
   // Fase K-1 (2026-08-11): MatriSure Kit stewardship. At Global, the
   // "Encargado de Kits" (Operador) does the routine registration/release
-  // work alongside Manager (Owner/Aprobador) — DOMAIN_MODEL.md Rule 49.
-  // Distribuidor-level kit handling comes in a later step of this same Fase.
-  const canManageKits = orgType === 'global' && (canManage || myRoles.includes('operator'))
+  // work alongside Manager (Owner/Aprobador) — DOMAIN_MODEL.md Rule 49. At
+  // Distribuidor it's deliberately Manager-only — assigning a kit to an
+  // Aplicador is a supervisory call, not the Aplicador's own routine work
+  // (Sub-distribuidor/Cliente come in a later step of this same Fase).
+  const canManageKits = orgType === 'global'
+    ? (canManage || myRoles.includes('operator'))
+    : (orgType === 'distributor' && canManage)
   const inventoryReadOnly = orgType === 'global'
   const catalogReadOnly = orgType === 'subdistributor'
   const pricingReadOnly = orgType === 'global'
@@ -202,8 +207,9 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       {/* Pricing tab */}
       {tab === 'pricing' && <PricingPanel profile={profile} readOnly={pricingReadOnly} />}
 
-      {/* Kits tab (Fase K-1, Global only for now) */}
-      {tab === 'kits' && <KitsGlobal profile={profile} />}
+      {/* Kits tab (Fase K-1 — Global + Distribuidor so far) */}
+      {tab === 'kits' && orgType === 'global' && <KitsGlobal profile={profile} />}
+      {tab === 'kits' && orgType === 'distributor' && <KitsDistributor profile={profile} />}
 
       {/* Treatments tab */}
       {tab === 'treatments' && (
