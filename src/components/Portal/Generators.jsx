@@ -6,23 +6,12 @@ import { supabase } from '../../lib/supabaseClient'
 import { fetchOrgPricing, getGeneratorPrice, getServiceFee } from '../../lib/orgPricing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 import { formatUSD as fmtUSD } from '../../lib/formatters'
+import { generateSequence } from '../../lib/sequence'
 import GeneratorTransferModal from './GeneratorTransferModal'
 
 const GENERATOR_STATUS_KEYS = {
   available: 'available', dispatched: 'dispatched', on_rent: 'onRent',
   returned: 'returned', in_service: 'inService', repaired: 'repaired', out_of_service: 'outOfService',
-}
-
-// Compras en tanda traen unidades con ID/N° de serie correlativos (ej: GEN-001
-// a GEN-010) — a partir de un valor "base" con un número al final, genera la
-// secuencia manteniendo el prefijo/sufijo y el ancho del número (ceros a la izq).
-function generateSequence(base, count) {
-  const match = base.match(/^(.*?)(\d+)(\D*)$/)
-  if (!match) return Array.from({ length: count }, (_, i) => (count > 1 ? `${base}-${i + 1}` : base))
-  const [, prefix, digits, suffix] = match
-  const width = digits.length
-  const start = parseInt(digits, 10)
-  return Array.from({ length: count }, (_, i) => `${prefix}${String(start + i).padStart(width, '0')}${suffix}`)
 }
 
 export default function Generators({ orgId, seasonPlanLines = [], coldRooms = [], profile }) {

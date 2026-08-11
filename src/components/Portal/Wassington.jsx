@@ -6,6 +6,7 @@ import Organizations from './Organizations'
 import Inventory from './Inventory'
 import PouchCatalogPanel from './PouchCatalogPanel'
 import TabletCatalogPanel from './TabletCatalogPanel'
+import KitsGlobal from './KitsGlobal'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 
@@ -64,6 +65,11 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const orgType = profile?.organizations?.org_type
   const canManage = myRoles.includes('owner') || myRoles.includes('approver')
   const isOperatorOnly = !canManage && myRoles.includes('operator')
+  // Fase K-1 (2026-08-11): MatriSure Kit stewardship. At Global, the
+  // "Encargado de Kits" (Operador) does the routine registration/release
+  // work alongside Manager (Owner/Aprobador) — DOMAIN_MODEL.md Rule 49.
+  // Distribuidor-level kit handling comes in a later step of this same Fase.
+  const canManageKits = orgType === 'global' && (canManage || myRoles.includes('operator'))
   const inventoryReadOnly = orgType === 'global'
   const catalogReadOnly = orgType === 'subdistributor'
   const pricingReadOnly = orgType === 'global'
@@ -155,6 +161,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
       { id:'catalog',   label:'🏷️ Catálogo de SKU' },
       { id:'pricing',   label:'💲 Gestión de precios' },
     ] : []),
+    ...(canManageKits ? [{ id:'kits', label:'🧪 Kits MatriSure' }] : []),
   ]
 
   return (
@@ -194,6 +201,9 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
       {/* Pricing tab */}
       {tab === 'pricing' && <PricingPanel profile={profile} readOnly={pricingReadOnly} />}
+
+      {/* Kits tab (Fase K-1, Global only for now) */}
+      {tab === 'kits' && <KitsGlobal profile={profile} />}
 
       {/* Treatments tab */}
       {tab === 'treatments' && (
