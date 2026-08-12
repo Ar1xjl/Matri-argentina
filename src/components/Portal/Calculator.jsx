@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { supabase } from '../../lib/supabaseClient'
 import { POUCHES, DOSE_BASE, greedyCeiling, greedyFloor, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
 import { formatUSD as fmtUSD, formatNumber as fmtNum } from '../../lib/formatters'
@@ -14,7 +15,7 @@ const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', t
 const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
-export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0 }) {
+export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0, profile = null, onAddRoom = null }) {
   const { t } = useTranslation()
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [override,   setOverride]   = useState(null)
@@ -27,6 +28,29 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   const [selected,   setSelected]   = useState(null)   // 'exact' | 'adjusted' | 'tablets'
   const [serviceModel, setServiceModel] = useState('self') // 'service' | 'self'
   const [treatmentSent, setTreatmentSent] = useState(false)
+
+  // Fase L-1 (2026-08-11): a Distributor/Sub-distributor/Global sees every
+  // Customer's rooms in `coldRooms` at once — Juan's real complaint was that
+  // a flat list becomes unusable once there are many Customers with many
+  // rooms each. Pick the Customer first, then the room dropdown narrows to
+  // just theirs (or lets them add a new one inline, without a detour to the
+  // Cámaras screen). A Customer's own view is untouched — one org, no filter
+  // needed, same flat dropdown as always.
+  const isDistributorView = profile?.organizations?.org_type !== 'customer'
+  const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [customerOrgs, setCustomerOrgs] = useState([])
+  const [showNewRoomForm, setShowNewRoomForm] = useState(false)
+  const [newRoomName, setNewRoomName] = useState('')
+  const [newRoomVolume, setNewRoomVolume] = useState('')
+  const [newRoomCrop, setNewRoomCrop] = useState('Manzanas')
+  const [newRoomError, setNewRoomError] = useState('')
+  const [newRoomSaving, setNewRoomSaving] = useState(false)
+  const [pendingSelectRoomId, setPendingSelectRoomId] = useState(null)
+
+  useEffect(() => {
+    if (!isDistributorView) return
+    supabase.from('organizations').select('*').eq('org_type', 'customer').then(({ data }) => setCustomerOrgs(data || []))
+  }, [isDistributorView])
 
   // Pricing applies to whoever actually owns the selected Cold Room — that's
   // usually the caller's own org, but when a Distributor/Sub-distributor is
@@ -61,12 +85,34 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   if (prefill && prefill.id !== appliedPrefillId && coldRooms.length > 0) {
     setAppliedPrefillId(prefill.id)
     const idx = coldRooms.findIndex(r => r.id === prefill.cold_room_id)
-    if (idx >= 0) setRoomIdx(idx)
+    if (idx >= 0) {
+      setRoomIdx(idx)
+      if (isDistributorView) setSelectedCustomerId(coldRooms[idx].org_id) // keep the Cliente selector in sync with the incoming room
+    }
     if (prefill.planned_dose_ppb) setPpb(String(prefill.planned_dose_ppb))
     setDoseSource('manual')
     setResults(null)
     setSelected(null)
     setTreatmentSent(false)
+  }
+
+  // Default the Cliente selector to whichever Customer owns the currently
+  // selected room, the first time there's enough data to know — same
+  // adjust-during-render pattern as the prefill sync above.
+  if (isDistributorView && !selectedCustomerId && coldRooms[roomIdx]?.org_id) {
+    setSelectedCustomerId(coldRooms[roomIdx].org_id)
+  }
+
+  // Once a newly-added room shows up in the reloaded coldRooms prop, select
+  // it automatically instead of leaving the customer to hunt for it again —
+  // same adjust-during-render pattern (avoids react-hooks/set-state-in-effect).
+  if (pendingSelectRoomId) {
+    const idx = coldRooms.findIndex(r => r.id === pendingSelectRoomId)
+    if (idx >= 0) {
+      setRoomIdx(idx)
+      setPendingSelectRoomId(null)
+      setResults(null)
+    }
   }
 
   // Listen for dose coming back from DoseRight module
@@ -84,12 +130,46 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
     return () => window.removeEventListener('message', handler)
   }, [])
 
-  if (coldRooms.length === 0) {
+  if (coldRooms.length === 0 && !isDistributorView) {
     return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>{t('calculator.loadingRooms')}</div>
   }
 
-  const vol    = coldRooms[roomIdx].volume_m3
+  // Fase L-1: narrowed to the selected Customer's own rooms for a Distributor/
+  // Sub-distributor/Global view; identical to `coldRooms` for a Customer.
+  const customerRooms = isDistributorView ? coldRooms.filter(r => r.org_id === selectedCustomerId) : coldRooms
+  const currentRoom = coldRooms[roomIdx]
+  const hasValidRoom = !!currentRoom
+  const vol    = currentRoom?.volume_m3
   const ppbVal = parseFloat(ppb) || 1000
+
+  const selectCustomer = (customerId) => {
+    setSelectedCustomerId(customerId)
+    const firstRoom = coldRooms.find(r => r.org_id === customerId)
+    setRoomIdx(firstRoom ? coldRooms.indexOf(firstRoom) : -1)
+    setResults(null); setSelected(null); setTreatmentSent(false)
+  }
+
+  const selectRoomById = (roomId) => {
+    setRoomIdx(coldRooms.findIndex(r => r.id === roomId))
+    setResults(null); setSelected(null); setTreatmentSent(false)
+  }
+
+  const openNewRoomForm = () => {
+    setNewRoomName(''); setNewRoomVolume(''); setNewRoomCrop('Manzanas'); setNewRoomError('')
+    setShowNewRoomForm(true)
+  }
+
+  const saveNewRoom = async () => {
+    setNewRoomError('')
+    if (!newRoomName.trim()) { setNewRoomError(t('calculator.roomData.newRoomNameRequired')); return }
+    if (!newRoomVolume || Number(newRoomVolume) <= 0) { setNewRoomError(t('calculator.roomData.newRoomVolumeRequired')); return }
+    setNewRoomSaving(true)
+    const res = await onAddRoom?.({ name: newRoomName.trim(), volume_m3: Number(newRoomVolume), primary_crop: newRoomCrop }, selectedCustomerId)
+    setNewRoomSaving(false)
+    if (res?.error) { setNewRoomError(res.error); return }
+    setShowNewRoomForm(false)
+    if (res?.data?.id) setPendingSelectRoomId(res.data.id)
+  }
 
   const calculate = () => {
     const grams = vol * DOSE_BASE * (ppbVal / 1000)
@@ -234,52 +314,119 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
       <div style={card}>
         <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'16px'}}>{t('calculator.roomData.title')}</div>
 
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
-          <div>
-            <label style={lbl}>{t('calculator.roomData.roomLabel')}</label>
-            <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
-              {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name}{r.organizations?.name ? ` — ${r.organizations.name}` : ''} ({r.volume_m3} m³)</option>)}
-            </select>
+        {isDistributorView ? (
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
+            <div>
+              <label style={lbl}>{t('calculator.roomData.customerLabel')}</label>
+              <select style={inp} value={selectedCustomerId} onChange={e => selectCustomer(e.target.value)}>
+                <option value="" disabled>{t('calculator.roomData.customerPlaceholder')}</option>
+                {customerOrgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>{t('calculator.roomData.roomLabel')}</label>
+              {customerRooms.length > 0 ? (
+                <select style={inp} value={currentRoom?.id || ''} onChange={e => selectRoomById(e.target.value)}>
+                  {customerRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.volume_m3} m³)</option>)}
+                </select>
+              ) : (
+                <div style={{...inp, display:'flex', alignItems:'center', color:'#888', fontSize:'12px'}}>
+                  {selectedCustomerId ? t('calculator.roomData.noRoomsForCustomer') : t('calculator.roomData.customerPlaceholder')}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <label style={lbl}>{t('calculator.roomData.customNameLabel')}</label>
-            <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder={t('calculator.roomData.customNamePlaceholder')}/>
+        ) : (
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
+            <div>
+              <label style={lbl}>{t('calculator.roomData.roomLabel')}</label>
+              <select style={inp} value={roomIdx} onChange={e => { setRoomIdx(Number(e.target.value)); setResults(null) }}>
+                {coldRooms.map((r,i) => <option key={r.id} value={i}>{r.name} ({r.volume_m3} m³)</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>{t('calculator.roomData.customNameLabel')}</label>
+              <input style={inp} type="text" value={roomName} onChange={e => setRoomName(e.target.value)} placeholder={t('calculator.roomData.customNamePlaceholder')}/>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div style={{marginBottom:'14px'}}>
-          <label style={lbl}>{t('calculator.roomData.targetDoseLabel')}</label>
-          <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
-            <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setDoseSource('manual'); setResults(null) }} min="100" max="5000" step="50"/>
-            <button onClick={() => { setPpb('1000'); setDoseSource('manual') }} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
-              {t('calculator.roomData.standardDose')}
+        {isDistributorView && selectedCustomerId && (
+          <div style={{marginBottom:'14px'}}>
+            {!showNewRoomForm ? (
+              <button onClick={openNewRoomForm} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'8px 12px', fontSize:'12px', cursor:'pointer'}}>
+                {t('calculator.roomData.addNewRoom')}
+              </button>
+            ) : (
+              <div style={{background:'#f5f5ee', borderRadius:'8px', padding:'14px'}}>
+                {newRoomError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'10px'}}>{newRoomError}</div>}
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                  <div>
+                    <label style={lbl}>{t('calculator.roomData.newRoomName')}</label>
+                    <input style={inp} value={newRoomName} onChange={e => setNewRoomName(e.target.value)}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>{t('calculator.roomData.newRoomVolume')}</label>
+                    <input style={inp} type="number" value={newRoomVolume} onChange={e => setNewRoomVolume(e.target.value)}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>{t('calculator.roomData.newRoomCrop')}</label>
+                    <select style={inp} value={newRoomCrop} onChange={e => setNewRoomCrop(e.target.value)}>
+                      <option>Manzanas</option>
+                      <option>Peras</option>
+                      <option>Kiwi</option>
+                      <option>Otro</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{display:'flex', gap:'8px'}}>
+                  <button className="btn-primary btn-sm" disabled={newRoomSaving} onClick={saveNewRoom}>
+                    {newRoomSaving ? t('common.saving') : t('calculator.roomData.saveRoom')}
+                  </button>
+                  <button className="btn-secondary btn-sm" onClick={() => setShowNewRoomForm(false)}>{t('common.cancel')}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasValidRoom && (
+          <>
+            <div style={{marginBottom:'14px'}}>
+              <label style={lbl}>{t('calculator.roomData.targetDoseLabel')}</label>
+              <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+                <input style={{...inp, flex:1}} type="number" value={ppb} onChange={e => { setPpb(e.target.value); setDoseSource('manual'); setResults(null) }} min="100" max="5000" step="50"/>
+                <button onClick={() => { setPpb('1000'); setDoseSource('manual') }} style={{background:'none', border:'0.5px solid #b5cc2e', color:'#3b6d11', borderRadius:'8px', padding:'10px 12px', fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap'}}>
+                  {t('calculator.roomData.standardDose')}
+                </button>
+              </div>
+              <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+                {t('calculator.roomData.standardDoseHint')}
+              </div>
+            </div>
+
+            <div style={{background:'#f0f7e0', border:'1px solid #b5cc2e', borderRadius:'8px', padding:'12px 14px', marginBottom:'14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:'12px', fontWeight:700, color:'#3b6d11', marginBottom:'2px'}}>{t('calculator.roomData.doseRightPrompt')}</div>
+                <div style={{fontSize:'11px', color:'#555'}}>{t('calculator.roomData.doseRightDesc')}</div>
+              </div>
+              <button
+                onClick={() => window.open('https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html', 'doseright', 'width=900,height=700,scrollbars=yes')}
+                style={{background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:'12px', fontFamily:'inherit'}}
+              >
+                {t('calculator.roomData.openDoseRight')}
+              </button>
+            </div>
+
+            <button style={calcBtn} onClick={calculate}>
+              {t('calculator.roomData.calculate')}
             </button>
-          </div>
-          <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
-            {t('calculator.roomData.standardDoseHint')}
-          </div>
-        </div>
-
-        <div style={{background:'#f0f7e0', border:'1px solid #b5cc2e', borderRadius:'8px', padding:'12px 14px', marginBottom:'14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-          <div>
-            <div style={{fontSize:'12px', fontWeight:700, color:'#3b6d11', marginBottom:'2px'}}>{t('calculator.roomData.doseRightPrompt')}</div>
-            <div style={{fontSize:'11px', color:'#555'}}>{t('calculator.roomData.doseRightDesc')}</div>
-          </div>
-          <button
-            onClick={() => window.open('https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html', 'doseright', 'width=900,height=700,scrollbars=yes')}
-            style={{background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:'12px', fontFamily:'inherit'}}
-          >
-            {t('calculator.roomData.openDoseRight')}
-          </button>
-        </div>
-
-        <button style={calcBtn} onClick={calculate}>
-          {t('calculator.roomData.calculate')}
-        </button>
+          </>
+        )}
       </div>
 
       {/* Results — 3 alternatives */}
-      {results && (
+      {results && hasValidRoom && (
         <div>
           <div style={{fontSize:'15px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>
             {t('calculator.results.compareTitle', { roomName: roomName || coldRooms[roomIdx].name, vol })}

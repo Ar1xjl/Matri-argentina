@@ -361,12 +361,14 @@ export default function Portal({ onSignOut }) {
   // targetOrgId lets a Distributor/Sub-distributor add a room on behalf of
   // one of its Customers (Cámaras screen); defaults to the caller's own org.
   const addColdRoom = async (newRoom, targetOrgId) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('cold_rooms')
       .insert({ ...newRoom, org_id: targetOrgId || profile.org_id })
+      .select()
+      .single()
     if (error) { console.error(error); return { error: error.message } }
     await reloadRooms()
-    return { error: null }
+    return { error: null, data }
   }
 
   // Postgres blocks this with a foreign-key violation if the room still has
@@ -746,7 +748,7 @@ export default function Portal({ onSignOut }) {
     rooms:      <Rooms coldRooms={allRooms} treatments={treatments} onAddRoom={addColdRoom} onDeleteRoom={deleteColdRoom} profile={profile} />,
     treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={canSeeWassingtonPanel ? allRooms : coldRooms} orgId={profile?.org_id}
-                  prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} />,
+                  prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} profile={profile} onAddRoom={addColdRoom} />,
     seasonplan: canSeeWassingtonPanel
                   ? <SeasonPlanRollup />
                   : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
