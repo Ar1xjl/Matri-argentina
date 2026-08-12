@@ -750,7 +750,7 @@ export default function Portal({ onSignOut }) {
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={canSeeWassingtonPanel ? allRooms : coldRooms} orgId={profile?.org_id}
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} profile={profile} onAddRoom={addColdRoom} />,
     seasonplan: canSeeWassingtonPanel
-                  ? <SeasonPlanRollup />
+                  ? <SeasonPlanRollup onNavigate={navigate} />
                   : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
                       onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                       onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
