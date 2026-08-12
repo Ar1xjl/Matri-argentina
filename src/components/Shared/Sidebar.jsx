@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { id: 'documents',   icon: '📄', labelKey: 'sidebar.nav.documents',   section: 'info' },
   { id: 'knowledge-base', icon: '📚', labelKey: 'sidebar.nav.knowledgeBase', section: null,
     href: 'https://ar1xjl.github.io/Matri-argentina/1mcp-references.html' },
-  { id: 'wassington',  icon: '⚙️', labelKey: null,                     section: 'admin' },
+  { id: 'wassington',  icon: '⚙️', labelKey: 'sidebar.nav.controlPanel', section: 'admin' },
   { id: 'users',       icon: '👥', labelKey: 'sidebar.nav.users',       section: 'account' },
   { id: 'profile',     icon: '👤', labelKey: 'sidebar.nav.profile',     section: null },
 ]
