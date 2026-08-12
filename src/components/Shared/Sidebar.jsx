@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { id: 'calculator',  icon: '🧮', labelKey: 'sidebar.nav.calculator',  section: null },
   { id: 'treatments',  icon: '📦', labelKey: 'sidebar.nav.treatments',  section: null },
   { id: 'applog',      icon: '📋', labelKey: 'sidebar.nav.applog',      section: null },
+  { id: 'myapplications', icon: '👷', labelKey: 'sidebar.nav.myApplications', section: null },
   { id: 'generators',  icon: '⚡', labelKey: 'sidebar.nav.generators',  section: 'equipment' },
   { id: 'documents',   icon: '📄', labelKey: 'sidebar.nav.documents',   section: 'info' },
   { id: 'knowledge-base', icon: '📚', labelKey: 'sidebar.nav.knowledgeBase', section: null,
@@ -20,12 +21,13 @@ const NAV_ITEMS = [
   { id: 'profile',     icon: '👤', labelKey: 'sidebar.nav.profile',     section: null },
 ]
 
-export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true, mobileOpen = false }) {
+export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = '', canSeeWassingtonPanel = true, canApplyTreatments = true, canSeeMyApplications = false, mobileOpen = false }) {
   const { t } = useTranslation()
   const initials = orgName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
   const navItems = NAV_ITEMS.filter(item =>
     (item.id !== 'wassington' || canSeeWassingtonPanel) &&
-    (item.id !== 'applog' || canApplyTreatments)
+    (item.id !== 'applog' || canApplyTreatments) &&
+    (item.id !== 'myapplications' || canSeeMyApplications)
   )
 
   // "Acerca del Portal" — manual de uso. Visible a todos, pero el contenido

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, Fragment } from 'react'
+import { supabase } from '../../lib/supabaseClient'
 import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
 import FirmnessEvaluationModal from './FirmnessEvaluationModal'
@@ -55,7 +56,7 @@ const CHECKLIST_ITEMS = [
 ]
 const EMPTY_CHECKLIST = Object.fromEntries(CHECKLIST_ITEMS.map(i => [i.key, false]))
 
-export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, myRoles = [], onSaveFirmnessEvaluation, onGetFirmnessPdfUrl, onFetchExpiredLots }) {
+export default function Wassington({ treatments = [], onApprove, onReject, onGetPhotoUrl, onResolveMatriSure, profile, myRoles = [], onSaveFirmnessEvaluation, onGetFirmnessPdfUrl, onFetchExpiredLots, onAssignApplicator }) {
   // Fase G: CRM/Inventario/Catálogo/Precios and the commercial decisions
   // (approve/reject, MatriSure assistance review) are Owner/Aprobador
   // territory — Planificador/Operador/Viewer only ever see Tratamientos.
@@ -95,6 +96,33 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const [pendingFilters, setPendingFilters] = useState({})
   const [showProcessedFilters, setShowProcessedFilters] = useState(false)
   const [processedFilters, setProcessedFilters] = useState({})
+
+  // Fase K-2b (2026-08-11) — Manager dispatches an approved, managed-service
+  // Treatment to one of their own org's Aplicadores. Distribuidor-only for
+  // now, same staged scope as the rest of Fase K.
+  const [applicators, setApplicators] = useState([])
+  const [assigningId, setAssigningId] = useState(null) // treatment id whose inline assign form is open, or null
+  const [assignApplicatorId, setAssignApplicatorId] = useState('')
+  const [assignError, setAssignError] = useState('')
+  const [assignSaving, setAssignSaving] = useState(false)
+
+  useEffect(() => {
+    if (orgType !== 'distributor' || !profile?.org_id) return
+    supabase.from('profiles').select('*, user_roles(role)').eq('org_id', profile.org_id).then(({ data }) => {
+      setApplicators((data || []).filter(m => (m.user_roles || []).some(r => r.role === 'operator')))
+    })
+  }, [orgType, profile?.org_id])
+
+  const openAssign = (treatmentId) => { setAssigningId(treatmentId); setAssignApplicatorId(''); setAssignError('') }
+  const confirmAssign = async (treatmentId) => {
+    if (!assignApplicatorId) return
+    setAssignSaving(true)
+    setAssignError('')
+    const res = await onAssignApplicator?.(treatmentId, assignApplicatorId)
+    setAssignSaving(false)
+    if (res?.error) { setAssignError(res.error); return }
+    setAssigningId(null)
+  }
 
   const pending   = treatments.filter(t => t.status === 'submitted')
   const processed = treatments.filter(t => ['approved','applied','completed','rejected'].includes(t.status))
@@ -390,7 +418,8 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                       approved: '✓ Aprobado', applied: '🔧 Aplicado', completed: '📸 MatriSure OK', rejected: '✗ Rechazado',
                     }[t.status] || t.status
                     return (
-                    <tr key={i} style={{borderBottom: i < filteredProcessed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
+                    <Fragment key={i}>
+                    <tr style={{borderBottom: i < filteredProcessed.length-1 ? '0.5px solid #ddddd5' : 'none'}}>
                       <td style={{padding:'12px 16px', fontWeight:700}}># {t.id.slice(0,8)}</td>
                       <td style={{padding:'12px 16px'}}>{t.organizations?.name}</td>
                       <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{t.cold_rooms?.name}</td>
@@ -415,9 +444,41 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                               {firmnessOf(t) ? '📊 Evaluación' : '📊 + Evaluación'}
                             </button>
                           )}
+                          {/* Fase K-2b: dispatch a managed-service Treatment to one of this org's own Aplicadores */}
+                          {canManage && orgType === 'distributor' && t.status === 'approved' && t.service_fee_local != null && (
+                            t.assigned_applicator_id ? (
+                              <span style={{background:'#f5f5ee', color:'#6b6b6b', fontSize:'11px', fontWeight:600, padding:'3px 10px', borderRadius:'100px'}}>
+                                👷 {applicators.find(a => a.id === t.assigned_applicator_id)?.full_name || 'Aplicador asignado'}
+                              </span>
+                            ) : (
+                              <button className="btn-secondary btn-sm" onClick={() => openAssign(t.id)}>👷 Asignar aplicador</button>
+                            )
+                          )}
                         </div>
                       </td>
                     </tr>
+                    {/* Inline assign form — right below the row that opened it, never below the whole table */}
+                    {assigningId === t.id && (
+                      <tr style={{background:'#f0f7ff', borderBottom:'0.5px solid #ddddd5'}}>
+                        <td colSpan={isOperatorOnly ? 6 : 7} style={{padding:'12px 16px'}}>
+                          <div style={{display:'flex', flexWrap:'wrap', gap:'8px', alignItems:'center'}}>
+                            <span style={{fontSize:'12px', fontWeight:700, color:'#0b4358'}}>Asignar a:</span>
+                            <select value={assignApplicatorId} onChange={e => setAssignApplicatorId(e.target.value)}
+                              style={{padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}>
+                              <option value="">Elegir Aplicador…</option>
+                              {applicators.map(a => <option key={a.id} value={a.id}>{a.full_name || a.id}</option>)}
+                            </select>
+                            <button className="btn-primary btn-sm" disabled={assignSaving || !assignApplicatorId} onClick={() => confirmAssign(t.id)}>
+                              {assignSaving ? 'Asignando…' : 'Confirmar'}
+                            </button>
+                            <button className="btn-secondary btn-sm" onClick={() => setAssigningId(null)}>Cancelar</button>
+                            {applicators.length === 0 && <span style={{fontSize:'11px', color:'#b06a00'}}>No tenés ningún Aplicador dado de alta todavía.</span>}
+                            {assignError && <span style={{fontSize:'11px', color:'#8b2020'}}>⚠️ {assignError}</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                     )
                   })}
                 </tbody>

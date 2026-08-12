@@ -520,8 +520,18 @@ export default function Portal({ onSignOut }) {
   // treatment_applied_requires_photos CHECK constraint
   // (0024_treatment_application_photos.sql) still backs up the final
   // Applied transition server-side.
+  // Fase K-2c (2026-08-11): storage paths must key off the Treatment's OWN
+  // org_id (the Customer), never the uploader's — the matrisure-photos
+  // bucket's RLS (0004) grants read access to whoever is an ancestor of the
+  // path's org segment. Every caller used to BE that Customer (only
+  // Customers could reach this flow), so profile.org_id and the Treatment's
+  // org_id were always identical and this bug was invisible. Now that a
+  // Distributor-side Aplicador can call these too, using their own org_id
+  // would upload the photo somewhere the Customer (a descendant, never an
+  // ancestor, of the Distributor) could never see it again.
   const startApplication = async (id, { startTime, startBlob }) => {
-    const startPath = `${profile.org_id}/${id}/start-${Date.now()}.jpg`
+    const treatmentOrgId = treatments.find(t => t.id === id)?.org_id || profile.org_id
+    const startPath = `${treatmentOrgId}/${id}/start-${Date.now()}.jpg`
     const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(startPath, startBlob, { contentType: 'image/jpeg' })
@@ -541,7 +551,8 @@ export default function Portal({ onSignOut }) {
   }
 
   const finishApplication = async (id, { endTime, endBlob }) => {
-    const endPath = `${profile.org_id}/${id}/end-${Date.now()}.jpg`
+    const treatmentOrgId = treatments.find(t => t.id === id)?.org_id || profile.org_id
+    const endPath = `${treatmentOrgId}/${id}/end-${Date.now()}.jpg`
     const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(endPath, endBlob, { contentType: 'image/jpeg' })
@@ -564,7 +575,8 @@ export default function Portal({ onSignOut }) {
 
   // Applied → Completed: upload MatriSure photo, self-confirm or escalate for assistance
   const submitMatriSure = async (treatmentId, photoBlob, { result, assistanceRequested }) => {
-    const path = `${profile.org_id}/${treatmentId}/${Date.now()}.jpg`
+    const treatmentOrgId = treatments.find(t => t.id === treatmentId)?.org_id || profile.org_id
+    const path = `${treatmentOrgId}/${treatmentId}/${Date.now()}.jpg`
     const { error: uploadError } = await supabase.storage
       .from('matrisure-photos')
       .upload(path, photoBlob, { contentType: 'image/jpeg' })
@@ -602,6 +614,18 @@ export default function Portal({ onSignOut }) {
     const { error: statusError } = await supabase.from('treatments').update({ status: 'completed' }).eq('id', treatmentId)
     if (statusError) { console.error('[resolveMatriSureReview]', statusError); return { error: statusError.message } }
 
+    await loadTreatments()
+    return { error: null }
+  }
+
+  // Fase K-2b (2026-08-11) — Manager dispatches an approved, managed-service
+  // Treatment to one of their own org's Aplicadores. Validation (role,
+  // subtree, Aplicador actually holds 'operator') lives in the RPC itself.
+  const assignTreatmentApplicator = async (treatmentId, applicatorProfileId) => {
+    const { error } = await supabase.rpc('assign_treatment_applicator', {
+      p_treatment_id: treatmentId, p_applicator_profile_id: applicatorProfileId,
+    })
+    if (error) { console.error('[assignTreatmentApplicator]', error); return { error: error.message } }
     await loadTreatments()
     return { error: null }
   }
@@ -689,6 +713,13 @@ export default function Portal({ onSignOut }) {
   // (see "wassington" panel), not record the application itself.
   const canApplyTreatments = profile?.organizations?.org_type === 'customer'
   const myRoles = (profile?.user_roles || []).map(r => r.role)
+  // Fase K-2c (2026-08-11): a Distributor/Sub-distributor-side Aplicador
+  // (business role 'operator', outside a Customer org) sees only the
+  // Treatments a Manager specifically dispatched to them — never their
+  // whole org's subtree — reusing AppLog.jsx unmodified with a differently
+  // filtered list (see DOMAIN_MODEL.md Rule 50).
+  const canSeeMyApplications = !canApplyTreatments && myRoles.includes('operator')
+  const myAssignedApplications = treatments.filter(t => t.assigned_applicator_id === profile?.id)
 
   const panels = {
     dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
@@ -706,7 +737,8 @@ export default function Portal({ onSignOut }) {
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
-    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} />,
+    myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} onAssignApplicator={assignTreatmentApplicator} />,
     users:      <Users profile={profile} />,
     profile:    <Profile profile={profile} />,
     ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, <AboutPortal section={p.id} onNavigate={navigate} isCustomer={!canSeeWassingtonPanel} />])),
@@ -721,6 +753,7 @@ export default function Portal({ onSignOut }) {
         orgName={currentUser.name}
         canSeeWassingtonPanel={canSeeWassingtonPanel}
         canApplyTreatments={canApplyTreatments}
+        canSeeMyApplications={canSeeMyApplications}
         mobileOpen={sidebarOpen}
       />
       {sidebarOpen && (
