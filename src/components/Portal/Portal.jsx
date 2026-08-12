@@ -62,6 +62,7 @@ export default function Portal({ onSignOut }) {
   const [conversionQueue, setConversionQueue] = useState([]) // Plan Lines still to convert, in order
   const [loading,     setLoading]     = useState(true)
   const [notAssigned, setNotAssigned] = useState(false)
+  const [myKitUnits,  setMyKitUnits]  = useState([]) // Fase K-2d — kit_units assigned to the viewer, ever
 
   const loadTreatments = useCallback(async () => {
     const { data, error } = await supabase
@@ -70,6 +71,14 @@ export default function Portal({ onSignOut }) {
       .order('created_at', { ascending: false })
     if (error) { console.error(error); return }
     setTreatments(data)
+  }, [])
+
+  // Empty for a self-applying Customer (never had a kit_units row) — that's
+  // exactly what makes AppLog.jsx's kit-picker step stay invisible for them.
+  const loadMyKitUnits = useCallback(async (profileId) => {
+    const { data, error } = await supabase.from('kit_units').select('*').eq('assigned_to_profile_id', profileId)
+    if (error) { console.error(error); return }
+    setMyKitUnits(data || [])
   }, [])
 
   // One active Season Plan per Organization — auto-created on first visit.
@@ -140,9 +149,10 @@ export default function Portal({ onSignOut }) {
 
       await loadTreatments()
       await loadSeasonPlan(profileData.org_id, profileData.id)
+      await loadMyKitUnits(profileData.id)
       setLoading(false)
     })()
-  }, [loadTreatments, loadSeasonPlan])
+  }, [loadTreatments, loadSeasonPlan, loadMyKitUnits])
 
   const reloadSeasonPlanLines = async () => {
     if (!seasonPlan) return
@@ -618,6 +628,16 @@ export default function Portal({ onSignOut }) {
     return { error: null }
   }
 
+  // Fase K-2d (2026-08-11) — the Aplicador marks which of their own assigned
+  // kits they used, at MatriSure verification time. Validation (kit really
+  // assigned to the caller, still unused) lives in the RPC itself.
+  const useKitUnit = async (unitId, treatmentId) => {
+    const { error } = await supabase.rpc('use_kit_unit', { p_unit_id: unitId, p_treatment_id: treatmentId })
+    if (error) { console.error('[useKitUnit]', error); return { error: error.message } }
+    await loadMyKitUnits(profile.id)
+    return { error: null }
+  }
+
   // Fase K-2b (2026-08-11) — Manager dispatches an approved, managed-service
   // Treatment to one of their own org's Aplicadores. Validation (role,
   // subtree, Aplicador actually holds 'operator') lives in the RPC itself.
@@ -736,8 +756,8 @@ export default function Portal({ onSignOut }) {
                       onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
-    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
-    myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} />,
+    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} />,
+    myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} onAssignApplicator={assignTreatmentApplicator} />,
     users:      <Users profile={profile} />,
     profile:    <Profile profile={profile} />,

@@ -337,9 +337,18 @@
       "question": "What did the strip show?",
       "confirmed": "✓ Dose reached",
       "notReached": "✗ Dose not reached",
-      "askHelp": "🙋 Not sure — ask my distributor for help"
+      "askHelp": "🙋 Not sure — ask my distributor for help",
+      "kitUsedLabel": "MatriSure kit used",
+      "chooseKit": "Choose kit…",
+      "noKitsAvailable": "You have no available kit assigned to you — ask your Distributor for one before confirming."
     },
     "livePhotoNotice": "📸 MatriSure Kit photos must be taken live from the device's camera. Gallery uploads are not allowed.",
+    "kitStats": {
+      "assigned": "Assigned kits",
+      "available": "Available",
+      "used": "Used",
+      "discarded": "Discarded"
+    },
     "matriSureDesc": "MatriSure strips change color when the room reaches the 1-MCP target dose. Photograph the strip when finishing the treatment — the photo is recorded automatically with date, time and room number.",
     "season2026": "2026 Season",
     "empty": "No approved treatments yet.",

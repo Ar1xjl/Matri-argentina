@@ -337,9 +337,18 @@
       "question": "O que a tira mostrou?",
       "confirmed": "✓ Dose atingida",
       "notReached": "✗ Dose não atingida",
-      "askHelp": "🙋 Não tenho certeza — pedir ajuda ao meu distribuidor"
+      "askHelp": "🙋 Não tenho certeza — pedir ajuda ao meu distribuidor",
+      "kitUsedLabel": "Kit MatriSure utilizado",
+      "chooseKit": "Escolher kit…",
+      "noKitsAvailable": "Você não tem nenhum kit disponível atribuído — peça um ao seu Distribuidor antes de confirmar."
     },
     "livePhotoNotice": "📸 As fotos do Kit MatriSure devem ser tiradas ao vivo pela câmera do dispositivo. Não são permitidos envios da galeria.",
+    "kitStats": {
+      "assigned": "Kits atribuídos",
+      "available": "Disponíveis",
+      "used": "Usados",
+      "discarded": "Descartados"
+    },
     "matriSureDesc": "As tiras MatriSure mudam de cor quando a câmara atinge a dose alvo de 1-MCP. Fotografe a tira ao finalizar o tratamento — a foto fica registrada com data, hora e número da câmara automaticamente.",
     "season2026": "Temporada 2026",
     "empty": "Ainda não há tratamentos aprovados.",

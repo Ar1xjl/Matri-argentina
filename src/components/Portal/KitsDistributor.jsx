@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
 // Fase K-1c (2026-08-11) — the Distribuidor's side of MatriSure Kit
@@ -33,6 +33,17 @@ export default function KitsDistributor({ profile }) {
   const [checklist, setChecklist] = useState(EMPTY_CHECKLIST)
   const [assignError, setAssignError] = useState('')
   const [assignSaving, setAssignSaving] = useState(false)
+
+  // Fase K-2e (2026-08-11) — Juan asked for a quality-control/destroy path
+  // at receipt: a kit that arrives damaged shouldn't just sit in "Sin
+  // asignar" forever with no way out. Doesn't reinstate the separate
+  // "confirm receipt" step Juan deliberately dropped in K-1 — units still
+  // show up as stock automatically, this only adds an escape hatch for a
+  // bad one.
+  const [destroyingId, setDestroyingId] = useState(null)
+  const [destroyReason, setDestroyReason] = useState('')
+  const [destroySaving, setDestroySaving] = useState(false)
+  const [destroyError, setDestroyError] = useState('')
 
   const orgId = profile?.org_id
 
@@ -116,12 +127,47 @@ export default function KitsDistributor({ profile }) {
     await reload()
   }
 
+  const openDestroy = (unitId) => { setDestroyingId(unitId); setDestroyReason(''); setDestroyError('') }
+  const confirmDestroy = async () => {
+    if (!destroyReason.trim()) { setDestroyError('Contá brevemente qué encontraste mal con el kit.'); return }
+    setDestroySaving(true)
+    setDestroyError('')
+    const { error } = await supabase.from('kit_units').update({
+      status: 'destroyed',
+      destroyed_at: new Date().toISOString(),
+      destroyed_by: profile.id,
+      destroyed_reason: destroyReason.trim(),
+    }).eq('id', destroyingId)
+    setDestroySaving(false)
+    if (error) { setDestroyError(error.message); return }
+    setDestroyingId(null)
+    setSelected(prev => { const next = new Set(prev); next.delete(destroyingId); return next })
+    await reload()
+  }
+
   if (loading) return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando…</div>
 
   return (
     <div>
       <div className="alert info" style={{marginBottom:'16px'}}>
-        🧪 Los kits que FreshInset te libera aparecen acá directamente como tu stock — sin ningún paso de confirmación aparte. Asignalos a un Aplicador cuando estén listos para usarse.
+        🧪 Los kits que FreshInset te libera aparecen acá directamente como tu stock — sin ningún paso de confirmación aparte. Asignalos a un Aplicador cuando estén listos para usarse, o descartalos si llegan en mal estado.
+      </div>
+
+      {/* Fase K-2e (2026-08-11) — same stat-card style as the rest of the portal's dashboards */}
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
+        {[
+          { icon:'📦', label:'Sin asignar', value: unassigned.length, bg:'#e8f4fc' },
+          { icon:'👷', label:'Asignados',   value: units.filter(u => u.status === 'assigned').length,  bg:'#eaf7ee' },
+          { icon:'📸', label:'Usados',      value: units.filter(u => u.status === 'used').length,      bg:'#f0f7e0' },
+          { icon:'🗑️', label:'Descartados', value: units.filter(u => u.status === 'destroyed').length, bg:'#fdeaea' },
+        ].map((s,i) => (
+          <div key={i} style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'18px', position:'relative', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+            <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'#b5cc2e'}}/>
+            <div style={{position:'absolute', right:'14px', top:'16px', width:'36px', height:'36px', borderRadius:'8px', background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px'}}>{s.icon}</div>
+            <div style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'6px'}}>{s.label}</div>
+            <div style={{fontSize:'26px', fontWeight:800, color:'#0b4358', lineHeight:1}}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Unassigned stock */}
@@ -192,21 +238,42 @@ export default function KitsDistributor({ profile }) {
                   <th style={{padding:'10px 16px', background:'#f5f5ee', borderBottom:'0.5px solid #ddddd5'}}>
                     <input type="checkbox" checked={allUnassignedSelected} onChange={toggleSelectAll}/>
                   </th>
-                  {['Tracking', 'Lote', 'Recibido'].map(h => (
+                  {['Tracking', 'Lote', 'Recibido', ''].map(h => (
                     <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {unassigned.map(u => (
-                  <tr key={u.id} style={{borderBottom:'0.5px solid #ddddd5'}}>
+                  <Fragment key={u.id}>
+                  <tr style={{borderBottom:'0.5px solid #ddddd5'}}>
                     <td style={{padding:'10px 16px'}}>
                       <input type="checkbox" checked={selected.has(u.id)} onChange={() => toggleSelect(u.id)}/>
                     </td>
                     <td style={{padding:'10px 16px', fontWeight:700, fontFamily:'monospace'}}>{u.tracking_number}</td>
                     <td style={{padding:'10px 16px', color:'#6b6b6b'}}>{u.lot_number}</td>
                     <td style={{padding:'10px 16px', color:'#6b6b6b'}}>{new Date(u.created_at).toLocaleDateString('es-AR')}</td>
+                    <td style={{padding:'10px 16px'}}>
+                      <button className="btn-secondary btn-sm" onClick={() => openDestroy(u.id)} title="Descartar por mal estado">🗑️ Descartar</button>
+                    </td>
                   </tr>
+                  {destroyingId === u.id && (
+                    <tr style={{background:'#fdeaea', borderBottom:'0.5px solid #ddddd5'}}>
+                      <td colSpan={5} style={{padding:'12px 16px'}}>
+                        <div style={{display:'flex', flexWrap:'wrap', gap:'8px', alignItems:'center'}}>
+                          <span style={{fontSize:'12px', fontWeight:700, color:'#8b2020'}}>¿Por qué se descarta {u.tracking_number}?</span>
+                          <input value={destroyReason} onChange={e => setDestroyReason(e.target.value)} placeholder="Ej: llegó sin sellar al vacío"
+                            style={{flex:1, minWidth:'200px', padding:'7px 10px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}/>
+                          <button className="btn-primary btn-sm" style={{background:'#8b2020'}} disabled={destroySaving} onClick={confirmDestroy}>
+                            {destroySaving ? 'Descartando…' : 'Confirmar descarte'}
+                          </button>
+                          <button className="btn-secondary btn-sm" onClick={() => setDestroyingId(null)}>Cancelar</button>
+                          {destroyError && <span style={{fontSize:'11px', color:'#8b2020'}}>⚠️ {destroyError}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table></div>
@@ -218,7 +285,7 @@ export default function KitsDistributor({ profile }) {
       {assignedOrBeyond.length > 0 && (
         <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
           <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5'}}>
-            <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Asignados / usados — {assignedOrBeyond.length} kit{assignedOrBeyond.length === 1 ? '' : 's'}</span>
+            <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Asignados / usados / descartados — {assignedOrBeyond.length} kit{assignedOrBeyond.length === 1 ? '' : 's'}</span>
           </div>
           <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
             <thead>

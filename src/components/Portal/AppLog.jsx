@@ -10,7 +10,7 @@ import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
 import { formatDate } from '../../lib/formatters'
 
-export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl }) {
+export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl, myKitUnits = [], onUseKit }) {
   const { t } = useTranslation()
 
   // "En curso" isn't a stored status (see Portal.jsx's startApplication/
@@ -41,6 +41,10 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
   const [historyRoom, setHistoryRoom] = useState(null)
   const [pendingPhoto, setPendingPhoto] = useState(null)
   const [pendingTime, setPendingTime] = useState(null) // { startTime } or { endTime } while walking to the photo step
+  // Fase K-2d (2026-08-11) — which kit_units row this application used, only
+  // relevant to a Distributor-dispatched Aplicador (myKitUnits stays empty
+  // for a self-applying Customer, so this whole step just doesn't appear).
+  const [selectedKitId, setSelectedKitId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
@@ -80,16 +84,32 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       return
     }
     setPendingTime(null)
-    setView('list')
+    setActionError('')
+    // Juan, 2026-08-11: go straight into the MatriSure photo instead of back
+    // to the list — in practice whoever just finished the application is
+    // right there checking the strip a moment later anyway. `selected` is
+    // still the same Treatment, now 'applied', so onFinishApplication's own
+    // status update is what actually unlocks this next step.
+    setSelectedKitId('')
+    setView('capture')
   }
 
   const handleCapture = (blob) => {
     setPendingPhoto(blob)
+    setSelectedKitId('')
     setView('review')
   }
 
   const handleReview = async (result, assistanceRequested = false) => {
     setSubmitting(true)
+    if (selectedKitId) {
+      const kitRes = await onUseKit?.(selectedKitId, selected.id)
+      if (kitRes?.error) {
+        setSubmitting(false)
+        setActionError(t('appLog.errors.saveMatriSure', { error: kitRes.error }))
+        return
+      }
+    }
     const res = await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
     setSubmitting(false)
     if (res?.error) {
@@ -97,6 +117,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       return
     }
     setPendingPhoto(null)
+    setSelectedKitId('')
     setView('list')
   }
 
@@ -182,20 +203,46 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
   }
 
   if (view === 'review') {
+    // Only ever non-empty for a Distributor-dispatched Aplicador (Fase K) —
+    // a self-applying Customer has never had a kit_units row, so this step
+    // stays invisible and their flow is exactly what it always was.
+    const everHadKits = myKitUnits.length > 0
+    const availableKits = myKitUnits.filter(k => k.status === 'assigned')
+    const kitBlocksSubmit = everHadKits && (availableKits.length === 0 || !selectedKitId)
     return (
       <div style={{maxWidth:'480px'}}>
         {errorBanner}
         <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
           <img src={URL.createObjectURL(pendingPhoto)} alt="MatriSure" style={{width:'100%', borderRadius:'8px', marginBottom:'16px'}}/>
+
+          {everHadKits && (
+            <div style={{marginBottom:'16px'}}>
+              <label style={{display:'block', fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'6px'}}>
+                {t('appLog.review.kitUsedLabel')}
+              </label>
+              {availableKits.length === 0 ? (
+                <div style={{fontSize:'12px', color:'#8b2020', background:'#fdeaea', borderRadius:'8px', padding:'10px 12px'}}>
+                  {t('appLog.review.noKitsAvailable')}
+                </div>
+              ) : (
+                <select value={selectedKitId} onChange={e => setSelectedKitId(e.target.value)}
+                  style={{width:'100%', padding:'9px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit'}}>
+                  <option value="">{t('appLog.review.chooseKit')}</option>
+                  {availableKits.map(k => <option key={k.id} value={k.id}>{k.tracking_number}</option>)}
+                </select>
+              )}
+            </div>
+          )}
+
           <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>{t('appLog.review.question')}</div>
           <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
-            <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting} onClick={() => handleReview('confirmed')}>
+            <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('confirmed')}>
               {t('appLog.review.confirmed')}
             </button>
-            <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting} onClick={() => handleReview('not_reached')}>
+            <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('not_reached')}>
               {t('appLog.review.notReached')}
             </button>
-            <button className="btn-secondary" disabled={submitting} onClick={() => handleReview('pending_review', true)}>
+            <button className="btn-secondary" disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('pending_review', true)}>
               {t('appLog.review.askHelp')}
             </button>
           </div>
@@ -217,6 +264,29 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     <div>
       {viewingPhoto && (
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+
+      {/* Fase K-2d/e (2026-08-11) — only ever shows for a Distributor-dispatched
+          Aplicador (myKitUnits stays empty for a self-applying Customer).
+          Same stat-card style as the rest of the portal's dashboards, per
+          Juan's feedback that the earlier alert-banner version read like a
+          warning instead of a status summary. */}
+      {myKitUnits.length > 0 && (
+        <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
+          {[
+            { icon:'🧪', label:t('appLog.kitStats.assigned'),  value: myKitUnits.length, bg:'#e8f4fc' },
+            { icon:'✅', label:t('appLog.kitStats.available'), value: myKitUnits.filter(k => k.status === 'assigned').length,  bg:'#eaf7ee' },
+            { icon:'📸', label:t('appLog.kitStats.used'),      value: myKitUnits.filter(k => k.status === 'used').length,      bg:'#f0f7e0' },
+            { icon:'🗑️', label:t('appLog.kitStats.discarded'), value: myKitUnits.filter(k => k.status === 'destroyed').length, bg:'#fdeaea' },
+          ].map((s,i) => (
+            <div key={i} style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'18px', position:'relative', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+              <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'#b5cc2e'}}/>
+              <div style={{position:'absolute', right:'14px', top:'16px', width:'36px', height:'36px', borderRadius:'8px', background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px'}}>{s.icon}</div>
+              <div style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'6px'}}>{s.label}</div>
+              <div style={{fontSize:'26px', fontWeight:800, color:'#0b4358', lineHeight:1}}>{s.value}</div>
+            </div>
+          ))}
+        </div>
       )}
 
       <div className="alert success">
