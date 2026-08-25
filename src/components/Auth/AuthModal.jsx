@@ -118,9 +118,16 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
             border:'none', fontSize:'22px', color:'#6b7280', cursor:'pointer'}}
         >✕</button>
 
-        {/* Tabs */}
+        {/* Tabs — "Crear usuario" (signup) is deliberately NOT offered as a
+            general public option anymore (2026-08-25, Juan): a Distributor
+            now sends an invite link with the Organization/roles already
+            baked in, so a stranger self-signing-up with no org context adds
+            confusion, not value. The signup tab/form itself still exists —
+            App.jsx auto-opens it (setModalTab('signup')) the moment a real
+            invite link is detected, this just stops it from being one of
+            the three manually-clickable tabs otherwise. */}
         <div style={{display:'flex', borderBottom:'2px solid #dde0d5', marginBottom:'24px'}}>
-          {['login','signup','register'].map(tKey => (
+          {(inviteInfo ? ['login','signup','register'] : ['login','register']).map(tKey => (
             <button
               key={tKey}
               onClick={() => onSwitchTab(tKey)}

@@ -30,13 +30,19 @@ export default function Organizations({ profile }) {
   const [myRoles, setMyRoles] = useState([])
   const [requests, setRequests] = useState([]) // pending organization_access_requests
   const [convertingRequest, setConvertingRequest] = useState(null) // request row being turned into an org, or null
+  const [deletingOrg, setDeletingOrg] = useState(null) // org row being confirmed for deletion, or null
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const myOrgType = profile?.organizations?.org_type
   const isGlobal = myOrgType === 'global'
   const childTypes = ALLOWED_CHILD_TYPES[myOrgType] || []
-  // Setting a Customer's negotiated price is an Owner/Approver action
-  // (DOMAIN_MODEL.md Rule 36) — same authority as approving a Treatment's price.
+  // Setting a Customer's negotiated price, or deleting a Customer org
+  // entirely (2026-08-25), are both Owner/Approver actions (DOMAIN_MODEL.md
+  // Rule 36 for pricing; same authority mirrored for delete_customer_organization).
   const canEditPricing = myRoles.includes('owner') || myRoles.includes('approver')
+  const canDeleteOrg = canEditPricing
 
   const fetchOrgs = () => supabase.from('organizations').select('*').order('org_type').order('name')
 
@@ -151,6 +157,22 @@ export default function Organizations({ profile }) {
     await loadOrgs()
   }
 
+  // Permanent Customer-org deletion (2026-08-25) — scoped to Customer
+  // org_type only; see migration 0035_delete_customer_organization.sql for
+  // the full cascade + authority checks (all enforced server-side too, this
+  // is not just a UI gate).
+  const openDelete = (org) => { setDeletingOrg(org); setDeleteConfirmText(''); setDeleteError(null) }
+  const handleDelete = async () => {
+    if (!deletingOrg) return
+    setDeleting(true)
+    setDeleteError(null)
+    const { error } = await supabase.rpc('delete_customer_organization', { p_org_id: deletingOrg.id })
+    setDeleting(false)
+    if (error) { setDeleteError(error.message); return }
+    setDeletingOrg(null)
+    await loadOrgs()
+  }
+
   return (
     <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
       {requests.length > 0 && childTypes.length > 0 && (
@@ -252,6 +274,14 @@ export default function Organizations({ profile }) {
                         onClick={() => setPricingCustomer(o)}
                       >
                         💲 Precio
+                      </button>
+                    )}
+                    {o.org_type === 'customer' && o.id !== profile.org_id && canDeleteOrg && (
+                      <button
+                        style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f0c7c7', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                        onClick={() => openDelete(o)}
+                      >
+                        🗑️ Eliminar
                       </button>
                     )}
                   </div>
@@ -360,6 +390,42 @@ export default function Organizations({ profile }) {
 
       {pricingCustomer && (
         <CustomerPricingModal customer={pricingCustomer} profile={profile} onClose={() => setPricingCustomer(null)} />
+      )}
+
+      {deletingOrg && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setDeletingOrg(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.7)', backdropFilter:'blur(4px)', zIndex:250, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#8b2020', marginBottom:'10px'}}>
+              ⚠️ Eliminar {deletingOrg.name}
+            </div>
+            <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'16px'}}>
+              Esto borra de forma <strong>permanente e irreversible</strong> todas las cámaras, tratamientos, planificación de temporada y usuarios/logins de esta organización. No hay forma de deshacerlo.
+            </div>
+            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>
+              Escribí "{deletingOrg.name}" para confirmar
+            </label>
+            <input
+              style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', marginBottom:'14px'}}
+              value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)}
+            />
+            {deleteError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'12px'}}>{deleteError}</div>}
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button
+                className="btn-primary" style={{background:'#8b2020', opacity: deleteConfirmText.trim() === deletingOrg.name ? 1 : .5}}
+                disabled={deleting || deleteConfirmText.trim() !== deletingOrg.name}
+                onClick={handleDelete}
+              >
+                {deleting ? 'Eliminando…' : `Eliminar ${deletingOrg.name} permanentemente`}
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setDeletingOrg(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </div>
