@@ -138,8 +138,8 @@
       "sachet": "{{size}}g sachet"
     },
     "options": {
-      "exact": { "title": "MatriPowder — Exact dose", "badge": "Exact dose" },
-      "adjusted": { "title": "MatriPowder — Adjusted dose", "badge": "No extra sachet" },
+      "exact": { "title": "MatriPowder — Round-Up" },
+      "adjusted": { "title": "MatriPowder — Round-Down" },
       "tablets": {
         "badge": "Self-applied",
         "large": "Large tablet (5m³)",

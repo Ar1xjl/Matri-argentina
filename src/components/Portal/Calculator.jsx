@@ -441,7 +441,6 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             <OptionCard
               id="exact"
               title={t('calculator.options.exact.title')}
-              badge={{label:t('calculator.options.exact.badge'), bg:'#e8f4fc', color:'#0c447c'}}
               cost={results.exact.productCost}
               ppbVal={results.exact.ppb}
               productLabel="MatriPowder"
@@ -464,7 +463,6 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
               <OptionCard
                 id="adjusted"
                 title={t('calculator.options.adjusted.title')}
-                badge={{label:t('calculator.options.adjusted.badge'), bg:'#eaf7ee', color:'#1a6b30'}}
                 cost={results.adjusted.productCost}
                 ppbVal={results.adjusted.ppb}
                 productLabel="MatriPowder"
