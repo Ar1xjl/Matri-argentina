@@ -16,6 +16,7 @@ import AboutPortal from './AboutPortal'
 import { ABOUT_PAGES } from '../../lib/aboutPages'
 import NotificationBell from '../Shared/NotificationBell'
 import { supabase } from '../../lib/supabaseClient'
+import { fetchAllRows } from '../../lib/fetchAll'
 import { applyOrganizationLanguage } from '../../i18n'
 import { parsePlanFile } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
@@ -64,19 +65,26 @@ export default function Portal({ onSignOut }) {
   const [notAssigned, setNotAssigned] = useState(false)
   const [myKitUnits,  setMyKitUnits]  = useState([]) // Fase K-2d — kit_units assigned to the viewer, ever
 
+  // fetchAllRows (not a bare .select()) — this table has no per-org bound on
+  // who can load it (RLS decides visibility, not row count) and is the most
+  // central, highest-volume table in the app; past PostgREST's per-project
+  // row cap a plain .select() silently returns fewer rows than exist. See
+  // src/lib/fetchAll.js.
   const loadTreatments = useCallback(async () => {
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllRows(() => supabase
       .from('treatments')
       .select('*, cold_rooms(name, volume_m3), organizations(name), matrisure_verifications(photo_url, result, reviewed_at, assistance_requested), firmness_evaluations(*)')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }))
     if (error) { console.error(error); return }
     setTreatments(data)
   }, [])
 
   // Empty for a self-applying Customer (never had a kit_units row) — that's
   // exactly what makes AppLog.jsx's kit-picker step stay invisible for them.
+  // fetchAllRows here too: bounded to one profile so lower risk in practice,
+  // but cheap to make consistent with every other kit_units read.
   const loadMyKitUnits = useCallback(async (profileId) => {
-    const { data, error } = await supabase.from('kit_units').select('*').eq('assigned_to_profile_id', profileId)
+    const { data, error } = await fetchAllRows(() => supabase.from('kit_units').select('*').eq('assigned_to_profile_id', profileId))
     if (error) { console.error(error); return }
     setMyKitUnits(data || [])
   }, [])

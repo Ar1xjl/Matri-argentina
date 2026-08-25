@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { generateSequence } from '../../lib/sequence'
+import { fetchAllRows } from '../../lib/fetchAll'
 
 // Fase K-1 (2026-08-11) — FreshInset Global's side of MatriSure Kit
 // stewardship: register brand-new serialized kit units, then release a lot
@@ -36,9 +37,13 @@ export default function KitsGlobal({ profile }) {
 
   const orgId = profile?.org_id
 
+  // kit_units goes through fetchAllRows, not a bare .select() — this is the
+  // system-wide, unscoped read (every kit at every stage) and the table most
+  // likely to cross PostgREST's per-project row cap first, since kits are
+  // registered one row per physical unit. See src/lib/fetchAll.js.
   const reload = async () => {
     const [{ data: unitsData }, { data: orgsData }] = await Promise.all([
-      supabase.from('kit_units').select('*').order('created_at', { ascending: false }),
+      fetchAllRows(() => supabase.from('kit_units').select('*').order('created_at', { ascending: false })),
       supabase.from('organizations').select('*'),
     ])
     setUnits(unitsData || [])
@@ -51,7 +56,7 @@ export default function KitsGlobal({ profile }) {
   // function for the register/release handlers to call afterward.
   useEffect(() => {
     Promise.all([
-      supabase.from('kit_units').select('*').order('created_at', { ascending: false }),
+      fetchAllRows(() => supabase.from('kit_units').select('*').order('created_at', { ascending: false })),
       supabase.from('organizations').select('*'),
     ]).then(([{ data: unitsData }, { data: orgsData }]) => {
       setUnits(unitsData || [])

@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { fetchAllRows } from '../../lib/fetchAll'
 
 // Fase K-1c (2026-08-11) — the Distribuidor's side of MatriSure Kit
 // stewardship: stock that Global released shows up here directly (no
@@ -47,9 +48,13 @@ export default function KitsDistributor({ profile }) {
 
   const orgId = profile?.org_id
 
+  // kit_units goes through fetchAllRows, not a bare .select() — scoped to
+  // one Distributor's own org here, so lower risk than Global's system-wide
+  // read, but a real Distributor accumulates one row per physical kit over
+  // time too. See src/lib/fetchAll.js.
   const reload = async () => {
     const [{ data: unitsData }, { data: membersData }] = await Promise.all([
-      supabase.from('kit_units').select('*').eq('org_id', orgId).order('created_at', { ascending: true }),
+      fetchAllRows(() => supabase.from('kit_units').select('*').eq('org_id', orgId).order('created_at', { ascending: true })),
       supabase.from('profiles').select('*, user_roles(role)').eq('org_id', orgId),
     ])
     setUnits(unitsData || [])
@@ -62,7 +67,7 @@ export default function KitsDistributor({ profile }) {
   useEffect(() => {
     if (!orgId) return
     Promise.all([
-      supabase.from('kit_units').select('*').eq('org_id', orgId).order('created_at', { ascending: true }),
+      fetchAllRows(() => supabase.from('kit_units').select('*').eq('org_id', orgId).order('created_at', { ascending: true })),
       supabase.from('profiles').select('*, user_roles(role)').eq('org_id', orgId),
     ]).then(([{ data: unitsData }, { data: membersData }]) => {
       setUnits(unitsData || [])
