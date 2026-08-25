@@ -31,9 +31,14 @@ const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px
 
 export default function SeasonPlan({
   plan, lines = [], coldRooms = [], orgId = null, onAddLine, onUpdateLine, onDeleteLine, onConvert,
-  onImportPlan, onBulkApply, onClearPlannedLines, onNavigate,
+  onImportPlan, onBulkApply, onClearPlannedLines, onNavigate, myRoles = [],
 }) {
   const { t } = useTranslation()
+  // Role-visibility backlog item (flagged 2026-08-11, scoped and built
+  // 2026-08-25) — a "pure" Operador (has the role but not Owner/Aprobador
+  // too) shouldn't see cost/price figures here. Someone who holds Operador
+  // *alongside* Owner/Aprobador still sees everything, same as today.
+  const isPureOperator = myRoles.includes('operator') && !myRoles.includes('owner') && !myRoles.includes('approver')
   const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecided: t('seasonPlan.productUndecided') }
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [override, setOverride] = useState(null)
@@ -51,6 +56,9 @@ export default function SeasonPlan({
   const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
   const planFileInput = useRef(null)
 
+  // `financial: true` columns are dropped entirely for a pure Operador (role
+  // gate above) — same filter drives the header, the Excel export, and the
+  // filter-row inputs, since all three read off this one array.
   const SEASON_PLAN_COLUMNS = [
     { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '' },
     { header: t('seasonPlan.columns.crop'),       get: l => l.room?.primary_crop || '' },
@@ -58,11 +66,11 @@ export default function SeasonPlan({
     { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '' },
     { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '' },
     { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '' },
-    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '' },
+    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true },
+    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '', financial: true },
     { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '' },
     { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned') },
-  ]
+  ].filter(c => !c.financial || !isPureOperator)
 
   // Nearest ancestor with its own price list configured (Fase H, 2026-07-16).
   useEffect(() => { fetchOrgPricing(orgId).then(setPricing) }, [orgId])
@@ -208,14 +216,16 @@ export default function SeasonPlan({
         )}
       </div>
 
-      {/* Summary panel */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'14px', marginBottom:'16px'}}>
+      {/* Summary panel — cost tiles dropped entirely for a pure Operador */}
+      <div style={{display:'grid', gridTemplateColumns:`repeat(${isPureOperator ? 3 : 5},1fr)`, gap:'14px', marginBottom:'16px'}}>
         {[
           [t('seasonPlan.summary.rooms'), totals.rooms],
           [t('seasonPlan.summary.applications'), totals.applications],
           [t('seasonPlan.summary.totalM3'), totals.m3.toLocaleString()],
-          [t('seasonPlan.summary.totalCost'), fmtUSD(totals.cost)],
-          [t('seasonPlan.summary.avgCostPerM3'), fmtUSD(totals.avgPerM3)],
+          ...(isPureOperator ? [] : [
+            [t('seasonPlan.summary.totalCost'), fmtUSD(totals.cost)],
+            [t('seasonPlan.summary.avgCostPerM3'), fmtUSD(totals.avgPerM3)],
+          ]),
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
@@ -223,12 +233,14 @@ export default function SeasonPlan({
           </div>
         ))}
       </div>
-      <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
-        {t('seasonPlan.summary.disclaimer1')}
-        <br/>{t('seasonPlan.summary.disclaimer2')}
-      </div>
+      {!isPureOperator && (
+        <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
+          {t('seasonPlan.summary.disclaimer1')}
+          <br/>{t('seasonPlan.summary.disclaimer2')}
+        </div>
+      )}
 
-      {enriched.some(l => l.product_preference !== 'undecided') && (
+      {!isPureOperator && enriched.some(l => l.product_preference !== 'undecided') && (
         <div style={{
           ...card, background:'#0b4358', display:'flex', alignItems:'center',
           justifyContent:'space-between', flexWrap:'wrap', gap:'12px',
@@ -249,7 +261,7 @@ export default function SeasonPlan({
         </div>
       )}
 
-      {showSimulator && (
+      {!isPureOperator && showSimulator && (
         <CampaignCostSimulator
           lines={selected.size > 0 ? enriched.filter(l => selected.has(l.id)) : enriched}
           pricing={pricing}
@@ -385,12 +397,16 @@ export default function SeasonPlan({
                       <option value="tablets">MatriTablets</option>
                     </select>
                   </td>
-                  <td style={{...cell, fontWeight:700, color:'#0b4358', whiteSpace:'nowrap'}}>
-                    {l.cost != null ? fmtUSD(l.cost) : '—'}
-                  </td>
-                  <td style={{...cell, color:'#6b6b6b', whiteSpace:'nowrap'}}>
-                    {(l.cost != null && l.room?.volume_m3) ? fmtUSD(l.cost / l.room.volume_m3) : '—'}
-                  </td>
+                  {!isPureOperator && (
+                    <td style={{...cell, fontWeight:700, color:'#0b4358', whiteSpace:'nowrap'}}>
+                      {l.cost != null ? fmtUSD(l.cost) : '—'}
+                    </td>
+                  )}
+                  {!isPureOperator && (
+                    <td style={{...cell, color:'#6b6b6b', whiteSpace:'nowrap'}}>
+                      {(l.cost != null && l.room?.volume_m3) ? fmtUSD(l.cost / l.room.volume_m3) : '—'}
+                    </td>
+                  )}
                   <td style={cell}>
                     <input style={inp} type="text" defaultValue={l.notes || ''} disabled={l.status !== 'planned'}
                       onBlur={e => onUpdateLine(l.id, { notes: e.target.value || null })}/>

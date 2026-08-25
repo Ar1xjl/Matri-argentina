@@ -418,7 +418,8 @@
       "activeRooms": { "label": "Cámaras activas", "unit": "con tratamientos esta temporada" },
       "pending": { "label": "Tratamientos pendientes", "unit": "esperando aprobación" },
       "approved": { "label": "Tratamientos aprobados", "unit": "esta temporada" },
-      "revenue": { "label": "Facturación (USD)", "unit": "en tratamientos aprobados" }
+      "revenue": { "label": "Facturación (USD)", "unit": "en tratamientos aprobados" },
+      "inProgress": { "label": "Aplicaciones en curso", "unit": "iniciadas, falta finalizar" }
     },
     "status": {
       "approved": "✓ Activa",

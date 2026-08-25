@@ -418,7 +418,8 @@
       "activeRooms": { "label": "Active Rooms", "unit": "with treatments this season" },
       "pending": { "label": "Pending Treatments", "unit": "awaiting approval" },
       "approved": { "label": "Approved Treatments", "unit": "this season" },
-      "revenue": { "label": "Revenue (USD)", "unit": "in approved treatments" }
+      "revenue": { "label": "Revenue (USD)", "unit": "in approved treatments" },
+      "inProgress": { "label": "Applications in progress", "unit": "started, not yet finished" }
     },
     "status": {
       "approved": "✓ Active",

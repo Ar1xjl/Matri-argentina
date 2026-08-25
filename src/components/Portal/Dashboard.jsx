@@ -1,14 +1,23 @@
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '../../lib/formatters'
 
-export default function Dashboard({ onNavigate, treatments = [] }) {
+export default function Dashboard({ onNavigate, treatments = [], myRoles = [] }) {
   const { t } = useTranslation()
+  // Role-visibility backlog item (flagged 2026-08-11, scoped and built
+  // 2026-08-25) — a "pure" Operador (has the role but not Owner/Aprobador
+  // too) shouldn't see commercial figures here. Someone who holds Operador
+  // *alongside* Owner/Aprobador (e.g. a small Customer's own owner who also
+  // does the physical application) still sees everything, same as today.
+  const isPureOperator = myRoles.includes('operator') && !myRoles.includes('owner') && !myRoles.includes('approver')
+
   // ── Real stats derived from shared treatments state ──────────────────
   const pending   = treatments.filter(t => t.status === 'submitted').length
   const approved  = treatments.filter(t => t.status === 'approved' || t.status === 'applied' || t.status === 'completed').length
   const totalUSD  = treatments
     .filter(t => t.status === 'approved' || t.status === 'applied' || t.status === 'completed')
     .reduce((s, t) => s + parseFloat(t.price_local || 0), 0)
+  // Same "en curso" derivation as AppLog.jsx — started but not yet finished.
+  const inProgress = treatments.filter(t => t.status === 'approved' && t.start_photo_url && !t.end_photo_url).length
 
   // Unique rooms that have been treated
   const activeRooms = [...new Set(treatments.map(t => t.cold_rooms?.name).filter(Boolean))].length
@@ -17,7 +26,9 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
     { icon:'🏠', labelKey:'dashboard.stats.activeRooms', value:String(activeRooms) },
     { icon:'📦', labelKey:'dashboard.stats.pending',     value:String(pending) },
     { icon:'✅', labelKey:'dashboard.stats.approved',    value:String(approved) },
-    { icon:'💰', labelKey:'dashboard.stats.revenue',     value:`$${totalUSD.toFixed(0)}` },
+    isPureOperator
+      ? { icon:'🔧', labelKey:'dashboard.stats.inProgress', value:String(inProgress) }
+      : { icon:'💰', labelKey:'dashboard.stats.revenue',    value:`$${totalUSD.toFixed(0)}` },
   ]
 
   // Recent treatments — last 4
@@ -97,7 +108,7 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
                 <tr>
                   <th>{t('dashboard.recentTreatments.columns.room')}</th>
                   <th>{t('dashboard.recentTreatments.columns.product')}</th>
-                  <th>{t('dashboard.recentTreatments.columns.price')}</th>
+                  {!isPureOperator && <th>{t('dashboard.recentTreatments.columns.price')}</th>}
                   <th>{t('dashboard.recentTreatments.columns.date')}</th>
                   <th>{t('dashboard.recentTreatments.columns.status')}</th>
                   <th></th>
@@ -110,7 +121,7 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
                     <tr key={i}>
                       <td style={{fontWeight:600}}>{tr.cold_rooms?.name}</td>
                       <td>{productTag(tr.product)}</td>
-                      <td style={{fontWeight:700}}>{tr.price_local != null ? `${tr.price_currency || 'USD'} ${tr.price_local}` : '—'}</td>
+                      {!isPureOperator && <td style={{fontWeight:700}}>{tr.price_local != null ? `${tr.price_currency || 'USD'} ${tr.price_local}` : '—'}</td>}
                       <td style={{color:'var(--gray)'}}>{formatDate(tr.created_at)}</td>
                       <td><span className={`status ${s.cls}`}>{t(s.labelKey)}</span></td>
                       <td>
@@ -145,7 +156,8 @@ export default function Dashboard({ onNavigate, treatments = [] }) {
                   <div key={i} style={{background:'var(--white)', border:'1.5px solid var(--border)', borderRadius:'var(--radius)', padding:'16px'}}>
                     <div style={{fontSize:'14px', fontWeight:800, color:'var(--navy)', marginBottom:'3px'}}>{tr.cold_rooms?.name}</div>
                     <div style={{fontSize:'12px', color:'var(--gray)', marginBottom:'10px'}}>
-                      {tr.product === 'powder' ? 'MatriPowder' : 'MatriTablets'} · {tr.service_fee_local != null ? t('dashboard.roomsSummary.service') : t('dashboard.roomsSummary.own')}
+                      {tr.product === 'powder' ? 'MatriPowder' : 'MatriTablets'}
+                      {!isPureOperator && ` · ${tr.service_fee_local != null ? t('dashboard.roomsSummary.service') : t('dashboard.roomsSummary.own')}`}
                     </div>
                     <div style={{height:'3px', background:'var(--border)', borderRadius:'2px', margin:'8px 0'}}>
                       <div style={{height:'100%', width:`${pct}%`, background:s.color, borderRadius:'2px'}}/>

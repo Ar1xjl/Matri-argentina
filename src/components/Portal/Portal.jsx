@@ -766,18 +766,18 @@ export default function Portal({ onSignOut }) {
   const myAssignedApplications = treatments.filter(t => t.assigned_applicator_id === profile?.id)
 
   const panels = {
-    dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} />,
+    dashboard:  <Dashboard  onNavigate={navigate} treatments={treatments} myRoles={myRoles} />,
     rooms:      <Rooms coldRooms={allRooms} treatments={treatments} onAddRoom={addColdRoom} onDeleteRoom={deleteColdRoom} profile={profile} />,
     treatments: <Treatments onNavigate={navigate} treatments={treatments} onGetPhotoUrl={getMatriSurePhotoUrl} onRepeat={repeatTreatment} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} />,
     calculator: <Calculator onTreatmentConfirmed={addTreatment} onNavigate={navigate} coldRooms={canSeeWassingtonPanel ? allRooms : coldRooms} orgId={profile?.org_id}
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} profile={profile} onAddRoom={addColdRoom} />,
     seasonplan: canSeeWassingtonPanel
-                  ? <SeasonPlanRollup onNavigate={navigate} />
+                  ? <SeasonPlanRollup onNavigate={navigate} myRoles={myRoles} />
                   : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
                       onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                       onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
                       onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
-                      onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
+                      onClearPlannedLines={clearPlannedLines} onNavigate={navigate} myRoles={myRoles} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,

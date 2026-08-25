@@ -43,7 +43,10 @@ const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecide
 // every other filterRows-based table in this app, e.g. SeasonPlan.jsx's
 // SEASON_PLAN_COLUMNS) rather than redefined every render inside the
 // component, which is what the previous in-component version amounted to.
-const COLUMNS = [
+// `financial: true` entries get dropped for a pure Operador (role-visibility
+// backlog item, 2026-08-25) — filtered into the per-render `COLUMNS` below,
+// since that's the one thing here that genuinely varies per viewer.
+const COLUMNS_ALL = [
   { header: 'Distribuidor / Sub-distribuidor', get: l => l.parent?.name || '' },
   { header: 'Cliente',           get: l => l.customer?.name || '' },
   { header: 'Cámara',            get: l => l.cold_rooms?.name || '' },
@@ -52,12 +55,18 @@ const COLUMNS = [
   { header: 'Fecha estimada',    get: l => l.planned_date || '' },
   { header: 'Dosis (ppb)',       get: l => l.planned_dose_ppb ?? '' },
   { header: 'Producto',          get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-  { header: 'Costo (producto)',  get: l => l.cost != null ? l.cost.toFixed(2) : '' },
-  { header: '$/m³ (producto)',   get: l => (l.cost != null && l.cold_rooms?.volume_m3) ? (l.cost / l.cold_rooms.volume_m3).toFixed(2) : '' },
+  { header: 'Costo (producto)',  get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true },
+  { header: '$/m³ (producto)',   get: l => (l.cost != null && l.cold_rooms?.volume_m3) ? (l.cost / l.cold_rooms.volume_m3).toFixed(2) : '', financial: true },
   { header: 'Estado',            get: l => l.status === 'converted' ? 'Convertida' : 'Planificada' },
 ]
 
-export default function SeasonPlanRollup({ onNavigate }) {
+export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
+  // Role-visibility backlog item (flagged 2026-08-11, scoped and built
+  // 2026-08-25) — a "pure" Operador (has the role but not Owner/Aprobador
+  // too) shouldn't see cost/price figures here. Someone who holds Operador
+  // *alongside* Owner/Aprobador still sees everything, same as today.
+  const isPureOperator = myRoles.includes('operator') && !myRoles.includes('owner') && !myRoles.includes('approver')
+  const COLUMNS = useMemo(() => COLUMNS_ALL.filter(c => !c.financial || !isPureOperator), [isPureOperator])
   const [lines, setLines] = useState([])
   const [orgById, setOrgById] = useState(new Map())
   const [overrideByCustomerId, setOverrideByCustomerId] = useState(new Map())
@@ -185,7 +194,7 @@ export default function SeasonPlanRollup({ onNavigate }) {
         <SeasonPlanDraftModal customerOrg={draftCustomer} rooms={roomsForDraft} onClose={() => setDraftCustomer(null)} onShared={reloadLines} />
       )}
 
-      {showSimulator && simulatorCustomer && (
+      {!isPureOperator && showSimulator && simulatorCustomer && (
         <CampaignCostSimulator
           lines={filtered.map(l => ({ ...l, room: l.cold_rooms }))}
           pricing={simulatorPricing}
@@ -218,13 +227,15 @@ export default function SeasonPlanRollup({ onNavigate }) {
         </div>
       )}
 
-      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:'14px', marginBottom:'16px'}}>
+      <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:`repeat(${isPureOperator ? 3 : 5},1fr)`, gap:'14px', marginBottom:'16px'}}>
         {[
           ['Clientes con plan cargado', totals.customers],
           ['Total aplicaciones', totals.applications],
           ['Total m³', totals.m3.toLocaleString('es-AR')],
-          ['Costo potencial total (producto)', fmtUSD(totals.cost)],
-          ['Costo prom. $/m³ (producto)', fmtUSD(totals.avgPerM3)],
+          ...(isPureOperator ? [] : [
+            ['Costo potencial total (producto)', fmtUSD(totals.cost)],
+            ['Costo prom. $/m³ (producto)', fmtUSD(totals.avgPerM3)],
+          ]),
         ].map(([label, value]) => (
           <div key={label} style={{background:'#0b4358', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
             <div style={{fontSize:'10px', color:'rgba(255,255,255,.6)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'4px'}}>{label}</div>
@@ -232,20 +243,24 @@ export default function SeasonPlanRollup({ onNavigate }) {
           </div>
         ))}
       </div>
-      <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
-        Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional.
-      </div>
+      {!isPureOperator && (
+        <div style={{fontSize:'11px', color:'#888', marginBottom:'16px', textAlign:'right'}}>
+          Los valores de costo son del producto únicamente — no incluyen el servicio de aplicación opcional.
+        </div>
+      )}
 
       <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
         <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Plan de temporada — toda tu red</span>
           <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-            {!simulatorCustomer && (
+            {!isPureOperator && !simulatorCustomer && (
               <span style={{fontSize:'11px', color:'#888'}}>Filtrá por un Cliente para simular su costo</span>
             )}
-            <button className="btn-lime btn-sm" disabled={!simulatorCustomer} style={{opacity: simulatorCustomer ? 1 : .5}} onClick={() => setShowSimulator(true)}>
-              🧮 Simulador{simulatorCustomer ? ` — ${simulatorCustomer.name}` : ''}
-            </button>
+            {!isPureOperator && (
+              <button className="btn-lime btn-sm" disabled={!simulatorCustomer} style={{opacity: simulatorCustomer ? 1 : .5}} onClick={() => setShowSimulator(true)}>
+                🧮 Simulador{simulatorCustomer ? ` — ${simulatorCustomer.name}` : ''}
+              </button>
+            )}
             <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? '✕ Filtros' : 'Filtrar'}</button>
             <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada_consolidado.xlsx', COLUMNS, filtered)}>⬇ Exportar a Excel</button>
           </div>
@@ -300,8 +315,8 @@ export default function SeasonPlanRollup({ onNavigate }) {
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.planned_date || '—'}</td>
                   <td style={{padding:'12px 16px'}}>{l.planned_dose_ppb ?? '—'}</td>
                   <td style={{padding:'12px 16px'}}>{PRODUCT_LABEL[l.product_preference] || l.product_preference}</td>
-                  <td style={{padding:'12px 16px', fontWeight:700, color:'#0b4358'}}>{l.cost != null ? fmtUSD(l.cost) : '—'}</td>
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{(l.cost != null && l.cold_rooms?.volume_m3) ? fmtUSD(l.cost / l.cold_rooms.volume_m3) : '—'}</td>
+                  {!isPureOperator && <td style={{padding:'12px 16px', fontWeight:700, color:'#0b4358'}}>{l.cost != null ? fmtUSD(l.cost) : '—'}</td>}
+                  {!isPureOperator && <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{(l.cost != null && l.cold_rooms?.volume_m3) ? fmtUSD(l.cost / l.cold_rooms.volume_m3) : '—'}</td>}
                   <td style={{padding:'12px 16px'}}>
                     <span className={`status ${l.status === 'converted' ? 'approved' : 'pending'}`}>
                       {l.status === 'converted' ? '✓ Convertida' : '⏳ Planificada'}
