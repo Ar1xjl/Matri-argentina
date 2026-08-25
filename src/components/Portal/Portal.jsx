@@ -639,11 +639,25 @@ export default function Portal({ onSignOut }) {
   }
 
   // Fase K-2d (2026-08-11) — the Aplicador marks which of their own assigned
-  // kits they used, at MatriSure verification time. Validation (kit really
-  // assigned to the caller, still unused) lives in the RPC itself.
+  // kits they used. Validation (kit really assigned to the caller, still
+  // unused) lives in the RPC itself. Moved from the MatriSure-verification
+  // step to Inicio (2026-08-25, backport from DECCO-MatriSure's own Fase 7)
+  // — AppLog.jsx now calls this right after startApplication succeeds,
+  // not at submitMatriSure time; see AppLog.jsx's handleStartPhoto.
   const useKitUnit = async (unitId, treatmentId) => {
     const { error } = await supabase.rpc('use_kit_unit', { p_unit_id: unitId, p_treatment_id: treatmentId })
     if (error) { console.error('[useKitUnit]', error); return { error: error.message } }
+    await loadMyKitUnits(profile.id)
+    return { error: null }
+  }
+
+  // Backport from DECCO-MatriSure's own Fase 7 (2026-08-25) — the Aplicador
+  // can discard a kit already assigned to them if it turns out damaged.
+  // Validation (kit really assigned to the caller, still unused) lives in
+  // the RPC itself, same shape as useKitUnit.
+  const discardKitUnit = async (unitId, reason) => {
+    const { error } = await supabase.rpc('discard_kit_unit', { p_unit_id: unitId, p_reason: reason })
+    if (error) { console.error('[discardKitUnit]', error); return { error: error.message } }
     await loadMyKitUnits(profile.id)
     return { error: null }
   }
@@ -766,8 +780,8 @@ export default function Portal({ onSignOut }) {
                       onClearPlannedLines={clearPlannedLines} onNavigate={navigate} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
-    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} />,
-    myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} />,
+    applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,
+    myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} onAssignApplicator={assignTreatmentApplicator} />,
     users:      <Users profile={profile} />,
     profile:    <Profile profile={profile} />,

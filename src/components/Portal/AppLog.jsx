@@ -10,7 +10,7 @@ import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
 import { formatDate } from '../../lib/formatters'
 
-export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl, myKitUnits = [], onUseKit }) {
+export default function AppLog({ treatments = [], operatorName, onStartApplication, onFinishApplication, onSubmitMatriSure, onGetPhotoUrl, myKitUnits = [], onUseKit, onDiscardKit }) {
   const { t } = useTranslation()
 
   // "En curso" isn't a stored status (see Portal.jsx's startApplication/
@@ -36,18 +36,33 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     { header: t('appLog.columns.matriSure'),   get: tr => statusLabel(tr)?.label || '' },
   ]
 
-  const [view, setView] = useState('list') // 'list' | 'startform' | 'applystart' | 'endform' | 'applyend' | 'capture' | 'review' | 'history'
+  const [view, setView] = useState('list') // 'list' | 'startform' | 'choosekit' | 'applystart' | 'endform' | 'applyend' | 'capture' | 'review' | 'history'
   const [selected, setSelected] = useState(null)
   const [historyRoom, setHistoryRoom] = useState(null)
   const [pendingPhoto, setPendingPhoto] = useState(null)
   const [pendingTime, setPendingTime] = useState(null) // { startTime } or { endTime } while walking to the photo step
-  // Fase K-2d (2026-08-11) — which kit_units row this application used, only
-  // relevant to a Distributor-dispatched Aplicador (myKitUnits stays empty
-  // for a self-applying Customer, so this whole step just doesn't appear).
+  // Fase K-2d (2026-08-11), moved to the Inicio step 2026-08-25 (backport
+  // from DECCO-MatriSure's own Fase 7) — which kit_units row this
+  // application will use, only relevant to a Distributor-dispatched
+  // Aplicador (myKitUnits stays empty for a self-applying Customer, so the
+  // whole 'choosekit' step just doesn't appear for them). Chosen at Start,
+  // locked in via onUseKit the moment the Start photo actually saves — see
+  // handleStartPhoto — so a cancelled camera step never leaves a kit
+  // wrongly marked used.
   const [selectedKitId, setSelectedKitId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
+
+  // Discard-a-damaged-kit, backport from DECCO-MatriSure's own Fase 7
+  // (2026-08-25) — reachable both from the 'choosekit' step (mid-flow, about
+  // to start an application) and from the "Disponibles" stat card at any
+  // time (showKitBrowser, below).
+  const [discardingId, setDiscardingId] = useState(null)
+  const [discardReason, setDiscardReason] = useState('')
+  const [discardSaving, setDiscardSaving] = useState(false)
+  const [discardError, setDiscardError] = useState('')
+  const [showKitBrowser, setShowKitBrowser] = useState(false)
 
   const relevant = treatments.filter(t => ['approved','applied','completed'].includes(t.status))
 
@@ -56,22 +71,89 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
   const openHistory   = (room) => { setHistoryRoom(room); setView('history') }
   const openCapture   = (t) => { setActionError(''); setSelected(t); setView('capture') }
 
-  const handleStartTime = ({ startTime }) => { setPendingTime({ startTime }); setView('applystart') }
+  // Fase K backport (2026-08-25) — a kit-using Aplicador (myKitUnits ever
+  // non-empty) picks/commits their kit right here, before the Start photo;
+  // a self-applying Customer (myKitUnits always empty) skips straight to
+  // the camera exactly as before.
+  const handleStartTime = ({ startTime }) => {
+    setPendingTime({ startTime })
+    setSelectedKitId('')
+    setView(myKitUnits.length > 0 ? 'choosekit' : 'applystart')
+  }
   const handleEndTime   = ({ endTime })   => { setPendingTime({ endTime });   setView('applyend') }
 
   const cancelFlow = () => { setPendingTime(null); setSelected(null); setView('list') }
 
+  const openDiscard = (kitId) => { setDiscardingId(kitId); setDiscardReason(''); setDiscardError('') }
+  const confirmDiscard = async () => {
+    if (!discardReason.trim()) { setDiscardError(t('appLog.chooseKit.discardReasonRequired')); return }
+    setDiscardSaving(true)
+    setDiscardError('')
+    const res = await onDiscardKit?.(discardingId, discardReason.trim())
+    setDiscardSaving(false)
+    if (res?.error) { setDiscardError(res.error); return }
+    if (selectedKitId === discardingId) setSelectedKitId('')
+    setDiscardingId(null)
+  }
+
+  // Shared between the 'choosekit' step (selectable — picking which kit to
+  // commit to) and the "Disponibles" stat-card browser (selectable: false —
+  // just a place to discard a damaged one outside any specific Treatment).
+  const renderKitRow = (k, { selectable }) => (
+    <div key={k.id}>
+      <div style={{display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'8px', border: selectable && selectedKitId === k.id ? '1.5px solid #b5cc2e' : '0.5px solid #ddddd5'}}>
+        {selectable && (
+          <input type="radio" name="chooseKit" checked={selectedKitId === k.id} onChange={() => setSelectedKitId(k.id)}/>
+        )}
+        <span
+          style={{fontFamily:'monospace', fontWeight:700, flex:1, cursor: selectable ? 'pointer' : 'default'}}
+          onClick={() => selectable && setSelectedKitId(k.id)}
+        >
+          {k.tracking_number}
+        </span>
+        <button type="button" className="btn-secondary btn-sm" onClick={() => openDiscard(k.id)} title={t('appLog.chooseKit.discard')}>
+          🗑️ {t('appLog.chooseKit.discard')}
+        </button>
+      </div>
+      {discardingId === k.id && (
+        <div style={{marginTop:'6px', marginBottom:'6px', padding:'10px 12px', background:'#fdeaea', borderRadius:'8px', display:'flex', flexWrap:'wrap', gap:'8px', alignItems:'center'}}>
+          <span style={{fontSize:'12px', fontWeight:700, color:'#8b2020'}}>{t('appLog.chooseKit.discardWhy', { tracking: k.tracking_number })}</span>
+          <input value={discardReason} onChange={e => setDiscardReason(e.target.value)} placeholder={t('appLog.chooseKit.discardPlaceholder')}
+            style={{flex:1, minWidth:'160px', padding:'7px 10px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}/>
+          <button className="btn-primary btn-sm" style={{background:'#8b2020'}} disabled={discardSaving} onClick={confirmDiscard}>
+            {discardSaving ? t('common.saving') : t('appLog.chooseKit.confirmDiscard')}
+          </button>
+          <button className="btn-secondary btn-sm" onClick={() => setDiscardingId(null)}>{t('common.cancel')}</button>
+          {discardError && <span style={{fontSize:'11px', color:'#8b2020'}}>⚠️ {discardError}</span>}
+        </div>
+      )}
+    </div>
+  )
+
   const handleStartPhoto = async (startBlob) => {
     setSubmitting(true)
     const res = await onStartApplication(selected.id, { ...pendingTime, startBlob })
-    setSubmitting(false)
     if (res?.error) {
       // Stay on this step — MatriSureCapture keeps the captured blob in its
       // own local state, so the user can just retry without retaking it.
+      setSubmitting(false)
       setActionError(t('appLog.errors.saveStart', { error: res.error }))
       return
     }
+    // Lock the kit in only after the Start photo itself actually saved —
+    // never before, so a cancelled/failed camera step never leaves a kit
+    // wrongly marked used with nothing to back it up.
+    if (selectedKitId) {
+      const kitRes = await onUseKit?.(selectedKitId, selected.id)
+      if (kitRes?.error) {
+        setSubmitting(false)
+        setActionError(t('appLog.errors.saveStart', { error: kitRes.error }))
+        return
+      }
+    }
+    setSubmitting(false)
     setPendingTime(null)
+    setSelectedKitId('')
     setView('list')
   }
 
@@ -90,26 +172,18 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
     // right there checking the strip a moment later anyway. `selected` is
     // still the same Treatment, now 'applied', so onFinishApplication's own
     // status update is what actually unlocks this next step.
-    setSelectedKitId('')
     setView('capture')
   }
 
   const handleCapture = (blob) => {
     setPendingPhoto(blob)
-    setSelectedKitId('')
     setView('review')
   }
 
+  // Kit choice/lock already happened at Inicio (handleStartPhoto) — this
+  // step only submits the MatriSure result, same as before that backport.
   const handleReview = async (result, assistanceRequested = false) => {
     setSubmitting(true)
-    if (selectedKitId) {
-      const kitRes = await onUseKit?.(selectedKitId, selected.id)
-      if (kitRes?.error) {
-        setSubmitting(false)
-        setActionError(t('appLog.errors.saveMatriSure', { error: kitRes.error }))
-        return
-      }
-    }
     const res = await onSubmitMatriSure(selected.id, pendingPhoto, { result, assistanceRequested })
     setSubmitting(false)
     if (res?.error) {
@@ -117,7 +191,6 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       return
     }
     setPendingPhoto(null)
-    setSelectedKitId('')
     setView('list')
   }
 
@@ -138,6 +211,35 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
           onSave={handleStartTime}
           onCancel={() => setView('list')}
         />
+      </div>
+    )
+  }
+
+  if (view === 'choosekit') {
+    const availableKits = myKitUnits.filter(k => k.status === 'assigned')
+    return (
+      <div style={{maxWidth:'480px'}}>
+        {errorBanner}
+        <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
+          <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>
+            {t('appLog.chooseKit.title')}
+          </div>
+          {availableKits.length === 0 ? (
+            <div style={{fontSize:'12px', color:'#8b2020', background:'#fdeaea', borderRadius:'8px', padding:'10px 12px', marginBottom:'16px'}}>
+              {t('appLog.review.noKitsAvailable')}
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:'8px', marginBottom:'16px'}}>
+              {availableKits.map(k => renderKitRow(k, { selectable: true }))}
+            </div>
+          )}
+          <div style={{display:'flex', gap:'8px'}}>
+            <button className="btn-primary" disabled={availableKits.length === 0 || !selectedKitId} onClick={() => setView('applystart')}>
+              {t('appLog.chooseKit.continue')}
+            </button>
+            <button className="btn-secondary" onClick={cancelFlow}>{t('common.cancel')}</button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -203,46 +305,34 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
   }
 
   if (view === 'review') {
-    // Only ever non-empty for a Distributor-dispatched Aplicador (Fase K) —
-    // a self-applying Customer has never had a kit_units row, so this step
-    // stays invisible and their flow is exactly what it always was.
-    const everHadKits = myKitUnits.length > 0
-    const availableKits = myKitUnits.filter(k => k.status === 'assigned')
-    const kitBlocksSubmit = everHadKits && (availableKits.length === 0 || !selectedKitId)
+    // Kit choice/lock now happens at Inicio (Fase K backport, 2026-08-25) —
+    // this just shows which one was used, read-only, looked up by
+    // used_treatment_id (DB-backed, not local state) since Inicio and this
+    // MatriSure step can be hours or days apart and this component may well
+    // have remounted in between. Stays undefined for a self-applying
+    // Customer, exactly as before.
+    const usedKit = myKitUnits.find(k => k.used_treatment_id === selected.id)
     return (
       <div style={{maxWidth:'480px'}}>
         {errorBanner}
         <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px'}}>
           <img src={URL.createObjectURL(pendingPhoto)} alt="MatriSure" style={{width:'100%', borderRadius:'8px', marginBottom:'16px'}}/>
 
-          {everHadKits && (
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block', fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'6px'}}>
-                {t('appLog.review.kitUsedLabel')}
-              </label>
-              {availableKits.length === 0 ? (
-                <div style={{fontSize:'12px', color:'#8b2020', background:'#fdeaea', borderRadius:'8px', padding:'10px 12px'}}>
-                  {t('appLog.review.noKitsAvailable')}
-                </div>
-              ) : (
-                <select value={selectedKitId} onChange={e => setSelectedKitId(e.target.value)}
-                  style={{width:'100%', padding:'9px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8', fontFamily:'inherit'}}>
-                  <option value="">{t('appLog.review.chooseKit')}</option>
-                  {availableKits.map(k => <option key={k.id} value={k.id}>{k.tracking_number}</option>)}
-                </select>
-              )}
+          {usedKit && (
+            <div style={{marginBottom:'16px', fontSize:'13px', color:'#0b4358', background:'#f0f7e0', borderRadius:'8px', padding:'9px 12px', fontFamily:'monospace', fontWeight:700}}>
+              {t('appLog.review.kitUsedReadonly', { tracking: usedKit.tracking_number })}
             </div>
           )}
 
           <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'12px'}}>{t('appLog.review.question')}</div>
           <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
-            <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('confirmed')}>
+            <button className="btn-primary" style={{background:'#1a6b30'}} disabled={submitting} onClick={() => handleReview('confirmed')}>
               {t('appLog.review.confirmed')}
             </button>
-            <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('not_reached')}>
+            <button className="btn-primary" style={{background:'#b06a00'}} disabled={submitting} onClick={() => handleReview('not_reached')}>
               {t('appLog.review.notReached')}
             </button>
-            <button className="btn-secondary" disabled={submitting || kitBlocksSubmit} onClick={() => handleReview('pending_review', true)}>
+            <button className="btn-secondary" disabled={submitting} onClick={() => handleReview('pending_review', true)}>
               {t('appLog.review.askHelp')}
             </button>
           </div>
@@ -266,6 +356,30 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
       )}
 
+      {/* Fase K backport (2026-08-25) — browse/discard your own assigned
+          kits any time, not only mid-flow at Inicio. Opened from the
+          "Disponibles" stat card below. */}
+      {showKitBrowser && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setShowKitBrowser(false)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.7)', backdropFilter:'blur(4px)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'20px', maxWidth:'480px', width:'100%', maxHeight:'80vh', overflowY:'auto'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
+              <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{t('appLog.chooseKit.browseTitle')}</span>
+              <button onClick={() => setShowKitBrowser(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'#6b7280'}}>✕</button>
+            </div>
+            {myKitUnits.filter(k => k.status === 'assigned').length === 0 ? (
+              <div style={{fontSize:'13px', color:'#888', textAlign:'center', padding:'20px'}}>{t('appLog.review.noKitsAvailable')}</div>
+            ) : (
+              <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                {myKitUnits.filter(k => k.status === 'assigned').map(k => renderKitRow(k, { selectable: false }))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Fase K-2d/e (2026-08-11) — only ever shows for a Distributor-dispatched
           Aplicador (myKitUnits stays empty for a self-applying Customer).
           Same stat-card style as the rest of the portal's dashboards, per
@@ -275,11 +389,11 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
         <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'14px', marginBottom:'16px'}}>
           {[
             { icon:'🧪', label:t('appLog.kitStats.assigned'),  value: myKitUnits.length, bg:'#e8f4fc' },
-            { icon:'✅', label:t('appLog.kitStats.available'), value: myKitUnits.filter(k => k.status === 'assigned').length,  bg:'#eaf7ee' },
+            { icon:'✅', label:t('appLog.kitStats.available'), value: myKitUnits.filter(k => k.status === 'assigned').length,  bg:'#eaf7ee', onClick: () => setShowKitBrowser(true) },
             { icon:'📸', label:t('appLog.kitStats.used'),      value: myKitUnits.filter(k => k.status === 'used').length,      bg:'#f0f7e0' },
             { icon:'🗑️', label:t('appLog.kitStats.discarded'), value: myKitUnits.filter(k => k.status === 'destroyed').length, bg:'#fdeaea' },
           ].map((s,i) => (
-            <div key={i} style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'18px', position:'relative', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
+            <div key={i} onClick={s.onClick} style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'18px', position:'relative', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)', cursor: s.onClick ? 'pointer' : 'default'}}>
               <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'#b5cc2e'}}/>
               <div style={{position:'absolute', right:'14px', top:'16px', width:'36px', height:'36px', borderRadius:'8px', background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px'}}>{s.icon}</div>
               <div style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:'6px'}}>{s.label}</div>

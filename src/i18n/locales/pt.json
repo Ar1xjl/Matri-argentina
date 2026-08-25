@@ -350,7 +350,18 @@
       "askHelp": "🙋 Não tenho certeza — pedir ajuda ao meu distribuidor",
       "kitUsedLabel": "Kit MatriSure utilizado",
       "chooseKit": "Escolher kit…",
-      "noKitsAvailable": "Você não tem nenhum kit disponível atribuído — peça um ao seu Distribuidor antes de confirmar."
+      "noKitsAvailable": "Você não tem nenhum kit disponível atribuído — peça um ao seu Distribuidor antes de confirmar.",
+      "kitUsedReadonly": "Kit MatriSure utilizado: {{tracking}}"
+    },
+    "chooseKit": {
+      "title": "Escolha qual kit você vai usar",
+      "continue": "Continuar",
+      "discard": "Descartar",
+      "discardWhy": "Por que {{tracking}} está sendo descartado?",
+      "discardPlaceholder": "Ex: chegou sem selo a vácuo",
+      "discardReasonRequired": "Conte brevemente o que encontrou de errado com o kit.",
+      "confirmDiscard": "Confirmar descarte",
+      "browseTitle": "Seus kits disponíveis"
     },
     "livePhotoNotice": "📸 As fotos do Kit MatriSure devem ser tiradas ao vivo pela câmera do dispositivo. Não são permitidos envios da galeria.",
     "kitStats": {

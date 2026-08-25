@@ -350,7 +350,18 @@
       "askHelp": "🙋 Not sure — ask my distributor for help",
       "kitUsedLabel": "MatriSure kit used",
       "chooseKit": "Choose kit…",
-      "noKitsAvailable": "You have no available kit assigned to you — ask your Distributor for one before confirming."
+      "noKitsAvailable": "You have no available kit assigned to you — ask your Distributor for one before confirming.",
+      "kitUsedReadonly": "MatriSure kit used: {{tracking}}"
+    },
+    "chooseKit": {
+      "title": "Choose which kit you'll use",
+      "continue": "Continue",
+      "discard": "Discard",
+      "discardWhy": "Why is {{tracking}} being discarded?",
+      "discardPlaceholder": "E.g.: arrived without a vacuum seal",
+      "discardReasonRequired": "Briefly say what was wrong with the kit.",
+      "confirmDiscard": "Confirm discard",
+      "browseTitle": "Your available kits"
     },
     "livePhotoNotice": "📸 MatriSure Kit photos must be taken live from the device's camera. Gallery uploads are not allowed.",
     "kitStats": {
