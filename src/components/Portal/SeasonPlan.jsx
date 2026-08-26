@@ -99,22 +99,26 @@ export default function SeasonPlan({
 
   // `financial: true` columns are dropped entirely for a pure Operador (role
   // gate above) — same filter drives the header, the Excel export, and the
-  // filter-row inputs, since all three read off this one array.
+  // filter-row inputs, since all three read off this one array. `width`
+  // feeds the <colgroup> below (table-layout: fixed) so a number input like
+  // Dosis gets guaranteed room instead of every column being squeezed evenly
+  // to fit — Cultivo/Variedad/Notas eat into the container instead once it
+  // doesn't all fit, since .table-scroll already scrolls horizontally.
   const SEASON_PLAN_COLUMNS = [
-    { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '' },
+    { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '', width: '170px' },
     // `l.crop` is the snapshot taken when the line was created/imported
     // (migration 0036); the room fallback only matters for lines that
     // predate the snapshot.
-    { header: t('seasonPlan.columns.crop'),       get: l => l.crop || l.room?.primary_crop || '' },
-    { header: t('seasonPlan.columns.variety'),    get: l => l.variety || '' },
-    { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '' },
-    { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '' },
-    { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '' },
-    { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference },
-    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true },
-    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '', financial: true },
-    { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '' },
-    { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned') },
+    { header: t('seasonPlan.columns.crop'),       get: l => l.crop || l.room?.primary_crop || '', width: '110px' },
+    { header: t('seasonPlan.columns.variety'),    get: l => l.variety || '', width: '110px' },
+    { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '', width: '90px' },
+    { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '', width: '155px' },
+    { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '', width: '95px' },
+    { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference, width: '130px' },
+    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true, width: '100px' },
+    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '', financial: true, width: '100px' },
+    { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '', width: '160px' },
+    { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned'), width: '120px' },
   ].filter(c => !c.financial || !isPureOperator)
 
   // Nearest ancestor with its own price list configured (Fase H, 2026-07-16).
@@ -423,7 +427,12 @@ export default function SeasonPlan({
             {t('seasonPlan.noFilterMatches')}
           </div>
         ) : (
-          <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse'}}>
+          <div className="table-scroll"><table style={{width:'max-content', minWidth:'100%', borderCollapse:'collapse', tableLayout:'fixed'}}>
+            <colgroup>
+              <col style={{width:'40px'}}/>
+              {SEASON_PLAN_COLUMNS.map(c => <col key={c.header} style={{width: c.width}}/>)}
+              <col style={{width:'50px'}}/>
+            </colgroup>
             <thead>
               <tr>
                 <th style={{...cell, background:'#f5f5ee'}}>
