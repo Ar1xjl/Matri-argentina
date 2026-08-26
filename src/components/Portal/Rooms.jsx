@@ -4,6 +4,7 @@ import RoomHistory from './RoomHistory'
 import { supabase } from '../../lib/supabaseClient'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
 import { formatDate } from '../../lib/formatters'
+import { CROP_OPTIONS } from '../../lib/crops'
 
 const STATUS_KEYS = {
   approved:  { cls:'approved',  key:'approved' },
@@ -25,7 +26,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [volume, setVolume] = useState('')
-  const [crop, setCrop] = useState('Manzanas')
+  const [crop, setCrop] = useState('Manzana')
   const [targetOrgId, setTargetOrgId] = useState('')
   const [customerOrgs, setCustomerOrgs] = useState([])
   const [formError, setFormError] = useState('')
@@ -70,7 +71,7 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
     setFormError('')
     const res = await onAddRoom({ name, location, volume_m3: Number(volume), primary_crop: crop }, isDistributorView ? targetOrgId : undefined)
     if (res?.error) { setFormError(res.error); return }
-    setName(''); setLocation(''); setVolume(''); setCrop('Manzanas')
+    setName(''); setLocation(''); setVolume(''); setCrop('Manzana')
     setShowForm(false)
   }
 
@@ -137,12 +138,10 @@ export default function Rooms({ coldRooms = [], treatments = [], onAddRoom, onDe
               </div>
               <div className="form-field">
                 <label>{t('rooms.form.cropLabel')}</label>
-                <select value={crop} onChange={e => setCrop(e.target.value)}>
-                  <option>Manzanas</option>
-                  <option>Peras</option>
-                  <option>Kiwi</option>
-                  <option>Otro</option>
-                </select>
+                <input list="rooms-crop-options" value={crop} onChange={e => setCrop(e.target.value)} placeholder={t('rooms.form.cropLabel')}/>
+                <datalist id="rooms-crop-options">
+                  {CROP_OPTIONS.map(c => <option key={c} value={c} />)}
+                </datalist>
               </div>
               <div className="form-field" style={{display:'flex', alignItems:'flex-end'}}>
                 <button className="btn-primary" style={{width:'100%'}} onClick={handleSave}>{t('rooms.form.save')}</button>

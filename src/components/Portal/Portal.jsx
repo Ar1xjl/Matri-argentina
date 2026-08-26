@@ -365,6 +365,17 @@ export default function Portal({ onSignOut }) {
     setAllRooms(subtreeRooms || [])
   }
 
+  // Rooms are otherwise only refetched right after *this* session's own
+  // add/delete actions — a room created in a different session (e.g. a
+  // Customer uploading their Season Plan Excel while a Distributor already
+  // has the Calculator open) would stay invisible here until a hard reload.
+  // Refetch whenever the user navigates into a rooms-dependent screen.
+  useEffect(() => {
+    if (!profile) return
+    if (['rooms', 'calculator', 'seasonplan'].includes(activePanel)) reloadRooms()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePanel, profile])
+
   // ── Treatment actions — shared across Calculator, Treatments, Wassington ──
   // targetOrgId lets a Distributor/Sub-distributor add a room on behalf of
   // one of its Customers (Cámaras screen); defaults to the caller's own org.

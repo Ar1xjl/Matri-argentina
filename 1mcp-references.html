@@ -649,9 +649,97 @@ const REFS = [
     finding: "Delays in 1-MCP application generally result in progressively higher IEC at time of treatment and lower firmness both at treatment and after storage. Storage duration interacts with dose — longer storage targets require more complete receptor inhibition at time of treatment. Essential cross-crop reference.",
     quality: "peer-reviewed"
   },
+  {
+    id: "pristijono2018",
+    authors: "Pristijono, P., Bowyer, M.C., Scarlett, C.J., et al.",
+    year: 2018,
+    title: "Combined postharvest UV-C and 1-methylcyclopropene (1-MCP) treatment, followed by storage continuously in low level of ethylene atmosphere improves the quality of Tahitian limes.",
+    journal: "Journal of Food Science and Technology",
+    vol: "55", pages: "2467–2475",
+    doi: "10.1007/s13197-018-3164-4",
+    crops: ["Lime"],
+    params: ["Base Dose", "Color Stage", "Storage Duration"],
+    finding: "0.5 µL/L (500 ppb) 1-MCP combined with UV-C and continuous low-level ethylene atmosphere storage reduced calyx abscission and retained peel greenness in Tahitian limes. Since limes are non-climacteric, this targets ethylene-triggered degreening and calyx drop rather than ripening delay — basis for the lime base dose and its exposure-based (not maturity-based) dose scaling.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "wang2025melon",
+    authors: "Wang, H., Yang, Z., Amanullah, S., Wang, H., Liu, B., Liu, S., Yang, T., Wang, C.",
+    year: 2025,
+    title: "Deciphering the Effect of Postharvest 1-MCP Treatment Coupled with Low-Temperature Storage on the Physiological Activities and Edible Quality of Melon.",
+    journal: "Plants",
+    vol: "14(4)", pages: "586",
+    doi: "10.3390/plants14040586",
+    crops: ["Melon"],
+    params: ["Base Dose", "Firmness", "Brix", "Color Stage"],
+    finding: "1-MCP fumigation coupled with low-temperature storage slowed rind color change and maintained firmness, soluble solids and vitamin C while reducing weight loss and ethylene emission in melon. Basis for the melon base dose and slip-stage dose uplift.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "zhang2019melon",
+    authors: "Zhang, Q., Dai, W., Jin, X., Li, J.",
+    year: 2019,
+    title: "Calcium chloride and 1-methylcyclopropene treatments delay postharvest and reduce decay of New Queen melon.",
+    journal: "Scientific Reports",
+    vol: "9", pages: "13563",
+    doi: "10.1038/s41598-019-49820-8",
+    crops: ["Melon"],
+    params: ["Base Dose", "Storage Duration"],
+    finding: "1 µL/L (≈1000 ppb) 1-MCP, combined with CaCl₂, suppressed respiration rate, ethylene release and pectinase activity, delaying softening and reducing decay in 'New Queen' melon. Supports the upper end of the melon dose range for extended storage targets.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "mao2004watermelon",
+    authors: "Mao, L.C., Karakurt, Y., Huber, D.J.",
+    year: 2004,
+    title: "Incidence of water-soaking and phospholipid catabolism in ripe watermelon (Citrullus lanatus) fruit: induction by ethylene and prophylactic effects of 1-methylcyclopropene.",
+    journal: "Postharvest Biology and Technology",
+    vol: "33", pages: "1–9",
+    crops: ["Watermelon"],
+    params: ["Base Dose", "Firmness"],
+    finding: "Watermelon is non-climacteric and barely produces ethylene post-harvest, but exogenous ethylene exposure triggers placental water-soaking and phospholipid breakdown. 1-MCP applied prophylactically prevented this disorder. Basis for modeling watermelon dose around ethylene-exposure risk rather than fruit maturity.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "nguyen2021watermelon",
+    authors: "Nguyen, M.P.",
+    year: 2021,
+    title: "Synergistic effect of calcium chloride and 1-Methylcyclopropene on storage of watermelon (Citrullus lanatus (Thunb.) Matsum. & Nakai).",
+    journal: "Plant Science Today",
+    vol: "", pages: "",
+    crops: ["Watermelon"],
+    params: ["Base Dose", "Storage Duration"],
+    finding: "0.6 ppm (600 ppb) 1-MCP combined with 2.5% CaCl₂ (20 min immersion) extended watermelon shelf life by approximately 15 days. Basis for the watermelon base dose of 600 ppb.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "ali2017persimmon",
+    authors: "Ali, Q., et al.",
+    year: 2017,
+    title: "Impact of Different Doses of 1-Methylcyclopropene (1-MCP) on Postharvest Quality of Astringent 'Hachiya' Persimmons.",
+    journal: "AGROSYM 2017 Proceedings (VIII International Agriculture Symposium)",
+    vol: "", pages: "",
+    crops: ["Persimmon"],
+    params: ["Base Dose", "Firmness", "Brix"],
+    finding: "Of the doses tested (156.25, 312.5 and 625 ppb, 24 h at 5°C), 625 ppb gave the highest soluble solids and firmness retention during cold storage and shelf life in astringent 'Hachiya' persimmons; a companion study repeated the same dose series on non-astringent 'Fuyu'. Basis for the persimmon base dose of 625 ppb.",
+    quality: "peer-reviewed"
+  },
+  {
+    id: "menniti2004plum",
+    authors: "Menniti, A.M., Gregori, R., Donati, I.",
+    year: 2004,
+    title: "1-Methylcyclopropene retards postharvest softening of plums.",
+    journal: "Postharvest Biology and Technology",
+    vol: "31", pages: "269–275",
+    doi: "10.1016/j.postharvbio.2003.09.009",
+    crops: ["Plum"],
+    params: ["Base Dose", "Firmness"],
+    finding: "Of three doses tested (250, 500 and 750 ppb), 750 ppb was the most efficient at suppressing ethylene biosynthesis and retarding pulp softening in plum, with 500 ppb also effective. Basis for the plum base dose of 500 ppb with headroom toward 750 ppb for extended-storage targets.",
+    quality: "peer-reviewed"
+  },
 ];
 
-const CROP_OPTIONS = ["All", "Apple", "Pear", "Avocado", "Mango", "Kiwifruit", "Banana", "Peach", "Tomato", "General"];
+const CROP_OPTIONS = ["All", "Apple", "Pear", "Avocado", "Mango", "Kiwifruit", "Banana", "Peach", "Tomato", "Lime", "Melon", "Watermelon", "Persimmon", "Plum", "General"];
 const PARAM_OPTIONS = ["All", "IEC", "Starch Index", "Firmness", "Dry Matter", "Brix", "Color Stage", "Storage Duration", "Temperature", "Harvest Delay", "Base Dose"];
 const QUALITY_OPTIONS = [
   { value: "All", label: "All" },

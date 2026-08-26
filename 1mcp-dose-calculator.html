@@ -645,7 +645,7 @@
       <p>Enter measured harvest parameters to receive a scientifically grounded dose suggestion. Fine-tune with the manual slider before committing to a treatment protocol.</p>
       <div class="header-meta">
         <span>Active ingredient: <strong>1-Methylcyclopropene</strong></span>
-        <span>Formulation: <strong>SmartFresh® 3.3% / 2% DP</strong></span>
+        <span>Formulation: <strong>3.3% / 2% DP</strong></span>
         <span>Application: <strong>Gaseous, airtight room</strong></span>
         <span>Version: <strong>1.0 — 2026</strong></span>
       </div>
@@ -916,9 +916,9 @@ const CROPS = {
       {id:"color",name:"Skin color stage",unit:"1–5",min:1, max:5,  step:1, default:1,  desc:"1=dark green, 3=turning, 5=black (Hass scale)",lowGood:1,highBad:3},
     ],
     dests:["Domestic short (1–2 wk)","Export transit (3–5 wk)","Long cold storage (5–8 wk)","Ripening room"],
-    baseDose:500,
+    baseDose:300,
     calcDose(p,dest,delay,atm,temp){
-      let base=500,adj=0,adjs=[];
+      let base=300,adj=0,adjs=[];
       let dmAdj=p.dm<21?100:p.dm>28?-100:Math.round((23-p.dm)*15);adj+=dmAdj;
       adjs.push({label:`DM ${p.dm.toFixed(1)}%`,delta:dmAdj,reason:"Low DM (early season) has lower endogenous IEC; high DM = advanced maturity = narrowing window"});
       let firmAdj=p.firm<100?200:p.firm<150?100:p.firm>250?-100:0;adj+=firmAdj;
@@ -1103,6 +1103,166 @@ const CROPS = {
     curves:[
       {id:"color",label:"Ripening stage → dose modifier",xMin:1,xMax:6,fn:x=>Math.round(x)<=2?0:Math.round(x)===3?100:Math.round(x)===4?250:400,unit:"ppb adj"},
       {id:"firm", label:"Firmness (N) → dose modifier",  xMin:5,xMax:40,fn:x=>x<15?100:x<20?50:x>30?-50:0,unit:"ppb adj"},
+    ]
+  },
+  Lime:{
+    desc:"Non-climacteric — limes don't ripen further after harvest, so 1-MCP is not used to delay softening. It blocks ethylene-triggered peel degreening (yellowing) and calyx/stem-end drop during transit and storage. Most effective combined with UV-C and a low-ethylene storage atmosphere.",
+    varieties:["All varieties / commercial","Tahiti / Persian","Key lime / Mexican","Bearss"],
+    params:[
+      {id:"color",name:"Peel color stage", unit:"1–5", min:1,max:5, step:1,default:1,  desc:"1=dark green (target), 3=green-yellow break, 5=fully yellow",lowGood:1,highBad:3},
+      {id:"firm", name:"Peel firmness",    unit:"N",   min:10,max:40,step:1,default:28,desc:"Senescence proxy — declines as peel yellows and softens",lowGood:30,highBad:18},
+    ],
+    dests:["Local / domestic (1–2 wk)","Export short transit (3–4 wk)","Export long / ocean transit (5–8 wk)","Cold storage (2–3 mo)"],
+    baseDose:500,
+    calcDose(p,dest,delay,atm,temp){
+      let base=500,adj=0,adjs=[];
+      let colorAdj=[0,0,80,200,350][p.color]??0;adj+=colorAdj;
+      if(colorAdj>0) adjs.push({label:`Color stage ${p.color}`,delta:colorAdj,reason:"Peel already turning — ethylene-driven degreening underway, 1-MCP window closing"});
+      let firmAdj=Math.round((30-p.firm)*10);adj+=firmAdj;
+      if(Math.abs(firmAdj)>10) adjs.push({label:`Firmness ${p.firm}N`,delta:firmAdj,reason:"Softer peel indicates senescence has progressed past the ideal treatment window"});
+      let destAdj=[-100,0,150,50][dest]??0;adj+=destAdj;
+      adjs.push({label:["Local","Export short","Export long","Cold storage"][dest]??"—",delta:destAdj,reason:"Longer transit means more cumulative ethylene exposure risk from mixed cargo"});
+      if(delay>24){let d=Math.round((delay-24)*3);adj+=d;adjs.push({label:`+${delay}h delay`,delta:d,reason:"Delay before treatment allows early degreening to start"});}
+      if(atm==="ca"||atm==="ma"){adj-=75;adjs.push({label:"CA / MAP",delta:-75,reason:"Low-oxygen/low-ethylene atmosphere works synergistically with 1-MCP to hold peel color"});}
+      let total=Math.max(150,Math.min(1000,base+adj));
+      return{base,adj,adjs,total,dur:"12–24 h",
+        shelf:["2–4 weeks","4–6 weeks","6–8 weeks","8–12 weeks"][dest]??"4–6 weeks",
+        calcNote:"Lime 1-MCP at 500 ppb (0.5 µL/L) combined with UV-C and continuous low-level ethylene atmosphere storage retained peel greenness and reduced calyx abscission in Tahitian limes (Pristijono et al. 2018). Because limes are non-climacteric, dose scales with expected ethylene exposure and transit length, not with fruit maturity at harvest.",
+        warning:p.color>=3?"Peel already showing green-yellow break — degreening has started; 1-MCP will slow but not reverse it.":""};
+    },
+    curves:[
+      {id:"color",label:"Peel color stage → dose modifier",xMin:1,xMax:5,fn:x=>([0,0,80,200,350][Math.round(x)]??0),unit:"ppb adj"},
+      {id:"firm", label:"Firmness (N) → dose modifier",    xMin:10,xMax:40,fn:x=>Math.round((30-x)*10),unit:"ppb adj"},
+    ]
+  },
+  Melon:{
+    desc:"Climacteric (cantaloupe / muskmelon type). Apply near the slip / half-slip stage. 1-MCP delays softening, retains soluble solids, and slows rind color change — synergistic with CaCl₂ dips where fresh-cut quality matters.",
+    varieties:["All varieties / commercial","Cantaloupe / Muskmelon","Honeydew","Galia","Piel de Sapo"],
+    params:[
+      {id:"firm", name:"Flesh firmness",  unit:"kg",   min:1,  max:6,  step:.1,default:3.5,desc:"Penetrometer — harvest target 2–4 kg depending on variety",lowGood:4,  highBad:2},
+      {id:"brix", name:"TSS (Brix)",      unit:"°Brix",min:6,  max:16, step:.5,default:10, desc:"Harvest target 9–12 Brix for export",lowGood:9,highBad:13},
+      {id:"color",name:"Slip / rind stage",unit:"1–5", min:1,  max:5,  step:1, default:1,  desc:"1=full slip resistance (hard), 3=half-slip, 5=full slip / net yellowing",lowGood:1,highBad:3},
+    ],
+    dests:["Local market (3–5 d)","Short export (7–10 d)","Long-haul export (14–21 d)","Extended cold (3–4 wk)"],
+    baseDose:500,
+    calcDose(p,dest,delay,atm,temp){
+      let base=500,adj=0,adjs=[];
+      let firmAdj=p.firm<2?150:p.firm<3?75:p.firm>4.5?-75:0;adj+=firmAdj;
+      adjs.push({label:`Firmness ${p.firm.toFixed(1)}kg`,delta:firmAdj,reason:"Low firmness at harvest signals ripening already underway — narrowing 1-MCP window"});
+      let brixAdj=p.brix>12?Math.round((p.brix-12)*25):0;adj+=brixAdj;
+      if(brixAdj>0) adjs.push({label:`Brix ${p.brix.toFixed(1)}`,delta:brixAdj,reason:"High Brix at harvest indicates advanced sugar accumulation and maturity"});
+      let colorAdj=[0,0,100,250,400][p.color]??0;adj+=colorAdj;
+      if(colorAdj>0) adjs.push({label:`Slip stage ${p.color}`,delta:colorAdj,reason:"Advancing slip stage means climacteric ethylene has already begun"});
+      let destAdj=[-100,-50,50,100][dest]??0;adj+=destAdj;
+      adjs.push({label:["Local","Short export","Long-haul","Extended cold"][dest]??"—",delta:destAdj,reason:"Longer transit/storage requires deeper ethylene inhibition"});
+      if(delay>12){let d=Math.round((delay-12)*6);adj+=d;adjs.push({label:`+${delay}h delay`,delta:d,reason:"Melon ripening can advance quickly at ambient temperature after harvest"});}
+      if(atm==="ca"){adj-=75;adjs.push({label:"CA storage",delta:-75,reason:"Reduced O₂/elevated CO₂ slows ripening synergistically with 1-MCP"});}
+      let total=Math.max(150,Math.min(1200,base+adj));
+      return{base,adj,adjs,total,dur:"12–24 h",
+        shelf:["3–5 days","7–10 days","14–21 days","3–4 weeks"][dest]??"7–14 days",
+        calcNote:"1-MCP fumigation (~500–650 ppb) coupled with low-temperature storage retained firmness, soluble solids and rind color in melon (Wang et al. 2025); calcium chloride + 1-MCP (1 µL/L ≈ 1000 ppb) reduced decay and softening in 'New Queen' melon (Zhang et al. 2019). Concentration-dependent efficacy also confirmed for immersion treatments in muskmelon (Agehara et al. 2018).",
+        warning:p.color>=3?"Slip stage ≥3 — climacteric ethylene rise has begun; 1-MCP efficacy declining rapidly beyond this point.":""};
+    },
+    curves:[
+      {id:"firm", label:"Firmness (kg) → dose modifier", xMin:1,xMax:6,  fn:x=>x<2?150:x<3?75:x>4.5?-75:0,unit:"ppb adj"},
+      {id:"brix", label:"Brix → dose modifier",          xMin:6,xMax:16, fn:x=>x>12?Math.round((x-12)*25):0,unit:"ppb adj"},
+      {id:"color",label:"Slip stage → dose modifier",    xMin:1,xMax:5,  fn:x=>([0,0,100,250,400][Math.round(x)]??0),unit:"ppb adj"},
+    ]
+  },
+  Watermelon:{
+    desc:"Non-climacteric — watermelon produces little ethylene and doesn't ripen further post-harvest, so 1-MCP is not used to extend shelf life the way it is on climacteric fruit. Its role here is prophylactic: exposure to external ethylene (mixed loads, exhaust, degreening rooms) can trigger placental water-soaking, a rind/flesh breakdown disorder — 1-MCP blocks that response before it happens.",
+    varieties:["All varieties / commercial","Seeded","Seedless / triploid","Mini / personal"],
+    params:[
+      {id:"firm", name:"Flesh firmness",         unit:"N",  min:10,max:60,step:1,default:38,  desc:"Harvest target >35 N — placental tissue is the first to soften",lowGood:40,highBad:25},
+      {id:"risk", name:"Ethylene exposure risk", unit:"0–5",min:0, max:5, step:1,default:1,   desc:"Co-storage/transit with ethylene-producing fruit, degreening rooms, or exhaust — the main trigger for water-soaking",lowGood:0,highBad:3},
+    ],
+    dests:["Local / domestic (1–2 wk)","Domestic transit (2–3 wk)","Export transit (3–5 wk)","Extended cold storage (5–8 wk)"],
+    baseDose:600,
+    calcDose(p,dest,delay,atm,temp){
+      let base=600,adj=0,adjs=[];
+      let riskAdj=[0,0,100,250,400,550][p.risk]??0;adj+=riskAdj;
+      if(riskAdj>0) adjs.push({label:`Ethylene risk ${p.risk}/5`,delta:riskAdj,reason:"Higher exposure risk to external ethylene requires deeper receptor blockade to prevent water-soaking"});
+      let firmAdj=p.firm<25?150:p.firm<35?75:0;adj+=firmAdj;
+      if(firmAdj>0) adjs.push({label:`Firmness ${p.firm}N`,delta:firmAdj,reason:"Low placental firmness at harvest may already indicate early breakdown susceptibility"});
+      let destAdj=[-100,0,100,150][dest]??0;adj+=destAdj;
+      adjs.push({label:["Local","Domestic transit","Export","Extended cold"][dest]??"—",delta:destAdj,reason:"Longer transit/storage means more cumulative ethylene exposure opportunity"});
+      if(atm==="ca"||atm==="ma"){adj-=50;adjs.push({label:"CA / MAP",delta:-50,reason:"Lower ambient ethylene accumulation reduces the water-soaking trigger"});}
+      let total=Math.max(200,Math.min(1200,base+adj));
+      return{base,adj,adjs,total,dur:"12–24 h",
+        shelf:["1–2 weeks","2–3 weeks","3–5 weeks","5–8 weeks"][dest]??"2–3 weeks",
+        calcNote:"1-MCP does not delay watermelon ripening (it barely produces ethylene or softens post-harvest) — it prevents ethylene-induced placental water-soaking and phospholipid breakdown (Mao, Karakurt & Huber, Postharvest Biology and Technology 33:1–9). Combined with CaCl₂ (0.6 ppm 1-MCP + 2.5% CaCl₂, 20 min immersion), shelf life extended ~15 days (Nguyen 2021). Dose here scales with exposure risk, not maturity.",
+        warning:p.risk>=3?"High ethylene exposure risk — mixed loads or degreening-room proximity make water-soaking likely without adequate 1-MCP blockade.":""};
+    },
+    curves:[
+      {id:"risk", label:"Ethylene exposure risk → dose modifier",xMin:0,xMax:5, fn:x=>([0,0,100,250,400,550][Math.round(x)]??0),unit:"ppb adj"},
+      {id:"firm", label:"Firmness (N) → dose modifier",          xMin:10,xMax:60,fn:x=>x<25?150:x<35?75:0,unit:"ppb adj"},
+    ]
+  },
+  Persimmon:{
+    desc:"Climacteric, especially astringent types (e.g. Hachiya) which soften rapidly once the climacteric rise begins. 1-MCP delays softening and the astringency-loss/gelation process, extending the window for cold storage or controlled deastringency before the fruit becomes commercially too soft.",
+    varieties:["All varieties / commercial","Hachiya (astringent)","Rojo Brillante (astringent)","Fuyu (non-astringent)","Sharon / Triumph"],
+    params:[
+      {id:"firm", name:"Flesh firmness",  unit:"N",    min:20,max:200,step:5, default:120,desc:"Harvest target 80–150 N depending on type — astringent types held firmer",lowGood:130,highBad:70},
+      {id:"color",name:"Skin color stage",unit:"1–5",  min:1, max:5,  step:1, default:2,  desc:"1=hard, orange-green; 3=full orange, firm; 5=soft, deep orange (eating-ripe)",lowGood:2,highBad:4},
+      {id:"brix", name:"TSS (Brix)",      unit:"°Brix",min:10,max:22, step:.5,default:16, desc:"Astringent types typically 14–18 Brix at harvest",lowGood:14,highBad:19},
+    ],
+    dests:["Local short (1–2 wk)","Export transit (3–4 wk)","Long cold storage (2–3 mo)","Ripening / deastringency room (1–2 wk)"],
+    baseDose:625,
+    calcDose(p,dest,delay,atm,temp){
+      let base=625,adj=0,adjs=[];
+      let firmAdj=Math.round((130-p.firm)*2);adj+=firmAdj;
+      adjs.push({label:`Firmness ${p.firm}N`,delta:firmAdj,reason:"Lower firmness at harvest indicates the climacteric rise has already started"});
+      let colorAdj=[0,0,50,150,300,450][p.color]??0;adj+=colorAdj;
+      if(colorAdj>0) adjs.push({label:`Color stage ${p.color}`,delta:colorAdj,reason:"Advancing skin color and softening signal astringency loss already underway"});
+      let brixAdj=p.brix>18?Math.round((p.brix-18)*20):0;adj+=brixAdj;
+      if(brixAdj>0) adjs.push({label:`Brix ${p.brix.toFixed(1)}`,delta:brixAdj,reason:"Elevated Brix at harvest indicates more advanced maturity"});
+      let destAdj=[-150,0,150,-250][dest]??0;adj+=destAdj;
+      adjs.push({label:["Local short","Export","Long cold","Deastringency room"][dest]??"—",delta:destAdj,reason:"Direct-to-ripening use needs minimal inhibition; long cold storage needs full blockade"});
+      if(delay>24){let d=Math.round((delay-24)*4);adj+=d;adjs.push({label:`+${delay}h delay`,delta:d,reason:"Softening accelerates quickly once the climacteric rise begins"});}
+      if(atm==="ca"){adj-=75;adjs.push({label:"CA storage",delta:-75,reason:"Reduced O₂ slows ethylene production, synergistic with 1-MCP"});}
+      let total=Math.max(150,Math.min(1000,base+adj));
+      return{base,adj,adjs,total,dur:"12–24 h",
+        shelf:["2–3 weeks","4–6 weeks","2–3 months","1–2 weeks ripening"][dest]??"3–5 weeks",
+        calcNote:"625 ppb 1-MCP (24 h, 5°C) gave the best firmness and soluble-solids retention among the doses tested (156/312/625 ppb) on astringent 'Hachiya' persimmons, with the same dose series repeated on non-astringent 'Fuyu' (Ali et al., AGROSYM 2017 Proceedings). Basis for the persimmon base dose.",
+        warning:p.color>=4?"Skin color stage ≥4 — softening/astringency loss already advanced; 1-MCP unlikely to meaningfully extend firm storage life.":""};
+    },
+    curves:[
+      {id:"firm", label:"Firmness (N) → dose modifier",     xMin:20,xMax:200,fn:x=>Math.round((130-x)*2),unit:"ppb adj"},
+      {id:"color",label:"Color stage → dose modifier",      xMin:1, xMax:5,  fn:x=>([0,0,50,150,300,450][Math.round(x)]??0),unit:"ppb adj"},
+      {id:"brix", label:"Brix → dose modifier",             xMin:10,xMax:22, fn:x=>x>18?Math.round((x-18)*20):0,unit:"ppb adj"},
+    ]
+  },
+  Plum:{
+    desc:"Climacteric. 1-MCP suppresses ethylene biosynthesis and retards the pulp-softening cascade — most valuable for cultivars prone to rapid softening or mealiness/chilling injury in cold storage.",
+    varieties:["All varieties / commercial","Japanese (Prunus salicina)","European (Prunus domestica)","Angeleno","Black Beauty / Autumn Giant"],
+    params:[
+      {id:"firm", name:"Flesh firmness",unit:"N",    min:5, max:60, step:1, default:35, desc:"Harvest target 25–40 N — varies by cultivar and destination",lowGood:35,highBad:20},
+      {id:"brix", name:"TSS (Brix)",    unit:"°Brix",min:8, max:20, step:.5,default:12, desc:"Typical harvest range 10–14 Brix",lowGood:10,highBad:15},
+      {id:"color",name:"Skin blush",    unit:"%",    min:0, max:100,step:5, default:30, desc:"% color development as a secondary maturity indicator",lowGood:25,highBad:70},
+    ],
+    dests:["Retail / domestic (1–2 wk)","Cold storage (3–5 wk)","Export transit (2–3 wk)","Extended cold (5–8 wk)"],
+    baseDose:500,
+    calcDose(p,dest,delay,atm,temp){
+      let base=500,adj=0,adjs=[];
+      let firmAdj=p.firm<20?200:p.firm<30?100:p.firm>45?-100:0;adj+=firmAdj;
+      adjs.push({label:`Firmness ${p.firm}N`,delta:firmAdj,reason:"Lower firmness at treatment means ripening is already advanced — reduces 1-MCP effectiveness"});
+      let brixAdj=p.brix>14?Math.round((p.brix-14)*25):0;adj+=brixAdj;
+      if(brixAdj>0) adjs.push({label:`Brix ${p.brix.toFixed(1)}`,delta:brixAdj,reason:"High Brix at harvest indicates more advanced maturity"});
+      let colorAdj=p.color>60?150:p.color>40?75:0;adj+=colorAdj;
+      if(colorAdj>0) adjs.push({label:`${p.color}% blush`,delta:colorAdj,reason:"Advanced skin color development correlates with higher endogenous ethylene"});
+      let destAdj=[-100,0,50,150][dest]??0;adj+=destAdj;
+      adjs.push({label:["Retail","Cold storage","Export","Extended cold"][dest]??"—",delta:destAdj,reason:"Longer storage/transit needs deeper ethylene inhibition to control softening"});
+      if(delay>24){let d=Math.round((delay-24)*5);adj+=d;adjs.push({label:`+${delay}h delay`,delta:d,reason:"Field heat and ambient exposure accelerate the softening cascade before treatment"});}
+      let total=Math.max(150,Math.min(1200,base+adj));
+      return{base,adj,adjs,total,dur:"12–24 h",
+        shelf:["1–2 weeks","3–5 weeks","2–3 weeks","5–8 weeks"][dest]??"3–5 weeks",
+        calcNote:"1-MCP (250–750 ppb) retarded postharvest softening in plum, with 750 ppb the most efficient of the doses tested (Menniti, Gregori & Donati 2004); 500 ppb applied to Japanese plum cultivars in related work. Basis for the plum base dose of 500 ppb with headroom toward 750 ppb for firmer-market or extended-storage targets.",
+        warning:p.firm<15?"Very low firmness — plum may be past the effective 1-MCP treatment window.":""};
+    },
+    curves:[
+      {id:"firm", label:"Firmness (N) → dose modifier",xMin:5,xMax:60, fn:x=>x<20?200:x<30?100:x>45?-100:0,unit:"ppb adj"},
+      {id:"brix", label:"Brix → dose modifier",        xMin:8,xMax:20, fn:x=>x>14?Math.round((x-14)*25):0,unit:"ppb adj"},
+      {id:"color",label:"Skin blush % → dose modifier",xMin:0,xMax:100,fn:x=>x>60?150:x>40?75:0,unit:"ppb adj"},
     ]
   },
 };

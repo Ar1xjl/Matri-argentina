@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { POUCHES, DOSE_BASE, greedyCeiling, greedyFloor, comboGrams, actualPpb, tabletCombo } from '../../lib/dosing'
 import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice, resolveServiceFee } from '../../lib/orgPricing'
 import { formatUSD as fmtUSD, formatNumber as fmtNum } from '../../lib/formatters'
+import { CROP_OPTIONS } from '../../lib/crops'
 
 // ── Styles ────────────────────────────────────────────────────────────────
 const card    = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'24px', marginBottom:'16px'}
@@ -42,7 +43,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   const [showNewRoomForm, setShowNewRoomForm] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomVolume, setNewRoomVolume] = useState('')
-  const [newRoomCrop, setNewRoomCrop] = useState('Manzanas')
+  const [newRoomCrop, setNewRoomCrop] = useState('Manzana')
   const [newRoomError, setNewRoomError] = useState('')
   const [newRoomSaving, setNewRoomSaving] = useState(false)
   const [pendingSelectRoomId, setPendingSelectRoomId] = useState(null)
@@ -155,7 +156,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
   }
 
   const openNewRoomForm = () => {
-    setNewRoomName(''); setNewRoomVolume(''); setNewRoomCrop('Manzanas'); setNewRoomError('')
+    setNewRoomName(''); setNewRoomVolume(''); setNewRoomCrop('Manzana'); setNewRoomError('')
     setShowNewRoomForm(true)
   }
 
@@ -371,12 +372,10 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                   </div>
                   <div>
                     <label style={lbl}>{t('calculator.roomData.newRoomCrop')}</label>
-                    <select style={inp} value={newRoomCrop} onChange={e => setNewRoomCrop(e.target.value)}>
-                      <option>Manzanas</option>
-                      <option>Peras</option>
-                      <option>Kiwi</option>
-                      <option>Otro</option>
-                    </select>
+                    <input list="calculator-crop-options" style={inp} value={newRoomCrop} onChange={e => setNewRoomCrop(e.target.value)}/>
+                    <datalist id="calculator-crop-options">
+                      {CROP_OPTIONS.map(c => <option key={c} value={c} />)}
+                    </datalist>
                   </div>
                 </div>
                 <div style={{display:'flex', gap:'8px'}}>
