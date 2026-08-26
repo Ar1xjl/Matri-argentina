@@ -22,7 +22,12 @@ export default function CustomerPricingModal({ customer, profile, onClose }) {
     Promise.all([
       fetchOrgPricing(customer.id),
       fetchCustomerOverride(customer.id),
-      supabase.from('season_plans').select('id').eq('org_id', customer.id).maybeSingle(),
+      // Active campaign only (2026-08-26) — an org can now have several
+      // season_plans rows (active + archived, see migration 0036); without
+      // this filter, .maybeSingle() below would start erroring the moment a
+      // customer has more than one, and "planM3" would mix historical data
+      // into what's meant to read as their current plan.
+      supabase.from('season_plans').select('id').eq('org_id', customer.id).eq('status', 'active').maybeSingle(),
       supabase.from('treatments').select('cold_rooms(volume_m3)').eq('org_id', customer.id).in('status', ['applied', 'completed']),
     ]).then(async ([pricingData, override, { data: plan }, { data: appliedTreatments }]) => {
       setPricing(pricingData)

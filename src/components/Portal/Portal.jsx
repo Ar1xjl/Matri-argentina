@@ -18,7 +18,7 @@ import NotificationBell from '../Shared/NotificationBell'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchAllRows } from '../../lib/fetchAll'
 import { applyOrganizationLanguage } from '../../i18n'
-import { parsePlanFile } from '../../lib/excelImport'
+import { parsePlanFile, checkCampaignMismatch } from '../../lib/excelImport'
 import { DOSE_BASE, greedyCeiling, tabletCombo } from '../../lib/dosing'
 import { fetchPouchCatalog } from '../../lib/orgPricing'
 
@@ -58,8 +58,10 @@ export default function Portal({ onSignOut }) {
   const [coldRooms,   setColdRooms]   = useState([])
   const [allRooms,    setAllRooms]    = useState([]) // subtree-wide — Cámaras screen only
   const [treatments,  setTreatments]  = useState([])
-  const [seasonPlan,      setSeasonPlan]      = useState(null)
+  const [seasonPlans,     setSeasonPlans]     = useState([])   // every campaign for this org, for the picker
+  const [seasonPlan,      setSeasonPlan]      = useState(null) // whichever campaign the Season Plan screen is currently showing — not necessarily the active one
   const [seasonPlanLines, setSeasonPlanLines] = useState([])
+  const [activePlanLines, setActivePlanLines] = useState([])   // always the ACTIVE campaign's lines — Generators' projection must never shift just because the Season Plan screen is browsing an archived one
   const [conversionQueue, setConversionQueue] = useState([]) // Plan Lines still to convert, in order
   const [loading,     setLoading]     = useState(true)
   const [notAssigned, setNotAssigned] = useState(false)
@@ -89,34 +91,80 @@ export default function Portal({ onSignOut }) {
     setMyKitUnits(data || [])
   }, [])
 
-  // One active Season Plan per Organization — auto-created on first visit.
-  const loadSeasonPlan = useCallback(async (orgId, profileId) => {
-    let { data: plan } = await supabase
+  // Every campaign this org has, active or archived — auto-creates the first
+  // active one on an org's very first visit, same fallback as before this
+  // became multi-campaign. Defaults the Season Plan screen to showing the
+  // active campaign; switching to an archived one for comparison is a
+  // separate, explicit action (selectSeasonPlan, from the picker).
+  const loadSeasonPlans = useCallback(async (orgId, profileId) => {
+    let { data: plans } = await supabase
       .from('season_plans')
       .select('*')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    plans = plans || []
 
-    if (!plan) {
+    let active = plans.find(p => p.status === 'active')
+    if (!active) {
       const { data: created, error } = await supabase
         .from('season_plans')
         .insert({ org_id: orgId, season_label: `Temporada ${new Date().getFullYear()}`, created_by: profileId })
         .select()
         .single()
       if (error) { console.error(error); return }
-      plan = created
+      active = created
+      plans = [created, ...plans]
     }
-    setSeasonPlan(plan)
+    setSeasonPlans(plans)
+    setSeasonPlan(active)
 
     const { data: lines } = await supabase
       .from('season_plan_lines')
       .select('*')
-      .eq('season_plan_id', plan.id)
+      .eq('season_plan_id', active.id)
       .order('planned_date', { ascending: true, nullsFirst: false })
     setSeasonPlanLines(lines || [])
+    setActivePlanLines(lines || [])
   }, [])
+
+  // The picker on the Season Plan screen switching to a different campaign
+  // (active or archived) to look at — never touches which one is active.
+  // Fetches the plan row directly rather than looking it up in the
+  // `seasonPlans` state: called right after createSeasonPlan's own
+  // setSeasonPlans(), `seasonPlans` here would still be the stale
+  // pre-update value from the render that created this closure — the state
+  // update hasn't been committed/re-rendered yet at that point.
+  const selectSeasonPlan = async (planId) => {
+    const { data: plan } = await supabase.from('season_plans').select('*').eq('id', planId).maybeSingle()
+    if (!plan) return
+    setSeasonPlan(plan)
+    const { data: lines } = await supabase
+      .from('season_plan_lines')
+      .select('*')
+      .eq('season_plan_id', planId)
+      .order('planned_date', { ascending: true, nullsFirst: false })
+    setSeasonPlanLines(lines || [])
+  }
+
+  // "Nueva campaña en blanco" and "Nueva campaña basada en..." both go
+  // through here — see create_season_plan (migration 0036) for why this is
+  // one atomic RPC rather than a client-side demote-then-insert. Cloning an
+  // archived campaign (`cloneFromPlanId`) always lands active+editable,
+  // regardless of the source's own status. `makeActive: false` is the other
+  // path this covers: creating an empty archived shell to upload a
+  // historical Excel "tal cual" into, without disturbing the real campaign
+  // in progress.
+  const createSeasonPlan = async ({ label, makeActive = true, cloneFromPlanId = null }) => {
+    const { data: newPlanId, error } = await supabase.rpc('create_season_plan', {
+      p_org_id: profile.org_id, p_label: label, p_make_active: makeActive, p_clone_from_plan_id: cloneFromPlanId,
+    })
+    if (error) { console.error('[createSeasonPlan]', error); return { error: error.message } }
+    await loadSeasonPlans(profile.org_id, profile.id)
+    // loadSeasonPlans already lands the view on the new campaign when it's
+    // the new active one — only an archived shell needs this extra hop.
+    if (!makeActive) await selectSeasonPlan(newPlanId)
+    return { error: null }
+  }
 
   useEffect(() => {
     (async () => {
@@ -156,12 +204,16 @@ export default function Portal({ onSignOut }) {
       setAllRooms(subtreeRooms || [])
 
       await loadTreatments()
-      await loadSeasonPlan(profileData.org_id, profileData.id)
+      await loadSeasonPlans(profileData.org_id, profileData.id)
       await loadMyKitUnits(profileData.id)
       setLoading(false)
     })()
-  }, [loadTreatments, loadSeasonPlan, loadMyKitUnits])
+  }, [loadTreatments, loadSeasonPlans, loadMyKitUnits])
 
+  // Reloads whichever campaign the Season Plan screen currently has open.
+  // Also refreshes activePlanLines when that happens to BE the active
+  // campaign — Generators reads activePlanLines separately precisely so
+  // browsing an archived campaign here never changes what it sees.
   const reloadSeasonPlanLines = async () => {
     if (!seasonPlan) return
     const { data: lines } = await supabase
@@ -170,14 +222,17 @@ export default function Portal({ onSignOut }) {
       .eq('season_plan_id', seasonPlan.id)
       .order('planned_date', { ascending: true, nullsFirst: false })
     setSeasonPlanLines(lines || [])
+    if (seasonPlan.status === 'active') setActivePlanLines(lines || [])
   }
 
   const addSeasonPlanLine = async () => {
+    const defaultRoom = coldRooms[0]
     const { error } = await supabase.from('season_plan_lines').insert({
       season_plan_id: seasonPlan.id,
-      cold_room_id: coldRooms[0]?.id || null,
+      cold_room_id: defaultRoom?.id || null,
       planned_dose_ppb: 1000,
       product_preference: 'undecided',
+      crop: defaultRoom?.primary_crop || null,
     })
     if (error) { console.error(error); return }
     await reloadSeasonPlanLines()
@@ -218,14 +273,25 @@ export default function Portal({ onSignOut }) {
   }
 
   // Excel import (Season Plan Phase 1.5) — one consolidated template
-  // (Frigorífico/Cámara/Volumen/Dosis/Fecha). Invalid rows are reported, not
-  // fatal to the whole file. Product is never set from the file — that's a
-  // deliberate bulk action in the table after upload (see bulkSetProduct).
+  // (Frigorífico/Cámara/Cultivo/Variedad/Volumen/Dosis/Fecha/Campaña).
+  // Invalid rows are reported, not fatal to the whole file. Product is never
+  // set from the file — that's a deliberate bulk action in the table after
+  // upload (see bulkSetProduct).
+  //
+  // Works against whichever campaign is currently open (`seasonPlan`) — this
+  // is deliberately allowed even when that campaign is archived: uploading a
+  // historical Excel "tal cual" into an archived campaign is the intended way
+  // to populate it (DOMAIN_MODEL.md Season Plan campaigns note, 2026-08-26).
+  // Manual editing of an archived campaign's rows, by contrast, is blocked in
+  // the UI (SeasonPlan.jsx) — Excel is its only intended write path.
   const importPlanExcel = async (file) => {
     const { valid, errors } = await parsePlanFile(file)
     const rowErrors = [...errors]
     const duplicates = []
-    if (valid.length === 0) return { imported: 0, errors: rowErrors, duplicates }
+    if (valid.length === 0) return { imported: 0, errors: rowErrors, duplicates, campaignMismatch: [] }
+
+    const campaignMismatch = checkCampaignMismatch(valid, seasonPlan.season_label)
+    const isActivePlan = seasonPlan.status === 'active'
 
     // Read current rooms/lines fresh from the database rather than trusting
     // React state — if the caller just cleared planned lines (see
@@ -265,9 +331,10 @@ export default function Portal({ onSignOut }) {
         if (error) { rowErrors.push({ row: '-', reason: error.message }); continue }
         room = created
         roomsByName.set(key, room)
-      } else if (row.primaryCrop && row.primaryCrop !== room.primary_crop) {
-        // Cultivo lives on the Cold Room, not the Plan Line — the sheet may
-        // be correcting/filling it in for a room that already existed.
+      } else if (isActivePlan && row.primaryCrop && row.primaryCrop !== room.primary_crop) {
+        // Convenience write-through, active campaign only — an archived
+        // upload must never retroactively rewrite what a room is growing
+        // *today* just because an old file mentions a different crop.
         const { error } = await supabase.from('cold_rooms').update({ primary_crop: row.primaryCrop }).eq('id', room.id)
         if (!error) { room.primary_crop = row.primaryCrop; roomsByName.set(key, room) }
       }
@@ -284,6 +351,8 @@ export default function Portal({ onSignOut }) {
         cold_room_id: room.id,
         planned_date: row.planned_date,
         planned_dose_ppb: row.planned_dose_ppb,
+        crop: row.primaryCrop || room.primary_crop || null,
+        variety: row.variety,
       })
     }
 
@@ -295,31 +364,35 @@ export default function Portal({ onSignOut }) {
     await reloadRooms()
     await reloadSeasonPlanLines()
 
-    return { imported: linesToInsert.length, errors: rowErrors, duplicates }
+    return { imported: linesToInsert.length, errors: rowErrors, duplicates, campaignMismatch }
   }
 
   // Bulk-edit several selected Plan Lines at once — only the fields the
   // customer actually filled in the toolbar get applied, so leaving one
-  // blank doesn't wipe it out on every selected row. `primary_crop` isn't a
-  // Plan Line field — it belongs to the Cold Room, so it updates every
-  // distinct room referenced by the selected lines instead.
-  const bulkApplyToLines = async (lineIds, { planned_date, planned_dose_ppb, product_preference, primary_crop }) => {
+  // blank doesn't wipe it out on every selected row. Cultivo/Variedad are
+  // Plan Line fields now (migration 0036), so they update the lines
+  // directly; Cultivo additionally write-throughs to the Cold Room as a
+  // convenience "current default" for next time — active campaign only,
+  // same reasoning as the Excel import above.
+  const bulkApplyToLines = async (lineIds, { planned_date, planned_dose_ppb, product_preference, crop, variety }) => {
     const linePatch = {}
     if (planned_date !== undefined)      linePatch.planned_date = planned_date
     if (planned_dose_ppb !== undefined)  linePatch.planned_dose_ppb = planned_dose_ppb
     if (product_preference !== undefined) linePatch.product_preference = product_preference
+    if (crop !== undefined)              linePatch.crop = crop
+    if (variety !== undefined)           linePatch.variety = variety
 
     if (Object.keys(linePatch).length > 0) {
       const { error } = await supabase.from('season_plan_lines').update(linePatch).in('id', lineIds)
       if (error) { console.error(error); return }
     }
 
-    if (primary_crop) {
+    if (crop && seasonPlan.status === 'active') {
       const roomIds = [...new Set(
         seasonPlanLines.filter(l => lineIds.includes(l.id)).map(l => l.cold_room_id)
       )]
       if (roomIds.length > 0) {
-        const { error } = await supabase.from('cold_rooms').update({ primary_crop }).in('id', roomIds)
+        const { error } = await supabase.from('cold_rooms').update({ primary_crop: crop }).in('id', roomIds)
         if (error) { console.error(error); return }
         await reloadRooms()
       }
@@ -784,12 +857,13 @@ export default function Portal({ onSignOut }) {
                   prefill={conversionQueue[0] || null} queueLength={conversionQueue.length} profile={profile} onAddRoom={addColdRoom} />,
     seasonplan: canSeeWassingtonPanel
                   ? <SeasonPlanRollup onNavigate={navigate} myRoles={myRoles} />
-                  : <SeasonPlan plan={seasonPlan} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
+                  : <SeasonPlan plan={seasonPlan} plans={seasonPlans} lines={seasonPlanLines} coldRooms={coldRooms} orgId={profile?.org_id}
                       onAddLine={addSeasonPlanLine} onUpdateLine={updateSeasonPlanLine}
                       onDeleteLine={deleteSeasonPlanLine} onConvert={startConversion}
                       onImportPlan={importPlanExcel} onBulkApply={bulkApplyToLines}
-                      onClearPlannedLines={clearPlannedLines} onNavigate={navigate} myRoles={myRoles} />,
-    generators: <Generators orgId={profile?.org_id} seasonPlanLines={seasonPlanLines} coldRooms={coldRooms} profile={profile} />,
+                      onClearPlannedLines={clearPlannedLines} onNavigate={navigate} myRoles={myRoles}
+                      onSelectPlan={selectSeasonPlan} onCreatePlan={createSeasonPlan} />,
+    generators: <Generators orgId={profile?.org_id} seasonPlanLines={activePlanLines} coldRooms={coldRooms} profile={profile} />,
     documents:  <Documents />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,
     myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,

@@ -30,8 +30,8 @@ const cell = {padding:'8px 10px', border:'0.5px solid #ddddd5', fontSize:'13px'}
 const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px', color:'#0b4358', fontFamily:'inherit'}
 
 export default function SeasonPlan({
-  plan, lines = [], coldRooms = [], orgId = null, onAddLine, onUpdateLine, onDeleteLine, onConvert,
-  onImportPlan, onBulkApply, onClearPlannedLines, onNavigate, myRoles = [],
+  plan, plans = [], lines = [], coldRooms = [], orgId = null, onAddLine, onUpdateLine, onDeleteLine, onConvert,
+  onImportPlan, onBulkApply, onClearPlannedLines, onNavigate, myRoles = [], onSelectPlan, onCreatePlan,
 }) {
   const { t } = useTranslation()
   // Role-visibility backlog item (flagged 2026-08-11, scoped and built
@@ -39,6 +39,11 @@ export default function SeasonPlan({
   // too) shouldn't see cost/price figures here. Someone who holds Operador
   // *alongside* Owner/Aprobador still sees everything, same as today.
   const isPureOperator = myRoles.includes('operator') && !myRoles.includes('owner') && !myRoles.includes('approver')
+  // An archived campaign is read-only in this table — its only intended
+  // write path is uploading an Excel "tal cual" into it (see Portal.jsx's
+  // importPlanExcel). Editing here is reserved for the active campaign, or a
+  // new one created via "Nueva campaña basada en..." (2026-08-26).
+  const isArchived = plan?.status === 'archived'
   const PRODUCT_LABEL = { powder: 'MatriPowder', tablets: 'MatriTablets', undecided: t('seasonPlan.productUndecided') }
   const [pricing, setPricing] = useState({ brackets: [], product: [], serviceFee: [] })
   const [override, setOverride] = useState(null)
@@ -50,18 +55,54 @@ export default function SeasonPlan({
   const [bulkDate,    setBulkDate]    = useState('')
   const [bulkDose,    setBulkDose]    = useState('')
   const [bulkCrop,    setBulkCrop]    = useState('')
+  const [bulkVariety, setBulkVariety] = useState('')
   const [bulkProduct, setBulkProduct] = useState('')
-  const [importResult, setImportResult] = useState(null) // { imported, errors, duplicates } | null
+  const [importResult, setImportResult] = useState(null) // { imported, errors, duplicates, campaignMismatch } | null
   const [importing, setImporting] = useState(false)
   const [pendingFile, setPendingFile] = useState(null) // file waiting on the replace/add choice
   const planFileInput = useRef(null)
+  // 'blank' | 'basedOn' | 'historical' | null — the three ways to create a
+  // campaign: empty & active, cloned from an archived one & active, or an
+  // empty archived shell meant to receive a historical Excel upload.
+  const [planModal,      setPlanModal]      = useState(null)
+  const [newPlanLabel,   setNewPlanLabel]   = useState('')
+  const [newPlanSource,  setNewPlanSource]  = useState('')
+  const [creatingPlan,   setCreatingPlan]   = useState(false)
+
+  const archivedPlans = plans.filter(p => p.status === 'archived')
+  const sortedPlans = [...plans].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  const openPlanModal = (kind) => {
+    // Best-guess default label, not a locked-in one — the input stays fully
+    // editable before confirming.
+    setNewPlanLabel(kind === 'blank' ? `Temporada ${new Date().getFullYear() + 1}` : '')
+    setNewPlanSource('')
+    setPlanModal(kind)
+  }
+
+  const confirmPlanModal = async () => {
+    if (!newPlanLabel.trim()) return
+    if (planModal === 'basedOn' && !newPlanSource) return
+    setCreatingPlan(true)
+    await onCreatePlan({
+      label: newPlanLabel.trim(),
+      makeActive: planModal !== 'historical',
+      cloneFromPlanId: planModal === 'basedOn' ? newPlanSource : null,
+    })
+    setCreatingPlan(false)
+    setPlanModal(null)
+  }
 
   // `financial: true` columns are dropped entirely for a pure Operador (role
   // gate above) — same filter drives the header, the Excel export, and the
   // filter-row inputs, since all three read off this one array.
   const SEASON_PLAN_COLUMNS = [
     { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '' },
-    { header: t('seasonPlan.columns.crop'),       get: l => l.room?.primary_crop || '' },
+    // `l.crop` is the snapshot taken when the line was created/imported
+    // (migration 0036); the room fallback only matters for lines that
+    // predate the snapshot.
+    { header: t('seasonPlan.columns.crop'),       get: l => l.crop || l.room?.primary_crop || '' },
+    { header: t('seasonPlan.columns.variety'),    get: l => l.variety || '' },
     { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '' },
     { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '' },
     { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '' },
@@ -159,10 +200,11 @@ export default function SeasonPlan({
     if (bulkDate)    patch.planned_date = bulkDate
     if (bulkDose)    patch.planned_dose_ppb = Number(bulkDose)
     if (bulkProduct) patch.product_preference = bulkProduct
-    if (bulkCrop)    patch.primary_crop = bulkCrop
+    if (bulkCrop)    patch.crop = bulkCrop
+    if (bulkVariety) patch.variety = bulkVariety
     if (Object.keys(patch).length === 0) return
     await onBulkApply(selectedPlannedLines.map(l => l.id), patch)
-    setBulkDate(''); setBulkDose(''); setBulkCrop(''); setBulkProduct('')
+    setBulkDate(''); setBulkDose(''); setBulkCrop(''); setBulkVariety(''); setBulkProduct('')
   }
 
   return (
@@ -170,6 +212,36 @@ export default function SeasonPlan({
       <div className="alert info" style={{marginBottom:'16px'}}>
         {t('seasonPlan.intro')}
       </div>
+
+      {/* Campaign picker — second step after landing on this screen: which
+          campaign (active or archived) is currently shown below. */}
+      <div style={{...card, display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+        <div style={{flex:'1 1 220px', minWidth:'200px'}}>
+          <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'.04em'}}>
+            {t('seasonPlan.campaignPicker.label')}
+          </label>
+          <select style={inp} value={plan?.id || ''} onChange={e => onSelectPlan(e.target.value)}>
+            {sortedPlans.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.status === 'active'
+                  ? t('seasonPlan.campaignPicker.active', { label: p.season_label })
+                  : t('seasonPlan.campaignPicker.archived', { label: p.season_label })}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button className="btn-secondary btn-sm" onClick={() => openPlanModal('blank')}>{t('seasonPlan.campaignPicker.new')}</button>
+        <button className="btn-secondary btn-sm" disabled={archivedPlans.length === 0} style={{opacity: archivedPlans.length === 0 ? .5 : 1}} onClick={() => openPlanModal('basedOn')}>
+          {t('seasonPlan.campaignPicker.newBasedOn')}
+        </button>
+        <button className="btn-secondary btn-sm" onClick={() => openPlanModal('historical')}>{t('seasonPlan.campaignPicker.uploadHistorical')}</button>
+      </div>
+
+      {isArchived && (
+        <div className="alert" style={{marginBottom:'16px', background:'#fff7e6', color:'#8a5a00', border:'1px solid #f0d9a0'}}>
+          {t('seasonPlan.archivedBanner')}
+        </div>
+      )}
 
       {/* Excel import */}
       <div style={{...card, background:'#f9faf5'}}>
@@ -192,6 +264,11 @@ export default function SeasonPlan({
             <div style={{color:'#1a6b30', fontWeight:600}}>
               {t('seasonPlan.excelImport.imported', { count: importResult.imported })}
             </div>
+            {importResult.campaignMismatch?.length > 0 && (
+              <div style={{marginTop:'6px', color:'#8a5a00'}}>
+                {t('seasonPlan.excelImport.campaignMismatch', { labels: importResult.campaignMismatch.join(', ') })}
+              </div>
+            )}
             {importResult.duplicates?.length > 0 && (
               <div style={{marginTop:'6px', color:'#b06a00'}}>
                 {t('seasonPlan.excelImport.duplicates', { count: importResult.duplicates.length })}
@@ -275,23 +352,28 @@ export default function SeasonPlan({
       {/* Table */}
       <div style={card}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px'}}>
-          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>{plan?.season_label || t('seasonPlan.defaultLabel')}</span>
+          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>
+            {plan?.season_label || t('seasonPlan.defaultLabel')}
+            {isArchived && <span style={{marginLeft:'8px', fontSize:'11px', fontWeight:700, color:'#8a5a00', background:'#fff2d1', padding:'2px 8px', borderRadius:'100px'}}>{t('seasonPlan.archivedBadge')}</span>}
+          </span>
           <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
-            <button className="btn-secondary btn-sm" onClick={onAddLine}>{t('seasonPlan.addLine')}</button>
+            {!isArchived && <button className="btn-secondary btn-sm" onClick={onAddLine}>{t('seasonPlan.addLine')}</button>}
             <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? t('common.closeFilters') : t('common.filter')}</button>
             <button className="btn-secondary btn-sm" onClick={() => exportToExcel('plan_de_temporada.xlsx', SEASON_PLAN_COLUMNS, filtered)}>{t('common.exportExcel')}</button>
-            <button
-              className="btn-primary btn-sm"
-              disabled={selectedPlannedLines.length === 0}
-              style={{opacity: selectedPlannedLines.length === 0 ? .5 : 1}}
-              onClick={handleConvert}
-            >
-              {t('seasonPlan.convert')}{selectedPlannedLines.length > 0 ? ` (${selectedPlannedLines.length})` : ''}
-            </button>
+            {!isArchived && (
+              <button
+                className="btn-primary btn-sm"
+                disabled={selectedPlannedLines.length === 0}
+                style={{opacity: selectedPlannedLines.length === 0 ? .5 : 1}}
+                onClick={handleConvert}
+              >
+                {t('seasonPlan.convert')}{selectedPlannedLines.length > 0 ? ` (${selectedPlannedLines.length})` : ''}
+              </button>
+            )}
           </div>
         </div>
 
-        {selectedPlannedLines.length > 0 && (
+        {!isArchived && selectedPlannedLines.length > 0 && (
           <div style={{background:'#f0f7ff', border:'1px solid #cfe3f7', borderRadius:'10px', padding:'12px 14px', marginBottom:'14px'}}>
             <div style={{fontSize:'12px', fontWeight:700, color:'#0b4358', marginBottom:'8px'}}>
               {t('seasonPlan.bulkEdit.title', { count: selectedPlannedLines.length })}
@@ -307,7 +389,11 @@ export default function SeasonPlan({
               </div>
               <div>
                 <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.bulkEdit.crop')}</label>
-                <input style={inp} type="text" value={bulkCrop} onChange={e => setBulkCrop(e.target.value)} placeholder="Ej: Pera Williams"/>
+                <input style={inp} type="text" value={bulkCrop} onChange={e => setBulkCrop(e.target.value)} placeholder="Ej: Pera"/>
+              </div>
+              <div>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.bulkEdit.variety')}</label>
+                <input style={inp} type="text" value={bulkVariety} onChange={e => setBulkVariety(e.target.value)} placeholder="Ej: Williams"/>
               </div>
               <div>
                 <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.columns.product')}</label>
@@ -326,7 +412,7 @@ export default function SeasonPlan({
 
         {enriched.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
-            {t('seasonPlan.empty')}
+            {isArchived ? t('seasonPlan.emptyArchived') : t('seasonPlan.empty')}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
@@ -362,35 +448,45 @@ export default function SeasonPlan({
               )}
             </thead>
             <tbody>
-              {filtered.map(l => (
+              {filtered.map(l => {
+                // Archived campaigns are read-only in the table regardless of
+                // a line's own status — their only intended edit path is
+                // re-uploading the Excel (see isArchived's definition above).
+                const rowDisabled = l.status !== 'planned' || isArchived
+                return (
                 <tr key={l.id}>
                   <td style={cell}>
-                    <input type="checkbox" disabled={l.status !== 'planned'}
+                    <input type="checkbox" disabled={rowDisabled}
                       checked={selected.has(l.id)} onChange={() => toggleSelect(l.id)}/>
                   </td>
                   <td style={cell}>
-                    <select style={inp} value={l.cold_room_id || ''} disabled={l.status !== 'planned'}
+                    <select style={inp} value={l.cold_room_id || ''} disabled={rowDisabled}
                       onChange={e => onUpdateLine(l.id, { cold_room_id: e.target.value })}>
                       <option value="" disabled>{t('seasonPlan.chooseRoom')}</option>
                       {coldRooms.map(r => <option key={r.id} value={r.id}>{r.name} ({r.volume_m3} m³)</option>)}
                     </select>
                   </td>
-                  <td style={{...cell, color:'#6b6b6b'}}>
-                    {l.room?.primary_crop || '—'}
+                  <td style={cell}>
+                    <input style={inp} type="text" defaultValue={l.crop || l.room?.primary_crop || ''} disabled={rowDisabled}
+                      onBlur={e => onUpdateLine(l.id, { crop: e.target.value || null })}/>
+                  </td>
+                  <td style={cell}>
+                    <input style={inp} type="text" defaultValue={l.variety || ''} disabled={rowDisabled}
+                      onBlur={e => onUpdateLine(l.id, { variety: e.target.value || null })}/>
                   </td>
                   <td style={{...cell, color:'#6b6b6b'}}>
                     {l.room?.volume_m3 != null ? `${l.room.volume_m3} m³` : '—'}
                   </td>
                   <td style={cell}>
-                    <input style={inp} type="date" value={l.planned_date || ''} disabled={l.status !== 'planned'}
+                    <input style={inp} type="date" value={l.planned_date || ''} disabled={rowDisabled}
                       onChange={e => onUpdateLine(l.id, { planned_date: e.target.value || null })}/>
                   </td>
                   <td style={cell}>
-                    <input style={inp} type="number" value={l.planned_dose_ppb ?? ''} disabled={l.status !== 'planned'}
+                    <input style={inp} type="number" value={l.planned_dose_ppb ?? ''} disabled={rowDisabled}
                       onChange={e => onUpdateLine(l.id, { planned_dose_ppb: Number(e.target.value) || null })}/>
                   </td>
                   <td style={cell}>
-                    <select style={inp} value={l.product_preference} disabled={l.status !== 'planned'}
+                    <select style={inp} value={l.product_preference} disabled={rowDisabled}
                       onChange={e => onUpdateLine(l.id, { product_preference: e.target.value })}>
                       <option value="undecided">{t('seasonPlan.productUndecided')}</option>
                       <option value="powder">MatriPowder</option>
@@ -408,7 +504,7 @@ export default function SeasonPlan({
                     </td>
                   )}
                   <td style={cell}>
-                    <input style={inp} type="text" defaultValue={l.notes || ''} disabled={l.status !== 'planned'}
+                    <input style={inp} type="text" defaultValue={l.notes || ''} disabled={rowDisabled}
                       onBlur={e => onUpdateLine(l.id, { notes: e.target.value || null })}/>
                   </td>
                   <td style={cell}>
@@ -417,12 +513,12 @@ export default function SeasonPlan({
                     </span>
                   </td>
                   <td style={cell}>
-                    {l.status === 'planned' && (
+                    {l.status === 'planned' && !isArchived && (
                       <button className="btn-secondary btn-sm" onClick={() => onDeleteLine(l.id)}>✕</button>
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table></div>
         )}
@@ -448,6 +544,51 @@ export default function SeasonPlan({
                 {t('seasonPlan.replaceModal.replace')}
               </button>
               <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setPendingFile(null)}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {planModal && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setPlanModal(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'440px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'10px'}}>
+              {t(`seasonPlan.planModal.title.${planModal}`)}
+            </div>
+            <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'18px'}}>
+              {t(`seasonPlan.planModal.body.${planModal}`)}
+            </div>
+
+            {planModal === 'basedOn' && (
+              <div style={{marginBottom:'14px'}}>
+                <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'.04em'}}>
+                  {t('seasonPlan.planModal.sourceLabel')}
+                </label>
+                <select style={inp} value={newPlanSource} onChange={e => setNewPlanSource(e.target.value)}>
+                  <option value="">{t('seasonPlan.planModal.sourcePlaceholder')}</option>
+                  {archivedPlans.map(p => <option key={p.id} value={p.id}>{p.season_label}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div style={{marginBottom:'20px'}}>
+              <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px', textTransform:'uppercase', letterSpacing:'.04em'}}>
+                {t('seasonPlan.planModal.labelLabel')}
+              </label>
+              <input style={inp} type="text" value={newPlanLabel} onChange={e => setNewPlanLabel(e.target.value)}
+                placeholder={t(`seasonPlan.planModal.labelPlaceholder.${planModal}`)}/>
+            </div>
+
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button className="btn-primary" disabled={creatingPlan || !newPlanLabel.trim() || (planModal === 'basedOn' && !newPlanSource)} onClick={confirmPlanModal}>
+                {creatingPlan ? t('seasonPlan.planModal.creating') : t('seasonPlan.planModal.confirm')}
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setPlanModal(null)}>
                 {t('common.cancel')}
               </button>
             </div>

@@ -1,12 +1,16 @@
 import * as XLSX from 'xlsx'
 
-// One consolidated template: Frigorífico + Cámara + Cultivo + Volumen + Dosis
-// + Fecha. Product is deliberately not a column here — after upload, the
-// customer selects multiple rows in the table and applies a product to all
-// of them at once (bulk action), rather than typing it per row in Excel.
-// Cultivo is a Cold Room attribute, not a per-line one, but it's included
-// here since dose targets are tied to a crop — it sets/updates the room's
-// primary_crop, same as the in-app bulk "Cultivo" edit.
+// One consolidated template: Frigorífico + Cámara + Cultivo + Variedad +
+// Volumen + Dosis + Fecha + Campaña. Product is deliberately not a column
+// here — after upload, the customer selects multiple rows in the table and
+// applies a product to all of them at once (bulk action), rather than typing
+// it per row in Excel.
+// Cultivo/Variedad become a snapshot on each imported Plan Line (not read
+// live off the Cámara) — see migration 0036. Campaña is not a routing
+// column: rows always land in whichever campaign the customer picked in the
+// app before uploading. It's kept only as a safety check — if a row's
+// Campaña doesn't match the destination, the import warns instead of
+// silently filing it under the wrong season (see checkCampaignMismatch).
 export function downloadPlanTemplate() {
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet([
@@ -14,9 +18,11 @@ export function downloadPlanTemplate() {
       'Frigorífico': 'Est. San José',
       'Cámara': 'Cámara Norte 1',
       'Cultivo': 'Manzanas',
+      'Variedad': 'Red Delicious',
       'Volumen (m³)': 500,
       'Dosis (ppb)': 1000,
       'Fecha (DD/MM/AAAA)': '15/03/2026',
+      'Campaña': 'Temporada 2026',
     },
   ])
   XLSX.utils.book_append_sheet(wb, ws, 'Plan')
@@ -84,9 +90,23 @@ export async function parsePlanFile(file) {
       roomVolume,
       location: String(row['Frigorífico'] || '').trim() || null,
       primaryCrop: String(row['Cultivo'] || '').trim() || null,
+      variety: String(row['Variedad'] || '').trim() || null,
+      campaignLabel: String(row['Campaña'] || '').trim() || null,
       planned_date: plannedDate,
       planned_dose_ppb: dose,
     })
   })
   return { valid, errors }
+}
+
+// Cross-check, not a router: every row lands in whichever campaign the
+// customer picked before uploading (see downloadPlanTemplate's comment).
+// This only flags rows whose Campaña column disagrees with that destination,
+// so a customer who grabs the wrong file notices instead of silently mixing
+// two seasons' data together.
+export function checkCampaignMismatch(rows, destinationLabel) {
+  const needle = destinationLabel.trim().toLowerCase()
+  return [...new Set(
+    rows.map(r => r.campaignLabel).filter(label => label && label.toLowerCase() !== needle)
+  )]
 }

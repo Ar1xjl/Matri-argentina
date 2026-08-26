@@ -3,7 +3,7 @@
     "productUndecided": "A decidir",
     "defaultLabel": "Temporada",
     "columns": {
-      "room": "Câmara", "crop": "Cultura", "volume": "Volume (m³)", "estDate": "Data estimada",
+      "room": "Câmara", "crop": "Cultura", "variety": "Variedade", "volume": "Volume (m³)", "estDate": "Data estimada",
       "dose": "Dose (ppb)", "product": "Produto", "cost": "Custo (produto)", "costPerM3": "$/m³ (produto)",
       "notes": "Notas", "status": "Status"
     },
@@ -14,9 +14,10 @@
       "downloadTemplate": "📥 Baixar modelo",
       "uploadPlan": "📤 Enviar plano",
       "importing": "Importando…",
-      "hint": "Frigorífico, Câmara, Volume e Dose são opcionais, exceto o nome da Câmara — você pode enviar só o que já tiver e completar o resto aqui embaixo. O produto é escolhido depois do envio, selecionando linhas e aplicando em conjunto.",
+      "hint": "Frigorífico, Câmara, Cultura, Variedade, Volume, Dose e Campanha são opcionais, exceto o nome da Câmara — você pode enviar só o que já tiver e completar o resto aqui embaixo. O produto é escolhido depois do envio, selecionando linhas e aplicando em conjunto. A coluna Campanha é apenas uma checagem: o arquivo sempre é carregado dentro da campanha que você escolheu acima.",
       "imported_one": "✓ {{count}} registro importado.",
       "imported_other": "✓ {{count}} registros importados.",
+      "campaignMismatch": "⚠️ O arquivo menciona outra campanha diferente da que você está carregando ({{labels}}) — confira se é o arquivo certo.",
       "duplicates_one": "{{count}} linha não foi carregada novamente por ser duplicada (mesma câmara + mesma data já planejada):",
       "duplicates_other": "{{count}} linhas não foram carregadas novamente por serem duplicadas (mesma câmara + mesma data já planejada):",
       "noDate": "sem data",
@@ -44,11 +45,13 @@
     "bulkEdit": {
       "title": "Edição em lote — {{count}} linha(s) selecionada(s). Preencha apenas o que quiser alterar.",
       "date": "Data",
-      "crop": "Cultura (da câmara)",
+      "crop": "Cultura",
+      "variety": "Variedade",
       "noChange": "Sem alterações",
       "apply": "Aplicar às selecionadas"
     },
     "empty": "Ainda não há linhas planejadas. Clique em \"+ Adicionar linha\" para começar.",
+    "emptyArchived": "Esta campanha arquivada ainda não tem linhas. Envie um Excel com os dados históricos usando \"📤 Enviar plano\" acima.",
     "noFilterMatches": "Nenhuma linha corresponde aos filtros aplicados.",
     "chooseRoom": "Escolher câmara",
     "replaceModal": {
@@ -56,6 +59,38 @@
       "body": "Quer apagá-las e carregar o arquivo novamente do zero, ou adicionar estas câmaras às que já tem carregadas? Se o arquivo trouxer a mesma câmara para a mesma data já planejada, o sistema vai considerar como duplicado e não vai carregá-la novamente.",
       "add": "Adicionar ao que já tenho",
       "replace": "Apagar o planejado e carregar novamente"
+    },
+    "campaignPicker": {
+      "label": "Campanha",
+      "active": "★ {{label}} (ativa)",
+      "archived": "{{label}} (arquivada)",
+      "new": "+ Nova campanha em branco",
+      "newBasedOn": "Nova campanha baseada em...",
+      "uploadHistorical": "+ Campanha arquivada (enviar histórico)"
+    },
+    "archivedBanner": "Esta é uma campanha arquivada — é somente leitura, exceto para enviar um Excel com os dados históricos. Para editá-la, use \"Nova campanha baseada em...\" e monte uma nova campanha a partir desta.",
+    "archivedBadge": "Arquivada",
+    "planModal": {
+      "title": {
+        "blank": "Nova campanha em branco",
+        "basedOn": "Nova campanha baseada em uma arquivada",
+        "historical": "Nova campanha arquivada"
+      },
+      "body": {
+        "blank": "É criada vazia e passa a ser sua campanha ativa — a anterior fica arquivada, disponível para consulta ou para usar como base mais adiante.",
+        "basedOn": "Copia câmaras, cultura, variedade, dose e produto da campanha que você escolher como base, para você só precisar ajustar datas e o que mudou. Passa a ser sua campanha ativa.",
+        "historical": "É criada vazia e arquivada — não afeta sua campanha ativa. Pensada para enviar ali um Excel com uma temporada antiga \"tal e qual\"."
+      },
+      "sourceLabel": "Campanha base",
+      "sourcePlaceholder": "Escolha uma campanha arquivada…",
+      "labelLabel": "Nome da campanha",
+      "labelPlaceholder": {
+        "blank": "Ex: Temporada 2027",
+        "basedOn": "Ex: Temporada 2027",
+        "historical": "Ex: Temporada 2021"
+      },
+      "confirm": "Criar campanha",
+      "creating": "Criando…"
     }
   },
   "treatments": {

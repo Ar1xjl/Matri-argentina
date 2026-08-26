@@ -3,7 +3,7 @@
     "productUndecided": "Undecided",
     "defaultLabel": "Season",
     "columns": {
-      "room": "Room", "crop": "Crop", "volume": "Volume (m³)", "estDate": "Estimated date",
+      "room": "Room", "crop": "Crop", "variety": "Variety", "volume": "Volume (m³)", "estDate": "Estimated date",
       "dose": "Dose (ppb)", "product": "Product", "cost": "Cost (product)", "costPerM3": "$/m³ (product)",
       "notes": "Notes", "status": "Status"
     },
@@ -14,9 +14,10 @@
       "downloadTemplate": "📥 Download template",
       "uploadPlan": "📤 Upload plan",
       "importing": "Importing…",
-      "hint": "Facility, Room, Volume and Dose are optional except the Room name — you can upload just what you already have and fill in the rest below. The product is chosen after uploading, by selecting rows and applying it in bulk.",
+      "hint": "Facility, Room, Crop, Variety, Volume, Dose and Campaign are optional except the Room name — you can upload just what you already have and fill in the rest below. The product is chosen after uploading, by selecting rows and applying it in bulk. The Campaign column is just a safety check — the file always loads into whichever campaign you have selected above.",
       "imported_one": "✓ {{count}} record imported.",
       "imported_other": "✓ {{count}} records imported.",
+      "campaignMismatch": "⚠️ This file mentions a different campaign than the one you're uploading to ({{labels}}) — double-check it's the right file.",
       "duplicates_one": "{{count}} row was not loaded again as a duplicate (same room + same date already planned):",
       "duplicates_other": "{{count}} rows were not loaded again as duplicates (same room + same date already planned):",
       "noDate": "no date",
@@ -44,11 +45,13 @@
     "bulkEdit": {
       "title": "Bulk edit — {{count}} line(s) selected. Only fill in what you want to change.",
       "date": "Date",
-      "crop": "Crop (from the room)",
+      "crop": "Crop",
+      "variety": "Variety",
       "noChange": "No change",
       "apply": "Apply to selected"
     },
     "empty": "No planned lines yet. Click \"+ Add line\" to get started.",
+    "emptyArchived": "This archived campaign has no lines yet. Upload an Excel with the historical data using \"📤 Upload plan\" above.",
     "noFilterMatches": "No line matches the applied filters.",
     "chooseRoom": "Choose room",
     "replaceModal": {
@@ -56,6 +59,38 @@
       "body": "Do you want to clear them and upload the file again from scratch, or add these rooms to the ones you already have loaded? If the file has the same room for the same date already planned, the system will treat it as a duplicate and won't load it again.",
       "add": "Add to what I already have",
       "replace": "Clear planned lines and upload again"
+    },
+    "campaignPicker": {
+      "label": "Campaign",
+      "active": "★ {{label}} (active)",
+      "archived": "{{label}} (archived)",
+      "new": "+ New blank campaign",
+      "newBasedOn": "New campaign based on...",
+      "uploadHistorical": "+ Archived campaign (upload historical data)"
+    },
+    "archivedBanner": "This is an archived campaign — read-only, except for uploading an Excel with the historical data. To edit it, use \"New campaign based on...\" to build a new campaign from this one.",
+    "archivedBadge": "Archived",
+    "planModal": {
+      "title": {
+        "blank": "New blank campaign",
+        "basedOn": "New campaign based on an archived one",
+        "historical": "New archived campaign"
+      },
+      "body": {
+        "blank": "Created empty and becomes your active campaign — the previous one is archived, still available to review or use as a base later.",
+        "basedOn": "Copies rooms, crop, variety, dose and product from whichever campaign you pick as the base, so you only have to adjust dates and whatever changed. Becomes your active campaign.",
+        "historical": "Created empty and archived — doesn't touch your active campaign. Meant for uploading an old season's Excel \"as is\" into it."
+      },
+      "sourceLabel": "Base campaign",
+      "sourcePlaceholder": "Choose an archived campaign…",
+      "labelLabel": "Campaign name",
+      "labelPlaceholder": {
+        "blank": "E.g. Season 2027",
+        "basedOn": "E.g. Season 2027",
+        "historical": "E.g. Season 2021"
+      },
+      "confirm": "Create campaign",
+      "creating": "Creating…"
     }
   },
   "treatments": {

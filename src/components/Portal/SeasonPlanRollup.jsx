@@ -50,7 +50,11 @@ const COLUMNS_ALL = [
   { header: 'Distribuidor / Sub-distribuidor', get: l => l.parent?.name || '' },
   { header: 'Cliente',           get: l => l.customer?.name || '' },
   { header: 'Cámara',            get: l => l.cold_rooms?.name || '' },
-  { header: 'Cultivo',           get: l => l.cold_rooms?.primary_crop || '' },
+  // `l.crop`/`l.variety` are the snapshot taken when the line was created
+  // (migration 0036); the room fallback only matters for lines that predate
+  // the snapshot.
+  { header: 'Cultivo',           get: l => l.crop || l.cold_rooms?.primary_crop || '' },
+  { header: 'Variedad',          get: l => l.variety || '' },
   { header: 'Volumen (m³)',      get: l => l.cold_rooms?.volume_m3 ?? '' },
   { header: 'Fecha estimada',    get: l => l.planned_date || '' },
   { header: 'Dosis (ppb)',       get: l => l.planned_dose_ppb ?? '' },
@@ -86,9 +90,13 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
   // draft gets shared (see SeasonPlanDraftModal's onShared), since sharing
   // writes new season_plan_lines that this rollup would otherwise never
   // find out about until a full page reload.
+  // Only the ACTIVE campaign per Customer feeds this rollup — an archived
+  // historical upload must never double-count m³/cost alongside the real
+  // campaign in progress (migration 0036). `!inner` + the .eq below is the
+  // PostgREST way to filter on an embedded table.
   const reloadLines = async () => {
     const [{ data: planLines }, overrides] = await Promise.all([
-      supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
+      supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans!inner(org_id, season_label, status)').eq('season_plans.status', 'active'),
       fetchAllCustomerOverrides(),
     ])
     setOverrideByCustomerId(new Map(overrides.map(o => [o.customer_org_id, o])))
@@ -108,7 +116,7 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
     Promise.all([
       supabase.from('organizations').select('*'),
       supabase.from('cold_rooms').select('*'),
-      supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans(org_id, season_label)'),
+      supabase.from('season_plan_lines').select('*, cold_rooms(name, volume_m3, primary_crop), season_plans!inner(org_id, season_label, status)').eq('season_plans.status', 'active'),
       fetchAllCustomerOverrides(),
     ]).then(async ([{ data: orgs }, { data: rooms }, { data: planLines }, overrides]) => {
       setOrgById(new Map((orgs || []).map(o => [o.id, o])))
@@ -310,7 +318,8 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.parent?.name || '—'}</td>
                   <td style={{padding:'12px 16px', fontWeight:600}}>{l.customer?.name || '—'}</td>
                   <td style={{padding:'12px 16px'}}>{l.cold_rooms?.name || '—'}</td>
-                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.cold_rooms?.primary_crop || '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.crop || l.cold_rooms?.primary_crop || '—'}</td>
+                  <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.variety || '—'}</td>
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.cold_rooms?.volume_m3 != null ? `${l.cold_rooms.volume_m3} m³` : '—'}</td>
                   <td style={{padding:'12px 16px', color:'#6b6b6b'}}>{l.planned_date || '—'}</td>
                   <td style={{padding:'12px 16px'}}>{l.planned_dose_ppb ?? '—'}</td>
