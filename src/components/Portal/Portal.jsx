@@ -111,9 +111,24 @@ export default function Portal({ onSignOut }) {
         .insert({ org_id: orgId, season_label: `Temporada ${new Date().getFullYear()}`, created_by: profileId })
         .select()
         .single()
-      if (error) { console.error(error); return }
-      active = created
-      plans = [created, ...plans]
+      if (error) {
+        // 23505 = season_plans_one_active_per_org — another concurrent call
+        // (React StrictMode's intentional double effect-fire in dev, or two
+        // tabs open on this org's very first visit in prod) already created
+        // the first active plan a moment earlier. Re-fetch it instead of
+        // failing outright.
+        if (error.code === '23505') {
+          const { data: refetched } = await supabase.from('season_plans').select('*').eq('org_id', orgId).eq('status', 'active').maybeSingle()
+          if (!refetched) { console.error(error); return }
+          active = refetched
+          plans = [refetched, ...plans]
+        } else {
+          console.error(error); return
+        }
+      } else {
+        active = created
+        plans = [created, ...plans]
+      }
     }
     setSeasonPlans(plans)
     setSeasonPlan(active)

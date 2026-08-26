@@ -74,8 +74,12 @@ export default function SeasonPlan({
 
   const openPlanModal = (kind) => {
     // Best-guess default label, not a locked-in one — the input stays fully
-    // editable before confirming.
-    setNewPlanLabel(kind === 'blank' ? `Temporada ${new Date().getFullYear() + 1}` : '')
+    // editable before confirming. Both 'blank' and 'basedOn' land you an
+    // active campaign, so both default to "next season" — 'historical' has
+    // no sensible default since it's meant for an arbitrary past year.
+    // This same label is what create_season_plan (migration 0037) parses
+    // the target year out of, to shift a clone's dates onto it.
+    setNewPlanLabel(kind !== 'historical' ? `Temporada ${new Date().getFullYear() + 1}` : '')
     setNewPlanSource('')
     setPlanModal(kind)
   }
