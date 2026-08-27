@@ -256,6 +256,16 @@ input, select { font-family: inherit; }
 
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* Hides the native number-input spin buttons — on a narrow table column
+   (e.g. Season Plan's Dosis) they eat into the space the digits themselves
+   need to display. Typing/pasting a value still works exactly the same;
+   only the up/down arrows disappear. Opt-in via className, not global,
+   since other number inputs in the app (e.g. Cámara volume) may still
+   want them. */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spinner { -moz-appearance: textfield; }
+
 /* Stat-card / summary grids that use a fixed repeat(N,1fr) — collapse on mobile
    instead of forcing the whole page wider than the viewport. */
 @media (max-width: 700px) {

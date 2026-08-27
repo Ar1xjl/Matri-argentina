@@ -27,7 +27,12 @@ function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, overri
 
 const card = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', padding:'20px', marginBottom:'16px'}
 const cell = {padding:'8px 10px', border:'0.5px solid #ddddd5', fontSize:'13px'}
-const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px', color:'#0b4358', fontFamily:'inherit'}
+// textOverflow/whiteSpace/overflow: a graceful fallback for the two <select>
+// fields (Cámara, Producto) — if a real Cámara name is still longer than the
+// column's generous minWidth on a narrow screen, it ellipsizes instead of
+// hard-clipping mid-word. No-op for the other input types, which don't
+// overflow in normal use.
+const inp  = {width:'100%', padding:'6px 8px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px', color:'#0b4358', fontFamily:'inherit', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}
 
 export default function SeasonPlan({
   plan, plans = [], lines = [], coldRooms = [], orgId = null, onAddLine, onUpdateLine, onDeleteLine, onConvert,
@@ -99,26 +104,31 @@ export default function SeasonPlan({
 
   // `financial: true` columns are dropped entirely for a pure Operador (role
   // gate above) — same filter drives the header, the Excel export, and the
-  // filter-row inputs, since all three read off this one array. `width`
-  // feeds the <colgroup> below (table-layout: fixed) so a number input like
-  // Dosis gets guaranteed room instead of every column being squeezed evenly
-  // to fit — Cultivo/Variedad/Notas eat into the container instead once it
-  // doesn't all fit, since .table-scroll already scrolls horizontally.
+  // filter-row inputs, since all three read off this one array. `minWidth`
+  // feeds the <colgroup> below as a floor, not a fixed size (table-layout:
+  // auto) — a long real Cámara name or "MatriTablets" can still grow the
+  // column past it; only Notas gets no floor at all, so it's the one that
+  // absorbs whatever space is left over instead of every column stretching
+  // evenly. .table-scroll still scrolls horizontally once nothing more can
+  // be reclaimed by shrinking Notas.
   const SEASON_PLAN_COLUMNS = [
-    { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '', width: '170px' },
+    { header: t('seasonPlan.columns.room'),      get: l => l.room?.name || '', minWidth: '190px' },
     // `l.crop` is the snapshot taken when the line was created/imported
     // (migration 0036); the room fallback only matters for lines that
     // predate the snapshot.
-    { header: t('seasonPlan.columns.crop'),       get: l => l.crop || l.room?.primary_crop || '', width: '110px' },
-    { header: t('seasonPlan.columns.variety'),    get: l => l.variety || '', width: '110px' },
-    { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '', width: '90px' },
-    { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '', width: '155px' },
-    { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '', width: '95px' },
-    { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference, width: '130px' },
-    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true, width: '100px' },
-    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '', financial: true, width: '100px' },
-    { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '', width: '160px' },
-    { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned'), width: '120px' },
+    { header: t('seasonPlan.columns.crop'),       get: l => l.crop || l.room?.primary_crop || '', minWidth: '95px' },
+    { header: t('seasonPlan.columns.variety'),    get: l => l.variety || '', minWidth: '100px' },
+    { header: t('seasonPlan.columns.volume'),     get: l => l.room?.volume_m3 ?? '', minWidth: '85px' },
+    { header: t('seasonPlan.columns.estDate'),    get: l => l.planned_date || '', minWidth: '150px' },
+    { header: t('seasonPlan.columns.dose'),       get: l => l.planned_dose_ppb ?? '', minWidth: '85px' },
+    { header: t('seasonPlan.columns.product'),    get: l => PRODUCT_LABEL[l.product_preference] || l.product_preference, minWidth: '140px' },
+    { header: t('seasonPlan.columns.cost'),       get: l => l.cost != null ? l.cost.toFixed(2) : '', financial: true, minWidth: '100px' },
+    { header: t('seasonPlan.columns.costPerM3'),  get: l => (l.cost != null && l.room?.volume_m3) ? (l.cost / l.room.volume_m3).toFixed(2) : '', financial: true, minWidth: '90px' },
+    // No minWidth — this is the one column meant to absorb whatever space is
+    // left over (see the <colgroup>'s width:'100%' on it), instead of every
+    // column stretching evenly to fill a wide screen.
+    { header: t('seasonPlan.columns.notes'),      get: l => l.notes || '' },
+    { header: t('seasonPlan.columns.status'),     get: l => l.status === 'converted' ? t('seasonPlan.status.converted') : t('seasonPlan.status.planned'), minWidth: '110px' },
   ].filter(c => !c.financial || !isPureOperator)
 
   // Nearest ancestor with its own price list configured (Fase H, 2026-07-16).
@@ -393,7 +403,7 @@ export default function SeasonPlan({
               </div>
               <div>
                 <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.columns.dose')}</label>
-                <input style={{...inp, width:'100px'}} type="number" value={bulkDose} onChange={e => setBulkDose(e.target.value)}/>
+                <input className="no-spinner" style={{...inp, width:'100px'}} type="number" value={bulkDose} onChange={e => setBulkDose(e.target.value)}/>
               </div>
               <div>
                 <label style={{fontSize:'10px', color:'#888', display:'block', marginBottom:'3px'}}>{t('seasonPlan.bulkEdit.crop')}</label>
@@ -427,11 +437,11 @@ export default function SeasonPlan({
             {t('seasonPlan.noFilterMatches')}
           </div>
         ) : (
-          <div className="table-scroll"><table style={{width:'max-content', minWidth:'100%', borderCollapse:'collapse', tableLayout:'fixed'}}>
+          <div className="table-scroll"><table style={{width:'100%', borderCollapse:'collapse', tableLayout:'auto'}}>
             <colgroup>
               <col style={{width:'40px'}}/>
-              {SEASON_PLAN_COLUMNS.map(c => <col key={c.header} style={{width: c.width}}/>)}
-              <col style={{width:'50px'}}/>
+              {SEASON_PLAN_COLUMNS.map(c => <col key={c.header} style={c.minWidth ? {minWidth: c.minWidth} : {width:'100%'}}/>)}
+              <col style={{width:'40px'}}/>
             </colgroup>
             <thead>
               <tr>
@@ -495,7 +505,7 @@ export default function SeasonPlan({
                       onChange={e => onUpdateLine(l.id, { planned_date: e.target.value || null })}/>
                   </td>
                   <td style={cell}>
-                    <input style={inp} type="number" value={l.planned_dose_ppb ?? ''} disabled={rowDisabled}
+                    <input className="no-spinner" style={inp} type="number" value={l.planned_dose_ppb ?? ''} disabled={rowDisabled}
                       onChange={e => onUpdateLine(l.id, { planned_dose_ppb: Number(e.target.value) || null })}/>
                   </td>
                   <td style={cell}>
