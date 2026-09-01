@@ -540,12 +540,20 @@ export default function Portal({ onSignOut }) {
   // flips to 'approved'. The require_dispatch_checklist() DB trigger
   // (0025_treatment_dispatch_checklist.sql) blocks the update if this row
   // doesn't exist, so this insert order isn't just cosmetic.
-  const approveTreatment = async (id, finalPrice, checklist) => {
+  // finalDosePpb (2026-08-25, Juan): the Distributor/Sub-distributor's own
+  // Owner/Aprobador can adjust the actual dose at approval time, not just
+  // the price — Wassington.jsx's approve modal now has an editable "Dosis
+  // objetivo" field, defaulting to (and falling back here to) the
+  // originally-submitted target_dose_ppb. The pouch/tablet combo — and,
+  // for Powder, the frozen pouch_breakdown snapshot — are computed from
+  // whichever dose actually gets approved, never the original if it changed.
+  const approveTreatment = async (id, finalPrice, checklist, finalDosePpb) => {
     const t = treatments.find(tr => tr.id === id)
+    const doseToUse = finalDosePpb != null && finalDosePpb !== '' ? Number(finalDosePpb) : t?.target_dose_ppb
     let pouchBreakdown = null
     if (t?.product === 'powder' && t.cold_rooms?.volume_m3) {
       const pouchSizes = await fetchPouchCatalog()
-      const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (t.target_dose_ppb / 1000)
+      const grams = t.cold_rooms.volume_m3 * DOSE_BASE * (doseToUse / 1000)
       pouchBreakdown = greedyCeiling(grams, pouchSizes.length > 0 ? pouchSizes : undefined)
     }
 
@@ -562,7 +570,7 @@ export default function Portal({ onSignOut }) {
 
     const { error } = await supabase
       .from('treatments')
-      .update({ status: 'approved', price_local: finalPrice, pouch_breakdown: pouchBreakdown, approved_by: profile.id, approved_at: new Date().toISOString() })
+      .update({ status: 'approved', price_local: finalPrice, target_dose_ppb: doseToUse, pouch_breakdown: pouchBreakdown, approved_by: profile.id, approved_at: new Date().toISOString() })
       .eq('id', id)
     if (error) { console.error(error); return { error: error.message } }
     await loadTreatments()

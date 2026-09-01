@@ -9,8 +9,29 @@ import PouchCatalogPanel from './PouchCatalogPanel'
 import TabletCatalogPanel from './TabletCatalogPanel'
 import KitsGlobal from './KitsGlobal'
 import KitsDistributor from './KitsDistributor'
-import { pouchBreakdownDisplay } from '../../lib/dosing'
+import { pouchBreakdownDisplay, DOSE_BASE, greedyCeiling, comboLabel, tabletCombo } from '../../lib/dosing'
 import { exportToExcel, filterRows } from '../../lib/tableTools'
+import { fetchOrgPricing, fetchCustomerOverride, fetchPouchCatalog, resolveProductPrice } from '../../lib/orgPricing'
+import { formatUSD as fmtUSD } from '../../lib/formatters'
+
+// Same "indicative cost" math as Calculator.jsx/SeasonPlan.jsx (each keeps
+// its own copy rather than sharing one utility — established convention in
+// this codebase). Used here so the Approver sees an updated indicative
+// price live as they edit the dose at approval time (2026-08-25).
+function computeIndicativeCost(pricing, product, targetDosePpb, volumeM3, override, pouchSizes) {
+  if (!volumeM3 || !targetDosePpb || product === 'undecided') return null
+  if (product === 'tablets') {
+    const { ppb } = tabletCombo(targetDosePpb, volumeM3)
+    const price = resolveProductPrice(pricing, 'MatriTablets', volumeM3, override)
+    return volumeM3 * price * (ppb / 1000)
+  }
+  const grams = volumeM3 * DOSE_BASE * (targetDosePpb / 1000)
+  const combo = greedyCeiling(grams, pouchSizes)
+  const actualG = combo.reduce((s, p) => s + p.size * p.qty, 0)
+  const realPpb = (actualG / (volumeM3 * DOSE_BASE)) * 1000
+  const price = resolveProductPrice(pricing, 'MatriPowder', volumeM3, override)
+  return volumeM3 * price * (realPpb / 1000)
+}
 
 function matriSureOf(t) {
   const m = t.matrisure_verifications
@@ -83,6 +104,13 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const [tab,       setTab]       = useState('treatments')
   const [modal,     setModal]     = useState(null)
   const [editPrice, setEditPrice] = useState('')
+  // Dose editing at approval time (2026-08-25, Juan) — lets a
+  // Distributor/Sub-distributor's Owner/Aprobador adjust the actual dose
+  // (not just the price) before approving. dosePricingCtx holds whatever's
+  // needed to recompute the sachet/tablet combo and an indicative price
+  // live as the dose is edited, fetched fresh each time the modal opens.
+  const [editDose,  setEditDose]  = useState('')
+  const [dosePricingCtx, setDosePricingCtx] = useState(null) // { pricing, override, pouchSizes } | null
   const [reason,    setReason]    = useState('')
   const [checklist, setChecklist] = useState(EMPTY_CHECKLIST)
   const [expiredLots, setExpiredLots] = useState([])
@@ -140,13 +168,33 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
 
   const openApprove = (t) => {
     setEditPrice(t.price_local ?? '')
+    setEditDose(t.target_dose_ppb ?? '')
+    setDosePricingCtx(null)
     setChecklist(EMPTY_CHECKLIST)
     setApproveError('')
     setExpiredLots([])
     setModal({ treatment: t, action:'approve' })
     const sku = t.product === 'powder' ? 'MatriPowder' : 'MatriTablets'
     onFetchExpiredLots?.(profile?.org_id, sku).then(setExpiredLots)
+    Promise.all([
+      fetchOrgPricing(t.org_id),
+      fetchCustomerOverride(t.org_id),
+      fetchPouchCatalog(),
+    ]).then(([pricing, override, pouchSizes]) => setDosePricingCtx({ pricing, override, pouchSizes }))
   }
+
+  // Live recompute as the Approver edits the dose — combo/tablets preview +
+  // an indicative price, purely informational (doesn't touch editPrice).
+  const editDoseNum = Number(editDose)
+  const canRecomputeDose = modal?.action === 'approve' && dosePricingCtx && modal.treatment.cold_rooms?.volume_m3 && editDoseNum > 0
+  const recomputedCombo = canRecomputeDose
+    ? (modal.treatment.product === 'tablets'
+        ? tabletCombo(editDoseNum, modal.treatment.cold_rooms.volume_m3)
+        : greedyCeiling(modal.treatment.cold_rooms.volume_m3 * DOSE_BASE * (editDoseNum / 1000), dosePricingCtx.pouchSizes.length > 0 ? dosePricingCtx.pouchSizes : undefined))
+    : null
+  const recomputedCost = canRecomputeDose
+    ? computeIndicativeCost(dosePricingCtx.pricing, modal.treatment.product, editDoseNum, modal.treatment.cold_rooms.volume_m3, dosePricingCtx.override, dosePricingCtx.pouchSizes)
+    : null
   const openReject  = (t) => { setReason(''); setModal({ treatment: t, action:'reject' }) }
   const closeModal  = () => setModal(null)
 
@@ -156,7 +204,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const confirmApprove = async () => {
     setApproving(true)
     setApproveError('')
-    const res = await onApprove(modal.treatment.id, editPrice, checklist)
+    const res = await onApprove(modal.treatment.id, editPrice, checklist, editDose)
     setApproving(false)
     if (res?.error) { setApproveError('No se pudo aprobar: ' + res.error); return }
     closeModal()
@@ -512,9 +560,23 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                 <div style={{fontSize:'18px', fontWeight:800, color:'#0b4358', marginBottom:'4px'}}>Aprobar tratamiento</div>
                 <div style={{fontSize:'13px', color:'#888', marginBottom:'20px'}}>#{modal.treatment.id.slice(0,8)} · {modal.treatment.organizations?.name} · {modal.treatment.cold_rooms?.name}</div>
                 <div style={{marginBottom:'18px'}}>
+                  <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>Dosis objetivo (ppb)</label>
+                  <input type="number" value={editDose} onChange={e => setEditDose(e.target.value)} style={{width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8'}}/>
+                  <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>
+                    Dosis solicitada originalmente: {modal.treatment.target_dose_ppb} ppb.
+                    {recomputedCombo && (
+                      modal.treatment.product === 'tablets'
+                        ? ` Con esta dosis: ${recomputedCombo.large} grande + ${recomputedCombo.small} chica.`
+                        : ` Con esta dosis: ${comboLabel(recomputedCombo)}.`
+                    )}
+                    {recomputedCost != null && ` Precio indicativo con esta dosis: ${fmtUSD(recomputedCost)}.`}
+                  </div>
+                </div>
+
+                <div style={{marginBottom:'18px'}}>
                   <label style={{display:'block', fontSize:'13px', fontWeight:500, color:'#0b4358', marginBottom:'5px'}}>Precio final ({modal.treatment.price_currency || 'USD'})</label>
                   <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{width:'100%', padding:'10px 12px', borderRadius:'8px', border:'0.5px solid #ccc', fontSize:'14px', color:'#0b4358', background:'#fafaf8'}}/>
-                  <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Precio indicativo: {modal.treatment.price_local}. Podés confirmarlo o ajustarlo.</div>
+                  <div style={{fontSize:'11px', color:'#888', marginTop:'4px'}}>Precio indicativo original: {modal.treatment.price_local}. Podés confirmarlo o ajustarlo.</div>
                 </div>
 
                 <div style={{marginBottom:'14px', paddingTop:'14px', borderTop:'0.5px solid #ddddd5'}}>
