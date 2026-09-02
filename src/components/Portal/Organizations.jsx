@@ -34,6 +34,16 @@ export default function Organizations({ profile }) {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  // Retiring a Distributor/Sub-distributor (2026-08-26) — unlike deleting a
+  // Customer, its own Customers (and, for a Distributor, any Sub-distributors)
+  // survive by being reassigned to a chosen target org. See migration
+  // 0036_retire_distributor_or_subdistributor.sql.
+  const [retiringOrg, setRetiringOrg] = useState(null) // org row, or null
+  const [retireTargetId, setRetireTargetId] = useState('')
+  const [retireConfirmText, setRetireConfirmText] = useState('')
+  const [retiring, setRetiring] = useState(false)
+  const [retireError, setRetireError] = useState(null)
+  const [retireStaffCount, setRetireStaffCount] = useState(null) // fetched when the modal opens
 
   const myOrgType = profile?.organizations?.org_type
   const isGlobal = myOrgType === 'global'
@@ -78,6 +88,26 @@ export default function Organizations({ profile }) {
   const orgById = useMemo(() => new Map(orgs.map(o => [o.id, o])), [orgs])
   // Only non-Customer orgs in my subtree can act as a parent — a Customer has no children.
   const validParents = useMemo(() => orgs.filter(o => o.org_type !== 'customer'), [orgs])
+
+  // Mirrors retire_organization()'s own validation (migration 0036), so the
+  // dropdown only ever offers targets the RPC will actually accept:
+  // retiring a Sub-distributor → its own parent Distributor, or a sibling
+  // Sub-distributor under that same Distributor; retiring a Distributor →
+  // any other Distributor.
+  const validRetireTargets = (org) => {
+    if (!org) return []
+    if (org.org_type === 'subdistributor') {
+      return orgs.filter(o =>
+        o.id === org.parent_id ||
+        (o.org_type === 'subdistributor' && o.parent_id === org.parent_id && o.id !== org.id)
+      )
+    }
+    if (org.org_type === 'distributor') {
+      return orgs.filter(o => o.org_type === 'distributor' && o.id !== org.id)
+    }
+    return []
+  }
+  const directChildren = (orgId) => orgs.filter(o => o.parent_id === orgId)
 
   const openModal = () => {
     setConvertingRequest(null)
@@ -170,6 +200,26 @@ export default function Organizations({ profile }) {
     setDeleting(false)
     if (error) { setDeleteError(error.message); return }
     setDeletingOrg(null)
+    await loadOrgs()
+  }
+
+  const openRetire = (org) => {
+    setRetiringOrg(org)
+    setRetireTargetId('')
+    setRetireConfirmText('')
+    setRetireError(null)
+    setRetireStaffCount(null)
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('org_id', org.id)
+      .then(({ count }) => setRetireStaffCount(count ?? 0))
+  }
+  const handleRetire = async () => {
+    if (!retiringOrg || !retireTargetId) return
+    setRetiring(true)
+    setRetireError(null)
+    const { error } = await supabase.rpc('retire_organization', { p_org_id: retiringOrg.id, p_target_org_id: retireTargetId })
+    setRetiring(false)
+    if (error) { setRetireError(error.message); return }
+    setRetiringOrg(null)
     await loadOrgs()
   }
 
@@ -283,6 +333,20 @@ export default function Organizations({ profile }) {
                       >
                         🗑️ Eliminar
                       </button>
+                    )}
+                    {(o.org_type === 'distributor' || o.org_type === 'subdistributor') && o.id !== profile.org_id && canDeleteOrg && (
+                      validRetireTargets(o).length > 0 ? (
+                        <button
+                          style={{background:'#fdeaea', color:'#8b2020', border:'0.5px solid #f0c7c7', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                          onClick={() => openRetire(o)}
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      ) : (
+                        <span style={{fontSize:'11px', color:'#888'}} title="No hay otra organización del mismo nivel para reasignar sus clientes">
+                          🗑️ Eliminar (sin destino)
+                        </span>
+                      )
                     )}
                   </div>
                 </td>
@@ -421,6 +485,62 @@ export default function Organizations({ profile }) {
                 {deleting ? 'Eliminando…' : `Eliminar ${deletingOrg.name} permanentemente`}
               </button>
               <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setDeletingOrg(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {retiringOrg && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setRetiringOrg(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.7)', backdropFilter:'blur(4px)', zIndex:250, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'460px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#8b2020', marginBottom:'10px'}}>
+              ⚠️ Eliminar {retiringOrg.name}
+            </div>
+            <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'16px'}}>
+              A diferencia de un Cliente, sus propios Clientes {retiringOrg.org_type === 'distributor' ? 'y Sub-distribuidores ' : ''}
+              <strong>no se borran</strong> — se reasignan a la organización que elijas abajo. Los Kits MatriSure y Generadores físicos también pasan a esa organización.
+              Lo que sí se borra de forma permanente: el staff propio ({retireStaffCount ?? '…'} usuario{retireStaffCount === 1 ? '' : 's'}), y su inventario/precios/catálogo propio.
+            </div>
+
+            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>
+              Mover clientes{retiringOrg.org_type === 'distributor' ? ' y sub-distribuidores' : ''} a
+            </label>
+            <select
+              style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', marginBottom:'14px'}}
+              value={retireTargetId} onChange={e => setRetireTargetId(e.target.value)}
+            >
+              <option value="">Elegir…</option>
+              {validRetireTargets(retiringOrg).map(o => <option key={o.id} value={o.id}>{o.name} ({TYPE_LABEL[o.org_type]})</option>)}
+            </select>
+
+            {retireTargetId && (
+              <div style={{fontSize:'11px', color:'#888', marginBottom:'14px'}}>
+                Se van a mover {directChildren(retiringOrg.id).length} organización{directChildren(retiringOrg.id).length === 1 ? '' : 'es'} directamente dependiente{directChildren(retiringOrg.id).length === 1 ? '' : 's'} de {retiringOrg.name}.
+              </div>
+            )}
+
+            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>
+              Escribí "{retiringOrg.name}" para confirmar
+            </label>
+            <input
+              style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', marginBottom:'14px'}}
+              value={retireConfirmText} onChange={e => setRetireConfirmText(e.target.value)}
+            />
+            {retireError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'12px'}}>{retireError}</div>}
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button
+                className="btn-primary" style={{background:'#8b2020', opacity: (retireTargetId && retireConfirmText.trim() === retiringOrg.name) ? 1 : .5}}
+                disabled={retiring || !retireTargetId || retireConfirmText.trim() !== retiringOrg.name}
+                onClick={handleRetire}
+              >
+                {retiring ? 'Eliminando…' : `Eliminar ${retiringOrg.name} permanentemente`}
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setRetiringOrg(null)}>
                 Cancelar
               </button>
             </div>
