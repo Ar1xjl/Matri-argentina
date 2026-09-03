@@ -44,6 +44,14 @@ export default function Organizations({ profile }) {
   const [retiring, setRetiring] = useState(false)
   const [retireError, setRetireError] = useState(null)
   const [retireStaffCount, setRetireStaffCount] = useState(null) // fetched when the modal opens
+  // Rename an organization (2026-08-26) — plain name edit, any org_type.
+  // org_update's RLS (migration 0002) already allows any subtree member to
+  // update any column on an org, incl. name — gated to Owner/Aprobador here
+  // in the UI only, same pattern as the Precio/Eliminar buttons.
+  const [editingOrg, setEditingOrg] = useState(null) // org row, or null
+  const [editNameValue, setEditNameValue] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState(null)
 
   const myOrgType = profile?.organizations?.org_type
   const isGlobal = myOrgType === 'global'
@@ -203,6 +211,18 @@ export default function Organizations({ profile }) {
     await loadOrgs()
   }
 
+  const openEdit = (org) => { setEditingOrg(org); setEditNameValue(org.name); setEditError(null) }
+  const handleEditSave = async () => {
+    if (!editingOrg || !editNameValue.trim()) return
+    setEditSaving(true)
+    setEditError(null)
+    const { error } = await supabase.from('organizations').update({ name: editNameValue.trim() }).eq('id', editingOrg.id)
+    setEditSaving(false)
+    if (error) { setEditError(error.message); return }
+    setEditingOrg(null)
+    await loadOrgs()
+  }
+
   const openRetire = (org) => {
     setRetiringOrg(org)
     setRetireTargetId('')
@@ -307,6 +327,14 @@ export default function Organizations({ profile }) {
                 </td>
                 <td style={{padding:'12px 16px'}}>
                   <div style={{display:'flex', gap:'6px'}}>
+                    {canEditPricing && (
+                      <button
+                        style={{background:'#f5f5ee', color:'#0b4358', border:'0.5px solid #ddddd5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                        onClick={() => openEdit(o)}
+                      >
+                        ✏️ Renombrar
+                      </button>
+                    )}
                     {o.status === 'pending' && isGlobal && (
                       <button
                         style={{background:'#f5f5ee', color:'#0b4358', border:'0.5px solid #ddddd5', borderRadius:'6px', padding:'5px 10px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
@@ -541,6 +569,34 @@ export default function Organizations({ profile }) {
                 {retiring ? 'Eliminando…' : `Eliminar ${retiringOrg.name} permanentemente`}
               </button>
               <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setRetiringOrg(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingOrg && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setEditingOrg(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:250, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'400px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'16px'}}>
+              ✏️ Renombrar {editingOrg.name}
+            </div>
+            <label style={{fontSize:'11px', fontWeight:700, color:'#0b4358', display:'block', marginBottom:'4px', textTransform:'uppercase'}}>Nombre</label>
+            <input
+              style={{width:'100%', padding:'9px 12px', borderRadius:'7px', border:'1.5px solid #dde0d5', fontSize:'14px', marginBottom:'14px'}}
+              value={editNameValue} onChange={e => setEditNameValue(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEditSave()}
+            />
+            {editError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'12px'}}>{editError}</div>}
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button className="btn-primary" disabled={editSaving || !editNameValue.trim()} onClick={handleEditSave}>
+                {editSaving ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setEditingOrg(null)}>
                 Cancelar
               </button>
             </div>
