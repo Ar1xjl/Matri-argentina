@@ -15,6 +15,7 @@ import CampaignCostSimulator from './CampaignCostSimulator'
 const DROPDOWN_FILTER_HEADERS = ['Distribuidor / Sub-distribuidor', 'Cliente', 'Cámara', 'Cultivo']
 
 function fmtUSD(v) { return '$' + Number(v || 0).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}) }
+function fmtNumM3(v) { return Number(v || 0).toLocaleString('es-AR', {maximumFractionDigits:0}) }
 
 // Same "indicative cost" math as the Customer's own Season Plan/Calculator —
 // one shared Distributor currency across the whole subtree (Rule: currency
@@ -84,6 +85,13 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
   const [showCustomerPicker, setShowCustomerPicker] = useState(false)
   const [pickedCustomerId, setPickedCustomerId] = useState('')
   const [draftCustomer, setDraftCustomer] = useState(null) // { id, name } | null
+  // Fase (2026-08-26, Juan) — the Simulador no longer requires pre-filtering
+  // down to exactly one Customer: clicking it opens a picker (any number of
+  // Customers, or all) that also doubles as the per-Customer summary
+  // ("Resumen por cliente") view, then "Continuar a simulación" feeds the
+  // union of their lines into the existing CampaignCostSimulator.
+  const [showSimulatorPicker, setShowSimulatorPicker] = useState(false)
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState(new Set())
   const [showSimulator, setShowSimulator] = useState(false)
 
   // Re-fetchable on its own — called again after a Distributor-authored
@@ -170,16 +178,68 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
     return [...values].sort((a, b) => String(a).localeCompare(String(b)))
   }
 
-  // Fase L-2: the Campaign Cost Simulator prices one Customer at a time
-  // (same as it already does on that Customer's own Season Plan) — only
-  // makes sense once the current filters narrow the table down to exactly
-  // one. Reuses the exact per-Customer pricing already resolved for `cost`
-  // above, and reshapes `cold_rooms` → `room` to match what the simulator
-  // (built for the single-Customer Season Plan) actually expects.
-  const filteredCustomerIds = [...new Set(filtered.map(l => l.customer?.id).filter(Boolean))]
-  const simulatorCustomer = filteredCustomerIds.length === 1 ? orgById.get(filteredCustomerIds[0]) : null
-  const simulatorPricing = simulatorCustomer ? pricingForOwner(pricing, pricingOwnerByCustomerId.get(simulatorCustomer.id)) : null
-  const simulatorOverride = simulatorCustomer ? overrideByCustomerId.get(simulatorCustomer.id) : null
+  // Fase L-2 (2026-08-11) → reworked 2026-08-26 (Juan): the Simulador used
+  // to only work once filters narrowed the table to exactly one Customer.
+  // Now it opens a picker instead — any number of Customers, or all of the
+  // ones currently visible under the active Distribuidor/Cultivo filters.
+  // candidateCustomers is that pickable list; summaryByCustomer is the same
+  // data shaped as the "Resumen por cliente" table (N° Cámaras/Volumen/
+  // Facturación/$/m³ promedio), sorted highest-Facturación-first so the
+  // biggest accounts surface first, same spirit as the intro banner's "ver
+  // dónde está el potencial de negocio".
+  const candidateCustomers = useMemo(() => {
+    const ids = new Set(filtered.map(l => l.customer?.id).filter(Boolean))
+    return [...ids].map(id => orgById.get(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name))
+  }, [filtered, orgById])
+
+  const summaryByCustomer = useMemo(() => {
+    const map = new Map()
+    filtered.forEach(l => {
+      const custId = l.customer?.id
+      if (!custId) return
+      if (!map.has(custId)) map.set(custId, { customer: l.customer, parent: l.parent, roomIds: new Set(), m3: 0, cost: 0 })
+      const entry = map.get(custId)
+      // cold_room_id is season_plan_lines' own native column — cold_rooms(...)
+      // is only ever selected as {name, volume_m3, primary_crop}, no id, so
+      // that embedded object can never be used as the distinct-room key.
+      if (l.cold_room_id) entry.roomIds.add(l.cold_room_id)
+      entry.m3 += l.cold_rooms?.volume_m3 || 0
+      entry.cost += l.cost || 0
+    })
+    return [...map.values()]
+      .map(e => ({ ...e, roomCount: e.roomIds.size, avgPerM3: e.m3 > 0 ? e.cost / e.m3 : 0 }))
+      .sort((a, b) => b.cost - a.cost)
+  }, [filtered])
+
+  const openSimulatorPicker = () => { setSelectedCustomerIds(new Set()); setShowSimulatorPicker(true) }
+  const toggleSimulatorCustomer = (id) => setSelectedCustomerIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const allSimulatorSelected = candidateCustomers.length > 0 && candidateCustomers.every(c => selectedCustomerIds.has(c.id))
+  const toggleSelectAllSimulator = () => setSelectedCustomerIds(allSimulatorSelected ? new Set() : new Set(candidateCustomers.map(c => c.id)))
+  const startSimulation = () => { setShowSimulatorPicker(false); setShowSimulator(true) }
+
+  // Each line carries its OWN already-resolved pricing/override — a
+  // simulation spanning several Customers can't assume they all share one
+  // (CampaignCostSimulator.jsx reads `_pricing`/`_override` off the line
+  // itself when present). The shared `pricing`/`override` props it also
+  // takes (used only for the generator-purchase ROI card) come from
+  // whichever Customer was selected first — an approximation, documented
+  // in that component.
+  const simulatorLines = useMemo(() => filtered
+    .filter(l => selectedCustomerIds.has(l.customer?.id))
+    .map(l => ({
+      ...l,
+      room: l.cold_rooms,
+      _pricing: pricingForOwner(pricing, pricingOwnerByCustomerId.get(l.customer.id)),
+      _override: overrideByCustomerId.get(l.customer.id) ?? null,
+    })), [filtered, selectedCustomerIds, pricing, pricingOwnerByCustomerId, overrideByCustomerId])
+
+  const firstSelectedId = [...selectedCustomerIds][0]
+  const simulatorPricing = firstSelectedId ? pricingForOwner(pricing, pricingOwnerByCustomerId.get(firstSelectedId)) : pricing
+  const simulatorOverride = firstSelectedId ? (overrideByCustomerId.get(firstSelectedId) ?? null) : null
 
   const totals = useMemo(() => {
     const uniqueCustomers = new Set(filtered.map(l => l.customer?.id).filter(Boolean))
@@ -202,9 +262,9 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
         <SeasonPlanDraftModal customerOrg={draftCustomer} rooms={roomsForDraft} onClose={() => setDraftCustomer(null)} onShared={reloadLines} />
       )}
 
-      {!isPureOperator && showSimulator && simulatorCustomer && (
+      {!isPureOperator && showSimulator && simulatorLines.length > 0 && (
         <CampaignCostSimulator
-          lines={filtered.map(l => ({ ...l, room: l.cold_rooms }))}
+          lines={simulatorLines}
           pricing={simulatorPricing}
           override={simulatorOverride}
           pouchSizes={pouchSizes}
@@ -230,6 +290,82 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
             <div style={{display:'flex', gap:'8px'}}>
               <button className="btn-primary" disabled={!pickedCustomerId} onClick={confirmDraftCustomer} style={{flex:1}}>Crear borrador</button>
               <button className="btn-secondary" onClick={() => setShowCustomerPicker(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simulador picker (2026-08-26) — doubles as "Resumen por cliente":
+          checkbox per Customer, live summary table, then "Continuar" feeds
+          the union of selected Customers' lines into CampaignCostSimulator. */}
+      {showSimulatorPicker && (
+        <div onClick={(e) => e.target === e.currentTarget && setShowSimulatorPicker(false)} style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'30px 20px', overflowY:'auto'}}>
+          <div style={{background:'#fff', borderRadius:'14px', padding:'26px', width:'100%', maxWidth:'820px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'6px'}}>
+              <div style={{fontSize:'17px', fontWeight:800, color:'#0b4358'}}>🧮 Simulador — elegí cliente(s)</div>
+              <button onClick={() => setShowSimulatorPicker(false)} style={{background:'none', border:'none', fontSize:'20px', color:'#888', cursor:'pointer', lineHeight:1}}>✕</button>
+            </div>
+            <div style={{fontSize:'12px', color:'#888', marginBottom:'16px'}}>
+              Elegí uno, varios, o "Seleccionar todos" — la tabla de abajo se actualiza con lo que vayas tildando.
+            </div>
+
+            {candidateCustomers.length === 0 ? (
+              <div style={{padding:'30px', textAlign:'center', color:'#888', fontSize:'13px'}}>
+                Ningún cliente coincide con los filtros actuales.
+              </div>
+            ) : (
+              <div className="table-scroll" style={{marginBottom:'16px'}}><table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+                <thead>
+                  <tr>
+                    <th style={{padding:'8px 12px', background:'#f5f5ee', borderBottom:'0.5px solid #ddddd5'}}>
+                      <input type="checkbox" checked={allSimulatorSelected} onChange={toggleSelectAllSimulator}/>
+                    </th>
+                    {['Cliente', 'Distribuidor / Sub-distribuidor', 'N° Cámaras', 'Volumen (m³)', 'Facturación (producto)', '$/m³ promedio (producto)'].map(h => (
+                      <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'8px 12px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryByCustomer.map(row => (
+                    <tr key={row.customer.id} style={{borderBottom:'0.5px solid #ddddd5', cursor:'pointer'}} onClick={() => toggleSimulatorCustomer(row.customer.id)}>
+                      <td style={{padding:'8px 12px'}} onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedCustomerIds.has(row.customer.id)} onChange={() => toggleSimulatorCustomer(row.customer.id)}/>
+                      </td>
+                      <td style={{padding:'8px 12px', fontWeight:600}}>{row.customer.name}</td>
+                      <td style={{padding:'8px 12px', color:'#6b6b6b'}}>{row.parent?.name || '—'}</td>
+                      <td style={{padding:'8px 12px'}}>{row.roomCount}</td>
+                      <td style={{padding:'8px 12px'}}>{fmtNumM3(row.m3)}</td>
+                      <td style={{padding:'8px 12px', fontWeight:700, color:'#0b4358'}}>{fmtUSD(row.cost)}</td>
+                      <td style={{padding:'8px 12px', color:'#6b6b6b'}}>{fmtUSD(row.avgPerM3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                {selectedCustomerIds.size > 1 && (() => {
+                  const sel = summaryByCustomer.filter(r => selectedCustomerIds.has(r.customer.id))
+                  const totM3 = sel.reduce((s, r) => s + r.m3, 0)
+                  const totCost = sel.reduce((s, r) => s + r.cost, 0)
+                  const totRooms = sel.reduce((s, r) => s + r.roomCount, 0)
+                  return (
+                    <tfoot>
+                      <tr style={{background:'#f0f7ff'}}>
+                        <td></td>
+                        <td style={{padding:'8px 12px', fontWeight:800, color:'#0b4358'}} colSpan={2}>Total combinado ({sel.length} clientes)</td>
+                        <td style={{padding:'8px 12px', fontWeight:800}}>{totRooms}</td>
+                        <td style={{padding:'8px 12px', fontWeight:800}}>{fmtNumM3(totM3)}</td>
+                        <td style={{padding:'8px 12px', fontWeight:800, color:'#0b4358'}}>{fmtUSD(totCost)}</td>
+                        <td style={{padding:'8px 12px', fontWeight:800}}>{fmtUSD(totM3 > 0 ? totCost / totM3 : 0)}</td>
+                      </tr>
+                    </tfoot>
+                  )
+                })()}
+              </table></div>
+            )}
+
+            <div style={{display:'flex', gap:'10px'}}>
+              <button className="btn-primary" disabled={selectedCustomerIds.size === 0} style={{opacity: selectedCustomerIds.size === 0 ? .5 : 1}} onClick={startSimulation}>
+                Continuar a simulación {selectedCustomerIds.size > 0 ? `(${selectedCustomerIds.size})` : ''}
+              </button>
+              <button className="btn-secondary" onClick={() => setShowSimulatorPicker(false)}>Cancelar</button>
             </div>
           </div>
         </div>
@@ -261,12 +397,9 @@ export default function SeasonPlanRollup({ onNavigate, myRoles = [] }) {
         <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
           <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Plan de temporada — toda tu red</span>
           <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-            {!isPureOperator && !simulatorCustomer && (
-              <span style={{fontSize:'11px', color:'#888'}}>Filtrá por un Cliente para simular su costo</span>
-            )}
             {!isPureOperator && (
-              <button className="btn-lime btn-sm" disabled={!simulatorCustomer} style={{opacity: simulatorCustomer ? 1 : .5}} onClick={() => setShowSimulator(true)}>
-                🧮 Simulador{simulatorCustomer ? ` — ${simulatorCustomer.name}` : ''}
+              <button className="btn-lime btn-sm" onClick={openSimulatorPicker}>
+                🧮 Simulador
               </button>
             )}
             <button className="btn-secondary btn-sm" onClick={() => setShowFilters(!showFilters)}>{showFilters ? '✕ Filtros' : 'Filtrar'}</button>

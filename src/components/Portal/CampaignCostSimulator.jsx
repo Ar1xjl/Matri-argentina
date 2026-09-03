@@ -9,20 +9,31 @@ const card = {background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd
 
 // Per-room math — same formulas as Calculator.jsx, run once per Cámara instead
 // of once for a single room, so the whole campaign's cost can be totaled.
+//
+// A line can carry its OWN already-resolved pricing/override (`_pricing`/
+// `_override`, attached by the caller) which wins over the shared
+// `pricing`/`override` props when present — needed once a single simulation
+// can span several different Customers at once (SeasonPlanRollup.jsx,
+// 2026-08-26), each possibly under a different pricing owner or with its
+// own negotiated override (Rule 36). SeasonPlan.jsx's single-Customer usage
+// never sets these, so it keeps using the shared props exactly as before.
 function computeRoomOptions(line, pricing, override, pouchSizes) {
   const vol = line.room?.volume_m3
   const ppbTarget = line.planned_dose_ppb
   if (!vol || !ppbTarget || line.product_preference === 'undecided') return null
 
+  const linePricing  = line._pricing ?? pricing
+  const lineOverride = line._override !== undefined ? line._override : override
+
   if (line.product_preference === 'tablets') {
     const combo = tabletCombo(ppbTarget, vol)
-    const price = resolveProductPrice(pricing, 'MatriTablets', vol, override)
+    const price = resolveProductPrice(linePricing, 'MatriTablets', vol, lineOverride)
     const cost = vol * price * (combo.ppb / 1000)
     return { kind: 'tablets', vol, ppb: combo.ppb, cost }
   }
 
   const grams = vol * DOSE_BASE * (ppbTarget / 1000)
-  const powderPrice = resolveProductPrice(pricing, 'MatriPowder', vol, override)
+  const powderPrice = resolveProductPrice(linePricing, 'MatriPowder', vol, lineOverride)
 
   const exactC = greedyCeiling(grams, pouchSizes)
   const exactG = comboGrams(exactC)
@@ -35,7 +46,7 @@ function computeRoomOptions(line, pricing, override, pouchSizes) {
   const floorCost = vol * powderPrice * (floorPpb / 1000)
   const skipFloor = floorG === exactG || floorG === 0
 
-  const serviceFee = resolveServiceFee(pricing, vol, override)
+  const serviceFee = resolveServiceFee(linePricing, vol, lineOverride)
 
   return { kind: 'powder', vol, exactPpb, exactCost, floorPpb, floorCost, skipFloor, serviceFee }
 }
@@ -74,7 +85,11 @@ export default function CampaignCostSimulator({ lines = [], pricing, override, p
   // Same buy-vs-service math as Generators.jsx's ROI calculator (rental por
   // día discontinued, DOMAIN_MODEL.md Rule 39 update), just framed here as a
   // decision that already knows the real planned application count instead
-  // of asking the customer to guess it.
+  // of asking the customer to guess it. Always uses the shared `pricing`
+  // prop (never a per-line `_pricing`) — a single generator-purchase
+  // recommendation across several different Customers' pricing wouldn't
+  // mean much anyway, so a multi-Customer simulation just approximates this
+  // one card off whichever Customer's pricing the caller passed in.
   const roi = useMemo(() => {
     if (powderRooms.length === 0) return null
     const avgVol = powderRooms.reduce((s, r) => s + r.options.vol, 0) / powderRooms.length
@@ -94,6 +109,18 @@ export default function CampaignCostSimulator({ lines = [], pricing, override, p
   }, [powderRooms, pricing])
 
   const setRounding = (lineId, value) => setRoundingByLine(prev => ({ ...prev, [lineId]: value }))
+  // Bulk-apply, 2026-08-26 (Juan) — this tool is meant as a general-overview
+  // simulation (especially once it can span several Customers at once,
+  // SeasonPlanRollup.jsx), not a room-by-room planning exercise; clicking
+  // every single room's choice individually doesn't scale to dozens of
+  // rooms. Safe even for a room with skipFloor=true (no "Dosis ajustada"
+  // button rendered) — the per-room total already falls back to 'exact'
+  // whenever skipFloor is true, regardless of what's stored here.
+  const setAllRounding = (value) => setRoundingByLine(prev => {
+    const next = { ...prev }
+    powderRooms.forEach(r => { next[r.line.id] = value })
+    return next
+  })
 
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose?.()} style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'30px 20px', overflowY:'auto'}}>
@@ -119,9 +146,15 @@ export default function CampaignCostSimulator({ lines = [], pricing, override, p
             {/* Per-room rounding choice, Powder only */}
             {powderRooms.length > 0 && (
               <div style={card}>
-                <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358', marginBottom:'4px'}}>Redondeo de dosis por cámara — MatriPowder</div>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'10px', marginBottom:'4px'}}>
+                  <div style={{fontSize:'14px', fontWeight:700, color:'#0b4358'}}>Redondeo de dosis por cámara — MatriPowder</div>
+                  <div style={{display:'flex', gap:'6px'}}>
+                    <button onClick={() => setAllRounding('exact')} className="btn-secondary btn-sm">Dosis base en todas</button>
+                    <button onClick={() => setAllRounding('floor')} className="btn-secondary btn-sm">Dosis ajustada en todas</button>
+                  </div>
+                </div>
                 <div style={{fontSize:'11px', color:'#888', marginBottom:'14px'}}>
-                  Debido a la limitación del tamaño de los sobres, la dosis debe redondearse hacia arriba o hacia abajo. Seleccioná tu preferencia para cada cámara.
+                  Debido a la limitación del tamaño de los sobres, la dosis debe redondearse hacia arriba o hacia abajo. Seleccioná tu preferencia para cada cámara, o aplicá una a todas de una — útil para una visión general en vez de ajustar cámara por cámara.
                 </div>
                 {powderRooms.map(r => {
                   const choice = roundingByLine[r.line.id] === 'floor' && !r.options.skipFloor ? 'floor' : 'exact'
