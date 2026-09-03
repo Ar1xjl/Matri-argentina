@@ -234,12 +234,18 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
     ]),
   ]
 
+  // 2026-08-26 (Juan, after a real Sub-distributor onboarding meeting):
+  // Sub-distribuidor should see the same tabs a Distribuidor does, with the
+  // one deliberate exception of Catálogo de SKU (network/Distributor-level
+  // SKU governance, not theirs to manage — even read-only was more than
+  // Juan wants them to see now, superseding the earlier Fase G "read-only"
+  // call for this specific tab).
   const TABS = [
     { id:'treatments', label:'📦 Tratamientos y aprobación' },
     ...(canManage ? [
       { id:'crm',       label:'👥 CRM — Clientes' },
       { id:'inventory', label:'📦 Inventario' },
-      { id:'catalog',   label:'🏷️ Catálogo de SKU' },
+      ...(orgType === 'subdistributor' ? [] : [{ id:'catalog', label:'🏷️ Catálogo de SKU' }]),
       { id:'pricing',   label:'💲 Gestión de precios' },
     ] : []),
     ...(canManageKits ? [{ id:'kits', label:'🧪 Kits MatriSure' }] : []),
