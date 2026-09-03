@@ -175,6 +175,12 @@ export default function Users({ profile }) {
   }
 
   const isOwner = myRoles.includes('owner')
+  // Only hide "Hacer Owner" for someone who's already THE (single) Owner —
+  // if more than one member currently holds it (pre-existing data, or the
+  // org predates the one-Owner-per-org rule), the button still needs to
+  // show even on an existing Owner's own row, so transferring to them
+  // specifically is how you resolve the tie down to just them.
+  const ownerCount = members.filter(mm => rolesOf(mm).includes('owner')).length
   const orgById = useMemo(() => new Map(orgs.map(o => [o.id, o])), [orgs])
   const childrenOf = (parentId) => orgs.filter(o => o.parent_id === parentId)
   const rootOrg = orgById.get(myOrgId)
@@ -260,6 +266,29 @@ export default function Users({ profile }) {
     }
     await loadMembers(selectedOrgId)
     loadPendingSignups()
+  }
+
+  // Transferir propiedad (2026-09-03, Juan) — since an org can only ever
+  // have one Owner (migration 0038), this is the only way to change who
+  // that is: atomically removes Owner from whoever has it and grants it to
+  // the chosen member, in one step (so the org is never briefly ownerless
+  // or double-owned along the way).
+  const [transferringTo, setTransferringTo] = useState(null) // member row, or null
+  const [transferring,   setTransferring]   = useState(false)
+  const [transferError,  setTransferError]  = useState('')
+
+  const openTransfer = (member) => { setTransferringTo(member); setTransferError('') }
+  const handleTransfer = async () => {
+    if (!transferringTo) return
+    setTransferring(true)
+    setTransferError('')
+    const { error } = await supabase.rpc('transfer_ownership', {
+      p_org_id: selectedOrgId, p_new_owner_profile_id: transferringTo.id,
+    })
+    setTransferring(false)
+    if (error) { setTransferError(error.message); return }
+    setTransferringTo(null)
+    await loadMembers(selectedOrgId)
   }
 
   if (loading) return <div style={{padding:'40px', textAlign:'center', color:'#888'}}>Cargando…</div>
@@ -470,9 +499,16 @@ export default function Users({ profile }) {
                       </td>
                       {isOwner && (
                         <td>
-                          <button className="btn-secondary btn-sm" disabled={removingId === m.id} onClick={() => handleRemoveAccess(m.id)}>
-                            Quitar acceso
-                          </button>
+                          <div style={{display:'flex', gap:'6px'}}>
+                            {!(rolesOf(m).includes('owner') && ownerCount <= 1) && (
+                              <button className="btn-secondary btn-sm" onClick={() => openTransfer(m)}>
+                                👑 Hacer Owner
+                              </button>
+                            )}
+                            <button className="btn-secondary btn-sm" disabled={removingId === m.id} onClick={() => handleRemoveAccess(m.id)}>
+                              Quitar acceso
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -483,6 +519,31 @@ export default function Users({ profile }) {
           </div>
         </div>
       </div>
+
+      {transferringTo && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setTransferringTo(null)}
+          style={{position:'fixed', inset:0, background:'rgba(7,46,61,.6)', backdropFilter:'blur(4px)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}
+        >
+          <div style={{background:'#fff', borderRadius:'14px', padding:'28px', width:'100%', maxWidth:'420px', boxShadow:'0 8px 32px rgba(11,67,88,.2)'}}>
+            <div style={{fontSize:'16px', fontWeight:800, color:'#0b4358', marginBottom:'10px'}}>
+              👑 Transferir propiedad a {transferringTo.full_name}
+            </div>
+            <div style={{fontSize:'13px', color:'#555', lineHeight:1.5, marginBottom:'16px'}}>
+              {transferringTo.full_name} pasa a ser el único Owner de {selectedOrg?.name}. Quien hoy tiene ese rol lo pierde (sus otros roles, si tiene, no se tocan) — una organización nunca puede tener más de un Owner.
+            </div>
+            {transferError && <div style={{color:'#8b2020', fontSize:'12px', marginBottom:'12px'}}>{transferError}</div>}
+            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+              <button className="btn-primary" disabled={transferring} onClick={handleTransfer}>
+                {transferring ? 'Transfiriendo…' : `Confirmar — ${transferringTo.full_name} es el nuevo Owner`}
+              </button>
+              <button className="btn-secondary" style={{background:'none', border:'none', color:'#888'}} onClick={() => setTransferringTo(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabaseClient'
 
-export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteInfo }) {
+export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteInfo, inviteToken }) {
   const { t } = useTranslation()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -63,6 +63,20 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
   // assigns it afterward from "Usuarios" (Rule 19: self-service by the
   // Organization's own Owner, not an automatic email invite — see
   // DOMAIN_MODEL.md's note on why this app has no privileged invite flow).
+  //
+  // Real bug found live 2026-09-03 (same class already fixed in the
+  // sibling DECCO-MatriSure app): when Supabase's email confirmation is on,
+  // signUp() never returns a session — the person has to click the
+  // confirmation link in their inbox first, and Supabase redirects that
+  // click to the bare Site URL by default, silently dropping the
+  // `?invite=<token>` query param this whole flow depends on. Without the
+  // token surviving that round-trip, App.jsx's redeem_invite() never fires
+  // with the right value, so the invited person lands in "Solicitudes de
+  // usuario pendientes" instead of being auto-assigned to the Organization
+  // the invite was actually for — from there, whoever assigns them
+  // manually has to remember to have the right Organization selected first,
+  // easy to get wrong. Fixed by passing emailRedirectTo explicitly, baking
+  // the invite token back into the confirmation link's own destination.
   const handleSignup = async () => {
     setSignupError('')
     if (!signupName.trim()) { setSignupError(t('authModal.signup.nameRequired')); return }
@@ -70,7 +84,10 @@ export default function AuthModal({ tab, onSwitchTab, onLogin, onClose, inviteIn
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: signupEmail,
       password: signupPassword,
-      options: { data: { full_name: signupName.trim() } },
+      options: {
+        data: { full_name: signupName.trim() },
+        ...(inviteToken ? { emailRedirectTo: `${window.location.origin}/?invite=${inviteToken}` } : {}),
+      },
     })
     setSignupLoading(false)
     if (signUpError) { setSignupError(signUpError.message); return }

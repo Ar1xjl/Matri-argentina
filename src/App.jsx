@@ -105,6 +105,7 @@ export default function App() {
           onLogin={handleLogin}
           onClose={() => setModalOpen(false)}
           inviteInfo={inviteInfo}
+          inviteToken={inviteToken}
         />
       )}
     </>
