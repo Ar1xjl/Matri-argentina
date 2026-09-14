@@ -17,7 +17,7 @@ const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', lette
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
 export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0, profile = null, onAddRoom = null }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
   const [override,   setOverride]   = useState(null)
   const [pouchSizes, setPouchSizes] = useState(POUCHES) // real catalog replaces this fallback once loaded
@@ -410,7 +410,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
                 <div style={{fontSize:'11px', color:'#555'}}>{t('calculator.roomData.doseRightDesc')}</div>
               </div>
               <button
-                onClick={() => window.open('https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html', 'doseright', 'width=900,height=700,scrollbars=yes')}
+                onClick={() => window.open(`https://ar1xjl.github.io/Matri-argentina/1mcp-dose-calculator.html?lang=${i18n.language.split('-')[0]}`, 'doseright', 'width=900,height=700,scrollbars=yes')}
                 style={{background:'#0b4358', color:'#fff', border:'none', borderRadius:'8px', padding:'9px 14px', fontSize:'12px', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', marginLeft:'12px', fontFamily:'inherit'}}
               >
                 {t('calculator.roomData.openDoseRight')}
