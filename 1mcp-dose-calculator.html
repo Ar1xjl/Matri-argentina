@@ -616,15 +616,15 @@
 
 <div id="disclaimerOverlay" class="modal-overlay">
   <div class="modal-box">
-    <div class="modal-eyebrow">Before you start</div>
-    <h2>DoseRight assists your decision — it doesn't make it for you</h2>
-    <p>This tool provides scientifically grounded dose <strong>suggestions</strong> based on published research (see the <a href="1mcp-references.html" target="_blank" rel="noopener">MaTri Knowledge Base</a>). It does not prescribe a treatment and does not replace professional agronomic judgment.</p>
-    <p>The final dose you apply — and the responsibility for it — is always yours.</p>
+    <div class="modal-eyebrow" id="txt-disclaimerEyebrow">Before you start</div>
+    <h2 id="txt-disclaimerTitle">DoseRight assists your decision — it doesn't make it for you</h2>
+    <p id="txt-disclaimerP1">This tool provides scientifically grounded dose <strong>suggestions</strong> based on published research (see the <a href="1mcp-references.html" target="_blank" rel="noopener">MaTri Knowledge Base</a>). It does not prescribe a treatment and does not replace professional agronomic judgment.</p>
+    <p id="txt-disclaimerP2">The final dose you apply — and the responsibility for it — is always yours.</p>
     <label class="modal-ack">
       <input type="checkbox" id="disclaimerAck" onchange="document.getElementById('disclaimerContinueBtn').disabled = !this.checked">
-      I understand this tool assists my decision but does not make it for me.
+      <span id="txt-disclaimerAck">I understand this tool assists my decision but does not make it for me.</span>
     </label>
-    <button id="disclaimerContinueBtn" class="modal-continue-btn" disabled onclick="acceptDisclaimer()">Continue to DoseRight</button>
+    <button id="disclaimerContinueBtn" class="modal-continue-btn" disabled onclick="acceptDisclaimer()"><span id="txt-disclaimerContinue">Continue to DoseRight</span></button>
   </div>
 </div>
 
@@ -640,18 +640,18 @@
       </svg>
     </div>
     <div>
-      <div class="header-eyebrow">Postharvest Technology — Ethylene Management</div>
-      <h1>1-MCP Dose Calculator</h1>
-      <p>Enter measured harvest parameters to receive a scientifically grounded dose suggestion. Fine-tune with the manual slider before committing to a treatment protocol.</p>
+      <div class="header-eyebrow" id="txt-headerEyebrow">Postharvest Technology — Ethylene Management</div>
+      <h1 id="txt-headerTitle">1-MCP Dose Calculator</h1>
+      <p id="txt-headerDesc">Enter measured harvest parameters to receive a scientifically grounded dose suggestion. Fine-tune with the manual slider before committing to a treatment protocol.</p>
       <div class="header-meta">
-        <span>Active ingredient: <strong>1-Methylcyclopropene</strong></span>
-        <span>Formulation: <strong>3.3% / 2% DP</strong></span>
-        <span>Application: <strong>Gaseous, airtight room</strong></span>
-        <span>Version: <strong>1.0 — 2026</strong></span>
+        <span><span id="txt-metaActive">Active ingredient:</span> <strong>1-Methylcyclopropene</strong></span>
+        <span><span id="txt-metaFormulation">Formulation:</span> <strong>3.3% / 2% DP</strong></span>
+        <span><span id="txt-metaApplication">Application:</span> <strong>Gaseous, airtight room</strong></span>
+        <span><span id="txt-metaVersion">Version:</span> <strong>1.0 — 2026</strong></span>
       </div>
     </div>
     <div class="header-nav">
-      <a class="back-link" href="1mcp-references.html">📚 MaTri Knowledge Base</a>
+      <a class="back-link" href="1mcp-references.html" id="txt-kbLink">📚 MaTri Knowledge Base</a>
     </div>
   </div>
 </header>
@@ -665,15 +665,15 @@
     <div class="panel" style="margin-bottom:18px">
       <div class="panel-header">
         <div class="step-badge">1</div>
-        <span class="panel-title">Crop &amp; variety</span>
+        <span class="panel-title" id="txt-panelCrop">Crop &amp; variety</span>
       </div>
       <div class="panel-body">
         <div class="field-group">
-          <label class="field-label" for="cropSel">Crop</label>
+          <label class="field-label" for="cropSel" id="txt-labelCrop">Crop</label>
           <select id="cropSel" onchange="onCropChange()"></select>
         </div>
         <div class="field-group">
-          <label class="field-label" for="varSel">Variety / group</label>
+          <label class="field-label" for="varSel" id="txt-labelVariety">Variety / group</label>
           <select id="varSel" onchange="recalc()"></select>
         </div>
         <div class="crop-desc" id="cropDesc"></div>
@@ -684,7 +684,7 @@
     <div class="panel">
       <div class="panel-header">
         <div class="step-badge">2</div>
-        <span class="panel-title">Maturity parameters at harvest</span>
+        <span class="panel-title" id="txt-panelMaturity">Maturity parameters at harvest</span>
       </div>
       <div class="panel-body" id="paramContainer"></div>
     </div>
@@ -698,26 +698,26 @@
     <div class="panel" style="margin-bottom:18px">
       <div class="panel-header">
         <div class="step-badge">3</div>
-        <span class="panel-title">Storage &amp; logistics</span>
+        <span class="panel-title" id="txt-panelLogistics">Storage &amp; logistics</span>
       </div>
       <div class="panel-body">
         <div class="logistics-grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));">
           <div class="field-group">
-            <label class="field-label" for="destSel">Storage destination</label>
-            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;">Select the cold storage type for this room</div>
+            <label class="field-label" for="destSel" id="txt-labelDest">Storage destination</label>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;" id="txt-destHelp">Select the cold storage type for this room</div>
             <select id="destSel" class="select-lg" onchange="recalc()"></select>
           </div>
           <div class="field-group">
-            <label class="field-label" for="atmSel">Atmosphere</label>
-            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;">Select the atmosphere type used in this room</div>
+            <label class="field-label" for="atmSel" id="txt-labelAtm">Atmosphere</label>
+            <div style="font-size:11px;color:var(--gray-500);margin-bottom:8px;" id="txt-atmHelp">Select the atmosphere type used in this room</div>
             <select id="atmSel" class="select-lg" onchange="recalc()">
-              <option value="air">Regular air (RA)</option>
-              <option value="ca">Controlled atmosphere (CA)</option>
-              <option value="ma">Modified atmosphere (MAP)</option>
+              <option value="air" id="txt-atmAir">Regular air (RA)</option>
+              <option value="ca" id="txt-atmCa">Controlled atmosphere (CA)</option>
+              <option value="ma" id="txt-atmMa">Modified atmosphere (MAP)</option>
             </select>
           </div>
           <div class="field-group">
-            <label class="field-label">Hours since harvest</label>
+            <label class="field-label" id="txt-labelDelay">Hours since harvest</label>
             <div class="slider-row">
               <input type="range" id="harvestDelay" min="0" max="72" step="1" value="12"
                 oninput="document.getElementById('delayOut').textContent=this.value;recalc()">
@@ -727,7 +727,7 @@
             <div class="range-labels"><span>0</span><span>24 h</span><span>48 h</span><span>72 h</span></div>
           </div>
           <div class="field-group">
-            <label class="field-label">Treatment temperature</label>
+            <label class="field-label" id="txt-labelTemp">Treatment temperature</label>
             <div class="slider-row">
               <input type="range" id="treatTemp" min="0" max="25" step="1" value="1"
                 oninput="document.getElementById('tempOut').textContent=this.value;recalc()">
@@ -744,21 +744,21 @@
     <div class="panel" style="margin-bottom:18px">
       <div class="panel-header" style="background: var(--green-900); border-bottom-color: var(--green-800);">
         <div class="step-badge" style="background:var(--green-600)">4</div>
-        <span class="panel-title" style="color:rgba(255,255,255,.8)">Calculated dose suggestion</span>
+        <span class="panel-title" style="color:rgba(255,255,255,.8)" id="txt-panelResult">Calculated dose suggestion</span>
       </div>
       <div class="panel-body">
 
         <div class="result-grid">
           <div class="metric-card">
-            <div class="metric-label">Base dose</div>
+            <div class="metric-label" id="txt-metricBase">Base dose</div>
             <div><span class="metric-value" id="baseDoseOut">—</span><span class="metric-unit">ppb</span></div>
           </div>
           <div class="metric-card">
-            <div class="metric-label">Maturity Δ</div>
+            <div class="metric-label" id="txt-metricMat">Maturity Δ</div>
             <div><span class="metric-value" id="matAdjOut">—</span><span class="metric-unit">ppb</span></div>
           </div>
           <div class="metric-card">
-            <div class="metric-label">Logistics Δ</div>
+            <div class="metric-label" id="txt-metricLog">Logistics Δ</div>
             <div><span class="metric-value" id="logAdjOut">—</span><span class="metric-unit">ppb</span></div>
           </div>
         </div>
@@ -767,14 +767,14 @@
 
         <div class="dose-hero">
           <div class="dose-number" id="calcDose">—</div>
-          <div class="dose-sub">ppb calculated</div>
+          <div class="dose-sub" id="txt-doseSub">ppb calculated</div>
         </div>
         <div id="doseRangeBadge" class="dose-range-badge"></div>
 
         <div class="fine-tune-section">
           <div class="decision-callout">
-            <div class="fine-tune-label">⚠ Your decision — adjust before confirming</div>
-            <div class="fine-tune-sub">This number is a suggestion grounded in the published science, not a prescription. Move the slider to the dose <strong>you</strong> decide to apply, then confirm — DoseRight suggests, you decide.</div>
+            <div class="fine-tune-label" id="txt-fineTuneLabel">⚠ Your decision — adjust before confirming</div>
+            <div class="fine-tune-sub" id="txt-fineTuneSub">This number is a suggestion grounded in the published science, not a prescription. Move the slider to the dose <strong>you</strong> decide to apply, then confirm — DoseRight suggests, you decide.</div>
           </div>
           <div class="fine-tune-row">
             <input type="range" id="manualSlider" min="50" max="5000" step="25" value="500"
@@ -787,16 +787,16 @@
 
         <div class="final-result-box">
           <div>
-            <div class="final-dose-display">Final selected dose</div>
+            <div class="final-dose-display" id="txt-finalDoseLabel">Final selected dose</div>
             <div><span class="final-dose-number" id="finalVal">—</span><span style="font-size:16px;color:var(--green-700);margin-left:4px">ppb</span></div>
           </div>
           <div class="final-meta">
             <div class="final-meta-row">
-              <div class="final-meta-label">Exposure duration</div>
+              <div class="final-meta-label" id="txt-finalDurationLabel">Exposure duration</div>
               <div class="final-meta-val" id="finalDuration">—</div>
             </div>
             <div class="final-meta-row" style="margin-top:8px">
-              <div class="final-meta-label">Expected shelf extension</div>
+              <div class="final-meta-label" id="txt-finalShelfLabel">Expected shelf extension</div>
               <div class="final-meta-val" id="finalShelf">—</div>
             </div>
           </div>
@@ -804,7 +804,7 @@
 
         <div style="margin-top:16px;">
   <button id="confirmDoseBtn" onclick="confirmDose()" style="display:none;width:100%;background:#0b4358;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
-    Usar esta dosis en la calculadora
+    <span id="txt-confirmBtn">Use this dose in the calculator</span>
   </button>
 </div>
 <div class="note-box" id="calcNotes"></div>
@@ -816,7 +816,7 @@
     <!-- Calibration curves -->
     <div class="panel curves-section">
       <div class="panel-header" style="background:var(--green-50);border-bottom-color:var(--green-200)">
-        <span class="panel-title" style="color:var(--green-800)">Calibration curves — parameter effect on dose</span>
+        <span class="panel-title" style="color:var(--green-800)" id="txt-panelCurves">Calibration curves — parameter effect on dose</span>
       </div>
       <div class="curves-grid" id="curvePanel"></div>
     </div>
@@ -1267,6 +1267,180 @@ const CROPS = {
   },
 };
 
+// ── UI CHROME TRANSLATIONS ──
+// Covers navigation/labels/buttons only. Crop science content (descriptions,
+// parameter names, dose-adjustment reasons, calc notes, warnings inside
+// CROPS above) stays in English for now — see CLAUDE.md / project memory
+// for why that's a separate, larger follow-up.
+const CHROME_I18N = {
+  en: {
+    disclaimerEyebrow: "Before you start",
+    disclaimerTitle: "DoseRight assists your decision — it doesn't make it for you",
+    disclaimerP1: 'This tool provides scientifically grounded dose <strong>suggestions</strong> based on published research (see the <a href="1mcp-references.html" target="_blank" rel="noopener">MaTri Knowledge Base</a>). It does not prescribe a treatment and does not replace professional agronomic judgment.',
+    disclaimerP2: "The final dose you apply — and the responsibility for it — is always yours.",
+    disclaimerAck: "I understand this tool assists my decision but does not make it for me.",
+    disclaimerContinue: "Continue to DoseRight",
+    headerEyebrow: "Postharvest Technology — Ethylene Management",
+    headerTitle: "1-MCP Dose Calculator",
+    headerDesc: "Enter measured harvest parameters to receive a scientifically grounded dose suggestion. Fine-tune with the manual slider before committing to a treatment protocol.",
+    metaActive: "Active ingredient:",
+    metaFormulation: "Formulation:",
+    metaApplication: "Application:",
+    metaVersion: "Version:",
+    kbLink: "📚 MaTri Knowledge Base",
+    panelCrop: "Crop &amp; variety",
+    panelMaturity: "Maturity parameters at harvest",
+    panelLogistics: "Storage &amp; logistics",
+    panelResult: "Calculated dose suggestion",
+    panelCurves: "Calibration curves — parameter effect on dose",
+    labelCrop: "Crop",
+    labelVariety: "Variety / group",
+    labelDest: "Storage destination",
+    destHelp: "Select the cold storage type for this room",
+    labelAtm: "Atmosphere",
+    atmHelp: "Select the atmosphere type used in this room",
+    atmAir: "Regular air (RA)",
+    atmCa: "Controlled atmosphere (CA)",
+    atmMa: "Modified atmosphere (MAP)",
+    labelDelay: "Hours since harvest",
+    labelTemp: "Treatment temperature",
+    metricBase: "Base dose",
+    metricMat: "Maturity Δ",
+    metricLog: "Logistics Δ",
+    doseSub: "ppb calculated",
+    rangeLow: "Low dose range",
+    rangeStandard: "Standard range",
+    rangeHigh: "High range",
+    rangeVeryHigh: "Very high — verify with supplier",
+    fineTuneLabel: "⚠ Your decision — adjust before confirming",
+    fineTuneSub: 'This number is a suggestion grounded in the published science, not a prescription. Move the slider to the dose <strong>you</strong> decide to apply, then confirm — DoseRight suggests, you decide.',
+    finalDoseLabel: "Final selected dose",
+    finalDurationLabel: "Exposure duration",
+    finalShelfLabel: "Expected shelf extension",
+    confirmBtn: "Use this dose in the calculator",
+    confirmedBtn: v => `✓ Dose confirmed — ${v} ppb`,
+    titleTag: "1-MCP Dose Calculator — Postharvest Reference Tool",
+  },
+  es: {
+    disclaimerEyebrow: "Antes de empezar",
+    disclaimerTitle: "DoseRight asiste tu decisión — no la toma por vos",
+    disclaimerP1: 'Esta herramienta ofrece <strong>sugerencias</strong> de dosis con base científica, a partir de investigación publicada (ver la <a href="1mcp-references.html" target="_blank" rel="noopener">Base de Conocimiento MaTri</a>). No prescribe un tratamiento ni reemplaza el criterio agronómico profesional.',
+    disclaimerP2: "La dosis final que apliques — y la responsabilidad por ella — siempre es tuya.",
+    disclaimerAck: "Entiendo que esta herramienta asiste mi decisión, pero no la toma por mí.",
+    disclaimerContinue: "Continuar a DoseRight",
+    headerEyebrow: "Tecnología de poscosecha — Manejo del etileno",
+    headerTitle: "Calculadora de dosis 1-MCP",
+    headerDesc: "Ingresá los parámetros de cosecha medidos para recibir una sugerencia de dosis con base científica. Ajustá con el control manual antes de confirmar un protocolo de tratamiento.",
+    metaActive: "Ingrediente activo:",
+    metaFormulation: "Formulación:",
+    metaApplication: "Aplicación:",
+    metaVersion: "Versión:",
+    kbLink: "📚 Base de Conocimiento MaTri",
+    panelCrop: "Cultivo y variedad",
+    panelMaturity: "Parámetros de madurez a cosecha",
+    panelLogistics: "Guarda y logística",
+    panelResult: "Dosis sugerida calculada",
+    panelCurves: "Curvas de calibración — efecto de cada parámetro en la dosis",
+    labelCrop: "Cultivo",
+    labelVariety: "Variedad / grupo",
+    labelDest: "Destino de guarda",
+    destHelp: "Elegí el tipo de guarda frigorífica para esta cámara",
+    labelAtm: "Atmósfera",
+    atmHelp: "Elegí el tipo de atmósfera usada en esta cámara",
+    atmAir: "Aire regular (RA)",
+    atmCa: "Atmósfera controlada (CA)",
+    atmMa: "Atmósfera modificada (MAP)",
+    labelDelay: "Horas desde cosecha",
+    labelTemp: "Temperatura de tratamiento",
+    metricBase: "Dosis base",
+    metricMat: "Δ Madurez",
+    metricLog: "Δ Logística",
+    doseSub: "ppb calculados",
+    rangeLow: "Rango de dosis baja",
+    rangeStandard: "Rango estándar",
+    rangeHigh: "Rango alto",
+    rangeVeryHigh: "Muy alto — verificar con el proveedor",
+    fineTuneLabel: "⚠ Tu decisión — ajustá antes de confirmar",
+    fineTuneSub: 'Este número es una sugerencia con base en la ciencia publicada, no una prescripción. Mové el control a la dosis que <strong>vos</strong> decidís aplicar, y después confirmá — DoseRight sugiere, vos decidís.',
+    finalDoseLabel: "Dosis final seleccionada",
+    finalDurationLabel: "Duración de exposición",
+    finalShelfLabel: "Extensión de vida útil esperada",
+    confirmBtn: "Usar esta dosis en la calculadora",
+    confirmedBtn: v => `✓ Dosis confirmada — ${v} ppb`,
+    titleTag: "Calculadora de dosis 1-MCP — Herramienta de referencia poscosecha",
+  },
+  pt: {
+    disclaimerEyebrow: "Antes de começar",
+    disclaimerTitle: "O DoseRight apoia sua decisão — ele não decide por você",
+    disclaimerP1: 'Esta ferramenta oferece <strong>sugestões</strong> de dose com base científica, a partir de pesquisas publicadas (veja a <a href="1mcp-references.html" target="_blank" rel="noopener">Base de Conhecimento MaTri</a>). Ela não prescreve um tratamento nem substitui o julgamento agronômico profissional.',
+    disclaimerP2: "A dose final que você aplicar — e a responsabilidade por ela — é sempre sua.",
+    disclaimerAck: "Entendo que esta ferramenta apoia minha decisão, mas não decide por mim.",
+    disclaimerContinue: "Continuar para o DoseRight",
+    headerEyebrow: "Tecnologia pós-colheita — Manejo do etileno",
+    headerTitle: "Calculadora de dose 1-MCP",
+    headerDesc: "Insira os parâmetros de colheita medidos para receber uma sugestão de dose com base científica. Ajuste com o controle manual antes de confirmar um protocolo de tratamento.",
+    metaActive: "Ingrediente ativo:",
+    metaFormulation: "Formulação:",
+    metaApplication: "Aplicação:",
+    metaVersion: "Versão:",
+    kbLink: "📚 Base de Conhecimento MaTri",
+    panelCrop: "Cultura e variedade",
+    panelMaturity: "Parâmetros de maturidade na colheita",
+    panelLogistics: "Armazenamento e logística",
+    panelResult: "Dose sugerida calculada",
+    panelCurves: "Curvas de calibração — efeito de cada parâmetro na dose",
+    labelCrop: "Cultura",
+    labelVariety: "Variedade / grupo",
+    labelDest: "Destino de armazenamento",
+    destHelp: "Selecione o tipo de câmara fria para esta sala",
+    labelAtm: "Atmosfera",
+    atmHelp: "Selecione o tipo de atmosfera usada nesta sala",
+    atmAir: "Ar regular (RA)",
+    atmCa: "Atmosfera controlada (CA)",
+    atmMa: "Atmosfera modificada (MAP)",
+    labelDelay: "Horas desde a colheita",
+    labelTemp: "Temperatura de tratamento",
+    metricBase: "Dose base",
+    metricMat: "Δ Maturidade",
+    metricLog: "Δ Logística",
+    doseSub: "ppb calculados",
+    rangeLow: "Faixa de dose baixa",
+    rangeStandard: "Faixa padrão",
+    rangeHigh: "Faixa alta",
+    rangeVeryHigh: "Muito alta — verificar com o fornecedor",
+    fineTuneLabel: "⚠ Sua decisão — ajuste antes de confirmar",
+    fineTuneSub: 'Este número é uma sugestão baseada na ciência publicada, não uma prescrição. Mova o controle para a dose que <strong>você</strong> decide aplicar e depois confirme — o DoseRight sugere, você decide.',
+    finalDoseLabel: "Dose final selecionada",
+    finalDurationLabel: "Duração de exposição",
+    finalShelfLabel: "Extensão de vida útil esperada",
+    confirmBtn: "Usar esta dose na calculadora",
+    confirmedBtn: v => `✓ Dose confirmada — ${v} ppb`,
+    titleTag: "Calculadora de dose 1-MCP — Ferramenta de referência pós-colheita",
+  },
+};
+
+function detectLang() {
+  const q = new URLSearchParams(location.search).get('lang');
+  const base = (q || navigator.language || 'en').split('-')[0].toLowerCase();
+  return CHROME_I18N[base] ? base : 'en';
+}
+const CURRENT_LANG = detectLang();
+const CT = CHROME_I18N[CURRENT_LANG];
+
+function setText(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+function applyChromeTranslations() {
+  document.documentElement.lang = CURRENT_LANG;
+  document.title = CT.titleTag;
+  Object.keys(CT).forEach(key => {
+    if (key === 'confirmedBtn') return; // used dynamically, not a static node
+    setText('txt-' + key, CT[key]);
+  });
+}
+
 let currentCrop = "Apple";
 let paramVals = {};
 
@@ -1358,10 +1532,10 @@ function recalc() {
 
   // Range badge
   const rb = document.getElementById("doseRangeBadge");
-  if (res.total <= 250)      { rb.textContent = "Low dose range"; rb.style.cssText = `background:var(--green-100);color:var(--green-800)`; }
-  else if (res.total <= 700) { rb.textContent = "Standard range"; rb.style.cssText = `background:var(--blue-100);color:var(--blue-700)`; }
-  else if (res.total <= 1200){ rb.textContent = "High range"; rb.style.cssText = `background:var(--amber-100);color:var(--amber-700)`; }
-  else                        { rb.textContent = "Very high — verify with supplier"; rb.style.cssText = `background:var(--red-100);color:var(--red-700)`; }
+  if (res.total <= 250)      { rb.textContent = CT.rangeLow; rb.style.cssText = `background:var(--green-100);color:var(--green-800)`; }
+  else if (res.total <= 700) { rb.textContent = CT.rangeStandard; rb.style.cssText = `background:var(--blue-100);color:var(--blue-700)`; }
+  else if (res.total <= 1200){ rb.textContent = CT.rangeHigh; rb.style.cssText = `background:var(--amber-100);color:var(--amber-700)`; }
+  else                        { rb.textContent = CT.rangeVeryHigh; rb.style.cssText = `background:var(--red-100);color:var(--red-700)`; }
 
   // Sync slider
   const sl = document.getElementById("manualSlider");
@@ -1386,10 +1560,10 @@ function confirmDose() {
     window.close();
   } else {
     const btn = document.getElementById('confirmDoseBtn');
-    const original = btn.textContent;
-    btn.textContent = '✓ Dose confirmed — ' + v + ' ppb';
+    const original = btn.innerHTML;
+    btn.textContent = CT.confirmedBtn(v);
     btn.disabled = true;
-    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+    setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 2500);
   }
 }
 function onSlider() {
@@ -1448,6 +1622,7 @@ function acceptDisclaimer() {
 }
 
 (function init() {
+  applyChromeTranslations();
   const sel = document.getElementById("cropSel");
   Object.keys(CROPS).forEach(k => {
     const o = document.createElement("option");
