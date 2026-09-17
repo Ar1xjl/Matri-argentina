@@ -217,9 +217,9 @@ export default function Inventory({ profile, readOnly = false }) {
     {!readOnly && (
       <div style={{background:'#fff', borderRadius:'12px', border:'0.5px solid #ddddd5', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,.06)', marginTop:'16px'}}>
         <div style={{padding:'14px 20px', borderBottom:'0.5px solid #ddddd5'}}>
-          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Lotes de kits MatriSure</span>
+          <span style={{fontSize:'15px', fontWeight:700, color:'#0b4358'}}>Lotes de producto (control de vencimiento)</span>
           <div style={{fontSize:'11px', color:'#888', marginTop:'2px'}}>
-            Directiva de calidad: un lote con más de {LOT_MAX_AGE_DAYS} días de antigüedad debe destruirse y reponerse con tarjetas nuevas. Registrá acá cada lote que recibís para poder controlar su antigüedad.
+            Esto es sobre el producto (MatriPowder/MatriTablets), no sobre los kits de verificación MatriSure — esos se gestionan en la pestaña "🧪 Kits MatriSure". Directiva de calidad: un lote de producto con más de {LOT_MAX_AGE_DAYS} días de antigüedad debe destruirse y reponerse con tarjetas nuevas. Registrá acá cada lote que recibís para poder controlar su antigüedad.
           </div>
         </div>
 

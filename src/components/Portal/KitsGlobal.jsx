@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { generateSequence } from '../../lib/sequence'
 import { fetchAllRows } from '../../lib/fetchAll'
@@ -34,6 +34,17 @@ export default function KitsGlobal({ profile }) {
   const [releaseQty, setReleaseQty] = useState('')
   const [releaseError, setReleaseError] = useState('')
   const [releaseSaving, setReleaseSaving] = useState(false)
+  const [qcConfirmed, setQcConfirmed] = useState(false)
+
+  // Gate de QC (Juan, 2026-09-17): antes de liberar un lote a un Distribuidor,
+  // Global tiene que poder sacar unidades en mal estado y confirmar
+  // explícitamente el control de calidad — mismo patrón de descarte que
+  // KitsDistributor.jsx (Fase K-2e), plain update sin RPC nueva porque
+  // kit_units_update ya permite a Global tocar sus propias unidades 'registered'.
+  const [destroyingId, setDestroyingId] = useState(null)
+  const [destroyReason, setDestroyReason] = useState('')
+  const [destroySaving, setDestroySaving] = useState(false)
+  const [destroyError, setDestroyError] = useState('')
 
   const orgId = profile?.org_id
 
@@ -119,6 +130,7 @@ export default function KitsGlobal({ profile }) {
     setReleaseError('')
     if (selected.size === 0) { setReleaseError('Elegí al menos un kit para liberar.'); return }
     if (!targetDistributorId) { setReleaseError('Elegí a qué Distribuidor liberás este lote.'); return }
+    if (!qcConfirmed) { setReleaseError('Confirmá el control de calidad antes de liberar.'); return }
     setReleaseSaving(true)
 
     const { error } = await supabase.rpc('release_kit_units', {
@@ -130,6 +142,25 @@ export default function KitsGlobal({ profile }) {
     setSelected(new Set())
     setTargetDistributorId('')
     setReleaseQty('')
+    setQcConfirmed(false)
+    await reload()
+  }
+
+  const openDestroy = (unitId) => { setDestroyingId(unitId); setDestroyReason(''); setDestroyError('') }
+  const confirmDestroy = async () => {
+    if (!destroyReason.trim()) { setDestroyError('Contá brevemente qué encontraste mal con el kit.'); return }
+    setDestroySaving(true)
+    setDestroyError('')
+    const { error } = await supabase.from('kit_units').update({
+      status: 'destroyed',
+      destroyed_at: new Date().toISOString(),
+      destroyed_by: profile.id,
+      destroyed_reason: destroyReason.trim(),
+    }).eq('id', destroyingId)
+    setDestroySaving(false)
+    if (error) { setDestroyError(error.message); return }
+    setDestroyingId(null)
+    setSelected(prev => { const next = new Set(prev); next.delete(destroyingId); return next })
     await reload()
   }
 
@@ -138,7 +169,7 @@ export default function KitsGlobal({ profile }) {
   return (
     <div>
       <div className="alert info" style={{marginBottom:'16px'}}>
-        🧪 Registrá kits MatriSure nuevos con su número de tracking individual, y liberalos a un Distribuidor puntual cuando estén listos para despachar.
+        🧪 Registrá kits MatriSure nuevos con su número de tracking individual. Antes de liberar un lote a un Distribuidor, descartá las unidades que no pasen el control de calidad y confirmá el chequeo — recién ahí se habilita la liberación.
       </div>
 
       {/* Register new units */}
@@ -199,7 +230,12 @@ export default function KitsGlobal({ profile }) {
                 <option value="">Liberar seleccionados a…</option>
                 {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
-              <button className="btn-lime btn-sm" disabled={releaseSaving || selected.size === 0} onClick={handleRelease}>
+              <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', color:'#0b4358', cursor:'pointer'}}>
+                <input type="checkbox" checked={qcConfirmed} onChange={e => setQcConfirmed(e.target.checked)}/>
+                Confirmo el control de calidad de estas unidades
+              </label>
+              <button className="btn-lime btn-sm" disabled={releaseSaving || selected.size === 0 || !qcConfirmed} onClick={handleRelease}
+                title={!qcConfirmed ? 'Tildá la confirmación de control de calidad primero' : undefined}>
                 {releaseSaving ? 'Liberando…' : `Liberar (${selected.size})`}
               </button>
               {distributors.length === 0 && <span style={{fontSize:'11px', color:'#b06a00'}}>No hay Distribuidores dados de alta todavía.</span>}
@@ -210,21 +246,42 @@ export default function KitsGlobal({ profile }) {
                   <th style={{padding:'10px 16px', background:'#f5f5ee', borderBottom:'0.5px solid #ddddd5'}}>
                     <input type="checkbox" checked={allInStockSelected} onChange={toggleSelectAll}/>
                   </th>
-                  {['Tracking', 'Lote', 'Registrado'].map(h => (
+                  {['Tracking', 'Lote', 'Registrado', ''].map(h => (
                     <th key={h} style={{fontSize:'11px', fontWeight:700, color:'#6b6b6b', textTransform:'uppercase', letterSpacing:'.06em', padding:'10px 16px', textAlign:'left', borderBottom:'0.5px solid #ddddd5', background:'#f5f5ee'}}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {inStock.map(u => (
-                  <tr key={u.id} style={{borderBottom:'0.5px solid #ddddd5'}}>
+                  <Fragment key={u.id}>
+                  <tr style={{borderBottom:'0.5px solid #ddddd5'}}>
                     <td style={{padding:'10px 16px'}}>
                       <input type="checkbox" checked={selected.has(u.id)} onChange={() => toggleSelect(u.id)}/>
                     </td>
                     <td style={{padding:'10px 16px', fontWeight:700, fontFamily:'monospace'}}>{u.tracking_number}</td>
                     <td style={{padding:'10px 16px', color:'#6b6b6b'}}>{u.lot_number}</td>
                     <td style={{padding:'10px 16px', color:'#6b6b6b'}}>{new Date(u.created_at).toLocaleDateString('es-AR')}</td>
+                    <td style={{padding:'10px 16px'}}>
+                      <button className="btn-secondary btn-sm" onClick={() => openDestroy(u.id)} title="Descartar por control de calidad">🗑️ Descartar</button>
+                    </td>
                   </tr>
+                  {destroyingId === u.id && (
+                    <tr style={{background:'#fdeaea', borderBottom:'0.5px solid #ddddd5'}}>
+                      <td colSpan={5} style={{padding:'12px 16px'}}>
+                        <div style={{display:'flex', flexWrap:'wrap', gap:'8px', alignItems:'center'}}>
+                          <span style={{fontSize:'12px', fontWeight:700, color:'#8b2020'}}>¿Por qué se descarta {u.tracking_number}?</span>
+                          <input value={destroyReason} onChange={e => setDestroyReason(e.target.value)} placeholder="Ej: llegó sin sellar al vacío"
+                            style={{flex:1, minWidth:'200px', padding:'7px 10px', borderRadius:'6px', border:'0.5px solid #ccc', fontSize:'13px'}}/>
+                          <button className="btn-primary btn-sm" style={{background:'#8b2020'}} disabled={destroySaving} onClick={confirmDestroy}>
+                            {destroySaving ? 'Descartando…' : 'Confirmar descarte'}
+                          </button>
+                          <button className="btn-secondary btn-sm" onClick={() => setDestroyingId(null)}>Cancelar</button>
+                          {destroyError && <span style={{fontSize:'11px', color:'#8b2020'}}>⚠️ {destroyError}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table></div>
