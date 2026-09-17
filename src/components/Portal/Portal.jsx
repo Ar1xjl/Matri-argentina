@@ -429,6 +429,11 @@ export default function Portal({ onSignOut }) {
     await reloadSeasonPlanLines()
   }
 
+  // Deliberately runs once on mount, not on every onSignOut identity change —
+  // App.jsx passes a fresh inline function each render, so including it here
+  // would tear down and restart the 10-minute inactivity timer on every
+  // unrelated App re-render. onSignOut's actual behavior (supabase.auth.signOut())
+  // never varies across renders, so capturing it once at mount is safe.
   useEffect(() => {
     const timer = setInterval(() => {
       setSeconds(s => {
@@ -438,6 +443,7 @@ export default function Portal({ onSignOut }) {
       })
     }, 1000)
     return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const resetSession = () => { setSeconds(600); setShowWarning(false) }

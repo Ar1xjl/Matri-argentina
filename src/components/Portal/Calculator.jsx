@@ -16,6 +16,74 @@ const statBox  = {background:'#f5f5ee', borderRadius:'8px', padding:'8px 6px', t
 const statLbl  = {fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:'3px'}
 const statVal  = {fontSize:'15px', fontWeight:700, color:'#0b4358'}
 
+// Module-level (not nested in Calculator's render) so React keeps treating it
+// as the same component across re-renders instead of remounting it every
+// time — closures over parent state (selected/vol/t/etc.) replaced with
+// explicit props.
+function OptionCard({ id, selected, onSelect, title, badge, children, cost, ppbVal: optPpb, productLabel, serviceFee, vol, t }) {
+  const isSelected = selected === id
+  return (
+    <div
+      onClick={() => onSelect(id)}
+      style={{
+        borderRadius:'12px', border: isSelected ? '2px solid #0b4358' : '1.5px solid #ddddd5',
+        padding:'18px', cursor:'pointer', background: isSelected ? '#f0f7ff' : '#fff',
+        transition:'border-color .15s, background .15s', flex:1, minWidth:'200px'
+      }}
+    >
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'10px'}}>
+        <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358'}}>{title}</div>
+        {badge && <span style={{background:badge.bg, color:badge.color, fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{badge.label}</span>}
+      </div>
+      {children}
+      {cost !== undefined && (
+        <div style={{borderTop:'0.5px solid #e0e0d8', marginTop:'12px', paddingTop:'12px'}}>
+          {/* Itemized breakdown */}
+          <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#555', marginBottom:'4px'}}>
+            <span>{t('calculator.option.productCost', { product: productLabel })}</span>
+            <span>{fmtUSD(cost)}</span>
+          </div>
+          {serviceFee !== undefined && (
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#888', marginBottom:'4px'}}>
+              <span>{t('calculator.option.serviceFee')}</span>
+              <span>{fmtUSD(serviceFee)}</span>
+            </div>
+          )}
+
+          {/* Dosis / $ per m³ / Total — only Total in bold */}
+          <div style={{display:'grid', gridTemplateColumns: optPpb !== undefined ? 'repeat(3,1fr)' : 'repeat(2,1fr)', gap:'8px', marginTop:'10px'}}>
+            {optPpb !== undefined && (
+              <div style={statBox}>
+                <div style={statLbl}>{t('calculator.option.dose')}</div>
+                <div style={{...statVal, fontWeight:400}}>{fmtNum(optPpb, 0)} ppb</div>
+              </div>
+            )}
+            <div style={statBox}>
+              <div style={statLbl}>{t('calculator.option.perM3')}</div>
+              <div style={{...statVal, fontWeight:400}}>{fmtUSD(cost/vol)}</div>
+            </div>
+            <div style={statBox}>
+              <div style={statLbl}>{t('calculator.option.total')}</div>
+              <div style={statVal}>{fmtUSD(cost)}</div>
+            </div>
+          </div>
+
+          {serviceFee !== undefined && (
+            <div style={{fontSize:'10px', color:'#aaa', marginTop:'8px', textAlign:'center'}}>
+              {t('calculator.option.totalWithService', { amount: fmtUSD(cost + serviceFee) })}
+            </div>
+          )}
+        </div>
+      )}
+      {isSelected && (
+        <div style={{marginTop:'10px', background:'#e8f4fc', borderRadius:'8px', padding:'8px 10px', fontSize:'11px', color:'#0c447c', fontWeight:600}}>
+          {t('calculator.option.selected')}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms = [], orgId = null, prefill = null, queueLength = 0, profile = null, onAddRoom = null }) {
   const { t, i18n } = useTranslation()
   const [pricing,    setPricing]    = useState({ brackets: [], product: [], serviceFee: [] })
@@ -230,70 +298,7 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
     }
   }
 
-  // ── Option card component ─────────────────────────────────────────────
-  const OptionCard = ({ id, title, badge, children, cost, ppbVal: optPpb, productLabel, serviceFee }) => {
-    const isSelected = selected === id
-    return (
-      <div
-        onClick={() => { setSelected(id); setServiceModel('self'); setTreatmentSent(false) }}
-        style={{
-          borderRadius:'12px', border: isSelected ? '2px solid #0b4358' : '1.5px solid #ddddd5',
-          padding:'18px', cursor:'pointer', background: isSelected ? '#f0f7ff' : '#fff',
-          transition:'border-color .15s, background .15s', flex:1, minWidth:'200px'
-        }}
-      >
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'10px'}}>
-          <div style={{fontSize:'13px', fontWeight:700, color:'#0b4358'}}>{title}</div>
-          {badge && <span style={{background:badge.bg, color:badge.color, fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'100px'}}>{badge.label}</span>}
-        </div>
-        {children}
-        {cost !== undefined && (
-          <div style={{borderTop:'0.5px solid #e0e0d8', marginTop:'12px', paddingTop:'12px'}}>
-            {/* Itemized breakdown */}
-            <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#555', marginBottom:'4px'}}>
-              <span>{t('calculator.option.productCost', { product: productLabel })}</span>
-              <span>{fmtUSD(cost)}</span>
-            </div>
-            {serviceFee !== undefined && (
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:'12px', color:'#888', marginBottom:'4px'}}>
-                <span>{t('calculator.option.serviceFee')}</span>
-                <span>{fmtUSD(serviceFee)}</span>
-              </div>
-            )}
-
-            {/* Dosis / $ per m³ / Total — only Total in bold */}
-            <div style={{display:'grid', gridTemplateColumns: optPpb !== undefined ? 'repeat(3,1fr)' : 'repeat(2,1fr)', gap:'8px', marginTop:'10px'}}>
-              {optPpb !== undefined && (
-                <div style={statBox}>
-                  <div style={statLbl}>{t('calculator.option.dose')}</div>
-                  <div style={{...statVal, fontWeight:400}}>{fmtNum(optPpb, 0)} ppb</div>
-                </div>
-              )}
-              <div style={statBox}>
-                <div style={statLbl}>{t('calculator.option.perM3')}</div>
-                <div style={{...statVal, fontWeight:400}}>{fmtUSD(cost/vol)}</div>
-              </div>
-              <div style={statBox}>
-                <div style={statLbl}>{t('calculator.option.total')}</div>
-                <div style={statVal}>{fmtUSD(cost)}</div>
-              </div>
-            </div>
-
-            {serviceFee !== undefined && (
-              <div style={{fontSize:'10px', color:'#aaa', marginTop:'8px', textAlign:'center'}}>
-                {t('calculator.option.totalWithService', { amount: fmtUSD(cost + serviceFee) })}
-              </div>
-            )}
-          </div>
-        )}
-        {isSelected && (
-          <div style={{marginTop:'10px', background:'#e8f4fc', borderRadius:'8px', padding:'8px 10px', fontSize:'11px', color:'#0c447c', fontWeight:600}}>
-            {t('calculator.option.selected')}
-          </div>
-        )}
-      </div>
-    )
-  }
+  const handleSelectOption = (id) => { setSelected(id); setServiceModel('self'); setTreatmentSent(false) }
 
   return (
     <div style={{maxWidth:'800px', margin:'0 auto'}}>
@@ -439,6 +444,10 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             {/* Option 1 — Powder exact */}
             <OptionCard
               id="exact"
+              selected={selected}
+              onSelect={handleSelectOption}
+              vol={vol}
+              t={t}
               title={t('calculator.options.exact.title')}
               cost={results.exact.productCost}
               ppbVal={results.exact.ppb}
@@ -461,6 +470,10 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             {!results.adjusted.skip && (
               <OptionCard
                 id="adjusted"
+                selected={selected}
+                onSelect={handleSelectOption}
+                vol={vol}
+                t={t}
                 title={t('calculator.options.adjusted.title')}
                 cost={results.adjusted.productCost}
                 ppbVal={results.adjusted.ppb}
@@ -483,6 +496,10 @@ export default function Calculator({ onTreatmentConfirmed, onNavigate, coldRooms
             {/* Option 3 — Tablets */}
             <OptionCard
               id="tablets"
+              selected={selected}
+              onSelect={handleSelectOption}
+              vol={vol}
+              t={t}
               title="MatriTablets"
               badge={{label:t('calculator.options.tablets.badge'), bg:'#fff3cd', color:'#b06a00'}}
               cost={results.tablets.productCost}
