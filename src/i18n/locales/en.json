@@ -353,6 +353,43 @@
     "uploading": "Uploading…",
     "useThisPhoto": "✓ Use this photo"
   },
+  "treatmentPhotos": {
+    "title": "Additional photos",
+    "add": "Add photo",
+    "empty": "There are no additional photos for this treatment yet.",
+    "captureBanner": "Live photo from the camera — to document fruit condition, room fill level, etc. Uploading from the gallery is not allowed.",
+    "continue": "✓ Continue",
+    "category": "Category",
+    "note": "Note (optional)",
+    "notePlaceholder": "E.g. bruising on the fruit from pallet 3",
+    "save": "Save photo",
+    "saving": "Saving…",
+    "loadError": "The photo could not be loaded.",
+    "button": "📷 Additional photos",
+    "categories": {
+      "fruit_quality": "Fruit condition",
+      "fill_level": "Room fill level",
+      "other": "Other"
+    }
+  },
+  "about": {
+    "pages": {
+      "arquitectura": "Portal architecture",
+      "altas": "Onboarding organizations and users",
+      "plan": "Campaign planning",
+      "calculadora": "Calculator, DoseRight and Knowledge Base",
+      "tratamientos": "Treatment lifecycle",
+      "precios": "Pricing",
+      "matrisure": "MatriSure",
+      "firmeza": "Firmness Evaluation",
+      "generadores": "Generators",
+      "inventario": "Inventory and Catalog",
+      "documentos": "Documents",
+      "notificaciones": "Notifications",
+      "roles": "Roles and permissions",
+      "glosario": "Glossary"
+    }
+  },
   "matriSurePhotoModal": {
     "title": "MatriSure Photo",
     "error": "Couldn't load the photo."

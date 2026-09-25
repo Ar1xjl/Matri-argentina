@@ -5,6 +5,7 @@ import sureImg  from '../../assets/images/MatriSure_Kit.png'
 import ApplicationForm from './ApplicationForm'
 import MatriSureCapture from './MatriSureCapture'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
+import TreatmentPhotosModal from './TreatmentPhotosModal'
 import RoomHistory from './RoomHistory'
 import { pouchBreakdownDisplay } from '../../lib/dosing'
 import { exportToExcel } from '../../lib/tableTools'
@@ -53,6 +54,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState('')
   const [viewingPhoto, setViewingPhoto] = useState(null)
+  const [extraPhotosFor, setExtraPhotosFor] = useState(null) // treatment whose additional-photos modal is open
 
   // Discard-a-damaged-kit, backport from DECCO-MatriSure's own Fase 7
   // (2026-08-25) — reachable both from the 'choosekit' step (mid-flow, about
@@ -355,6 +357,9 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
       {viewingPhoto && (
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
       )}
+      {extraPhotosFor && (
+        <TreatmentPhotosModal treatment={extraPhotosFor} canAdd onClose={() => setExtraPhotosFor(null)} />
+      )}
 
       {/* Fase K backport (2026-08-25) — browse/discard your own assigned
           kits any time, not only mid-flow at Inicio. Opened from the
@@ -482,6 +487,7 @@ export default function AppLog({ treatments = [], operatorName, onStartApplicati
                           {tr.end_photo_url && (
                             <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(tr.end_photo_url)}>{t('appLog.photoEnd')}</button>
                           )}
+                          <button className="btn-secondary btn-sm" onClick={() => setExtraPhotosFor(tr)}>{t('treatmentPhotos.button')}</button>
                           <button className="btn-secondary btn-sm" onClick={() => openHistory(tr.cold_rooms?.name)}>
                             {t('rooms.history')}
                           </button>

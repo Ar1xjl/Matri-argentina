@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import Sidebar from '../Shared/Sidebar'
+import TableColumnResizer from '../Shared/TableColumnResizer'
 import Dashboard from './Dashboard'
 import Rooms from './Rooms'
 import Treatments from './Treatments'
@@ -33,7 +35,6 @@ const PANEL_TITLES = {
   applog:      'Registro de aplicaciones',
   users:       'Usuarios',
   profile:     'Mi perfil',
-  ...Object.fromEntries(ABOUT_PAGES.map(p => [`about-${p.id}`, p.label])),
 }
 
 // A Customer never sees these in the Sidebar (see Sidebar.jsx's aboutItems
@@ -50,6 +51,7 @@ const CUSTOMER_RESTRICTED_ABOUT = new Set(
 const SHOW_NEW_TREATMENT_BUTTON = new Set(['dashboard', 'rooms', 'seasonplan', 'calculator', 'treatments', 'applog'])
 
 export default function Portal({ onSignOut }) {
+  const { t } = useTranslation()
   const [activePanel, setActivePanel] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false) // mobile drawer only — desktop sidebar is always visible
   const [seconds,     setSeconds]     = useState(600)
@@ -904,6 +906,7 @@ export default function Portal({ onSignOut }) {
 
   return (
     <div style={{display:'flex', minHeight:'100vh', background:'#f5f5ee'}}>
+      <TableColumnResizer />
       <Sidebar
         activePanel={activePanel}
         onNavigate={navigate}
@@ -933,7 +936,7 @@ export default function Portal({ onSignOut }) {
               style={{background:'none', border:'none', fontSize:'22px', color:'#0b4358', cursor:'pointer', flexShrink:0}}
             >☰</button>
             <h1 style={{fontSize:'17px', fontWeight:700, color:'#0b4358', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-              {activePanel === 'wassington' ? `Panel ${currentUser.name}` : PANEL_TITLES[activePanel]}
+              {activePanel === 'wassington' ? `Panel ${currentUser.name}` : activePanel.startsWith('about-') ? t(`about.pages.${activePanel.slice(6)}`) : PANEL_TITLES[activePanel]}
             </h1>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:'14px', flexShrink:0}}>

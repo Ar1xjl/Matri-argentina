@@ -274,3 +274,17 @@ input, select { font-family: inherit; }
 @media (max-width: 420px) {
   .responsive-grid { grid-template-columns: 1fr !important; }
 }
+/* Column resize handles — injected by Shared/TableColumnResizer.jsx into every
+   `.table-scroll table` header. Frozen tables use fixed layout, so long cell
+   content is clipped with an ellipsis instead of spilling into neighbours. */
+.col-rz-handle {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 8px;
+  cursor: col-resize; touch-action: none; user-select: none; z-index: 2;
+}
+.col-rz-handle::after {
+  content: ''; position: absolute; top: 20%; bottom: 20%; right: 3px; width: 2px;
+  border-radius: 2px; background: transparent; transition: background .12s;
+}
+th:hover > .col-rz-handle::after, .col-rz-handle.active::after { background: #b5cc2e; }
+table.rz-fixed td { overflow: hidden; text-overflow: ellipsis; }
+table.rz-fixed th { overflow: hidden; }

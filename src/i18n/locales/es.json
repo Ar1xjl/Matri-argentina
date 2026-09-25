@@ -353,6 +353,43 @@
     "uploading": "Subiendo…",
     "useThisPhoto": "✓ Usar esta foto"
   },
+  "treatmentPhotos": {
+    "title": "Fotos adicionales",
+    "add": "Agregar foto",
+    "empty": "Todavía no hay fotos adicionales para este tratamiento.",
+    "captureBanner": "Foto en vivo desde la cámara — para documentar el estado de la fruta, el llenado de la cámara, etc. No se permite subir desde la galería.",
+    "continue": "✓ Continuar",
+    "category": "Categoría",
+    "note": "Nota (opcional)",
+    "notePlaceholder": "Ej: golpes en la fruta del pallet 3",
+    "save": "Guardar foto",
+    "saving": "Guardando…",
+    "loadError": "No se pudo cargar la foto.",
+    "button": "📷 Fotos adicionales",
+    "categories": {
+      "fruit_quality": "Estado de la fruta",
+      "fill_level": "Llenado de cámara",
+      "other": "Otro"
+    }
+  },
+  "about": {
+    "pages": {
+      "arquitectura": "Arquitectura del Portal",
+      "altas": "Alta de organizaciones y usuarios",
+      "plan": "Planificación de campaña",
+      "calculadora": "Calculadora, DoseRight y Knowledge Base",
+      "tratamientos": "Ciclo de un Tratamiento",
+      "precios": "Manejo de precios",
+      "matrisure": "MatriSure",
+      "firmeza": "Evaluación de Firmeza",
+      "generadores": "Generadores",
+      "inventario": "Inventario y Catálogo",
+      "documentos": "Documentos",
+      "notificaciones": "Notificaciones",
+      "roles": "Roles y permisos",
+      "glosario": "Glosario"
+    }
+  },
   "matriSurePhotoModal": {
     "title": "Foto MatriSure",
     "error": "No se pudo cargar la foto."

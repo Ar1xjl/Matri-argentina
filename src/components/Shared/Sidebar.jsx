@@ -131,7 +131,7 @@ export default function Sidebar({ activePanel, onNavigate, onSignOut, orgName = 
                       }}
                     >
                       <span style={{fontSize:'13px', width:'16px', textAlign:'center'}}>{page.icon}</span>
-                      {page.label}
+                      {t(`about.pages.${page.id}`)}
                     </div>
                   )
                 })}

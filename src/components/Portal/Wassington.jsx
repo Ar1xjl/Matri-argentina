@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import PricingPanel from './PricingPanel'
 import MatriSurePhotoModal from './MatriSurePhotoModal'
+import TreatmentPhotosModal from './TreatmentPhotosModal'
 import FirmnessEvaluationModal from './FirmnessEvaluationModal'
 import Organizations from './Organizations'
 import Inventory from './Inventory'
@@ -117,6 +118,7 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
   const [approveError, setApproveError] = useState('')
   const [approving, setApproving] = useState(false)
   const [viewingPhoto, setViewingPhoto] = useState(null)
+  const [extraPhotosFor, setExtraPhotosFor] = useState(null)
   const [firmnessTreatment, setFirmnessTreatment] = useState(null) // treatment row currently being evaluated, or null
   const [resolving, setResolving] = useState(null) // treatment id currently being resolved
   const [resolveError, setResolveError] = useState('')
@@ -255,6 +257,9 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
     <div>
       {viewingPhoto && (
         <MatriSurePhotoModal path={viewingPhoto} onGetPhotoUrl={onGetPhotoUrl} onClose={() => setViewingPhoto(null)} />
+      )}
+      {extraPhotosFor && (
+        <TreatmentPhotosModal treatment={extraPhotosFor} canAdd={false} onClose={() => setExtraPhotosFor(null)} />
       )}
 
       {firmnessTreatment && (
@@ -492,6 +497,9 @@ export default function Wassington({ treatments = [], onApprove, onReject, onGet
                           )}
                           {canManage && t.end_photo_url && (
                             <button className="btn-secondary btn-sm" onClick={() => setViewingPhoto(t.end_photo_url)}>📷 Fin</button>
+                          )}
+                          {t.status !== 'rejected' && (
+                            <button className="btn-secondary btn-sm" onClick={() => setExtraPhotosFor(t)}>📷 Fotos adicionales</button>
                           )}
                           {(canManage || myRoles.includes('operator')) && (t.status === 'applied' || t.status === 'completed') && (
                             <button className="btn-secondary btn-sm" onClick={() => setFirmnessTreatment(t)}>
