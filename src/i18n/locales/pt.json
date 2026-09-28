@@ -328,7 +328,6 @@
     "notice": "📄 Todos os documentos estão atualizados. Seu distribuidor publica novas versões quando há mudanças regulatórias ou de produto.",
     "title": "Biblioteca de documentos",
     "count": "{{count}} documentos vigentes",
-    "current": "Vigente",
     "download": "⬇ Baixar"
   },
   "applicationForm": {

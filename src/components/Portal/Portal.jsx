@@ -895,7 +895,7 @@ export default function Portal({ onSignOut }) {
                       onClearPlannedLines={clearPlannedLines} onNavigate={navigate} myRoles={myRoles}
                       onSelectPlan={selectSeasonPlan} onCreatePlan={createSeasonPlan} />,
     generators: <Generators orgId={profile?.org_id} seasonPlanLines={activePlanLines} coldRooms={coldRooms} profile={profile} />,
-    documents:  <Documents />,
+    documents:  <Documents profile={profile} myRoles={myRoles} />,
     applog:     <AppLog treatments={treatments} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,
     myapplications: <AppLog treatments={myAssignedApplications} operatorName={profile?.full_name} onStartApplication={startApplication} onFinishApplication={finishApplication} onSubmitMatriSure={submitMatriSure} onGetPhotoUrl={getMatriSurePhotoUrl} myKitUnits={myKitUnits} onUseKit={useKitUnit} onDiscardKit={discardKitUnit} />,
     wassington: <Wassington treatments={treatments} onApprove={approveTreatment} onReject={rejectTreatment} onGetPhotoUrl={getMatriSurePhotoUrl} onResolveMatriSure={resolveMatriSureReview} profile={profile} myRoles={myRoles} onSaveFirmnessEvaluation={submitFirmnessEvaluation} onGetFirmnessPdfUrl={getFirmnessEvaluationPdfUrl} onFetchExpiredLots={fetchExpiredLots} onAssignApplicator={assignTreatmentApplicator} />,

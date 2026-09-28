@@ -328,7 +328,6 @@
     "notice": "📄 All documents are up to date. Your distributor publishes new versions when there are regulatory or product changes.",
     "title": "Document library",
     "count": "{{count}} current documents",
-    "current": "Current",
     "download": "⬇ Download"
   },
   "applicationForm": {

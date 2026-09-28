@@ -409,15 +409,16 @@ export const SECTIONS_EN = {
 
   documentos: () => (
     <>
-      <PageHeader eyebrow="Support" title="Documents" intro="" />
-      <Callout kind="real" label="🔧 Actual status">
-        Today “Documents” is a library with content fixed in the code — there is no real upload or versioning from the interface yet. It is pending for production.
-      </Callout>
-      <Card title="Planned design for when it gets built">
-        <p style={pMuted}><strong>Global documentation</strong> (from FreshInset): scientific knowledge base, DoseRight calibration evidence.</p>
-        <p style={pMuted}><strong>Organization documentation:</strong> product sheets, safety data sheets, generator manuals, MatriSure guide, regulatory registrations (always at country level).</p>
-        <p style={pMuted}>Uploading a new version would be self-service by the Owner, without external review.</p>
+      <PageHeader eyebrow="Support" title="Documents" intro="FreshInset Global uploads a document once and assigns it to whoever needs it — nobody else re-uploads it." />
+      <Card title="Who uploads and assigns">
+        <p style={pMuted}>Only Global's Owner/Approver. When uploading a file, you choose which Distributor or Distributors it is assigned to — with a "select all in a country" shortcut so the same document (e.g. MatriTablets usage instructions) does not need to be uploaded once per Distributor.</p>
       </Card>
+      <Card title="Who sees it">
+        <p style={pMuted}>A document assigned to a Distributor automatically shows up for everything below it — Sub-distributors and Customers — same as Treatments or Pricing. Nobody needs to forward it manually.</p>
+      </Card>
+      <Callout kind="real" label="🔧 Actual status">
+        There is no version history: replacing a document's file overwrites the previous one, with no older version left available. Each Organization uploading its own documentation (safety sheets, local regulatory filings) is not built yet — today only FreshInset Global's side exists.
+      </Callout>
     </>
   ),
 

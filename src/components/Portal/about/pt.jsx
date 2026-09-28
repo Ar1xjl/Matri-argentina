@@ -409,15 +409,16 @@ export const SECTIONS_PT = {
 
   documentos: () => (
     <>
-      <PageHeader eyebrow="Suporte" title="Documentos" intro="" />
-      <Callout kind="real" label="🔧 Estado real">
-        Hoje “Documentos” é uma biblioteca com conteúdo fixo no código — ainda não há carga nem versionamento real pela interface. Está pendente para produção.
-      </Callout>
-      <Card title="Desenho previsto para quando for construído">
-        <p style={pMuted}><strong>Documentação Global</strong> (da FreshInset): base de conhecimento científico, evidência de calibração do DoseRight.</p>
-        <p style={pMuted}><strong>Documentação da Organização:</strong> fichas de produto, fichas de segurança, manuais do gerador, guia MatriSure, registros regulatórios (sempre em nível de país).</p>
-        <p style={pMuted}>Enviar uma versão nova seria autoatendimento do próprio Owner, sem revisão externa.</p>
+      <PageHeader eyebrow="Suporte" title="Documentos" intro="A FreshInset Global envia um documento uma única vez e o atribui a quem precisa — mais ninguém precisa reenviá-lo." />
+      <Card title="Quem envia e atribui">
+        <p style={pMuted}>Somente Owner/Aprovador da Global. Ao enviar um arquivo, você escolhe a quais Distribuidores ele fica atribuído — com um atalho “selecionar todos de um país” para não repetir o envio quando o mesmo documento (ex.: instruções de uso do MatriTablets) se aplica a vários.</p>
       </Card>
+      <Card title="Quem vê">
+        <p style={pMuted}>Um documento atribuído a um Distribuidor aparece automaticamente para tudo o que está abaixo dele — Sub-distribuidores e Clientes — igual a Tratamentos ou Preços. Ninguém precisa reenviar.</p>
+      </Card>
+      <Callout kind="real" label="🔧 Estado real">
+        Não há histórico de versões: substituir o arquivo de um documento sobrescreve o anterior, sem deixar uma versão antiga disponível. Cada Organização enviar a sua própria documentação (fichas de segurança, registros regulatórios locais) ainda não foi construído — hoje só existe o lado da FreshInset Global.
+      </Callout>
     </>
   ),
 
